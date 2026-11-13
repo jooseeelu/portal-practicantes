@@ -152,3 +152,6 @@
   .ficha-acc .row { flex-wrap: wrap; }
   .foto-col { flex-direction: row; gap: 14px; align-items: center; }
 }
+
+.avatar-vacio { --c: var(--text-400); background: var(--surface); border: 2px dashed var(--border-strong); color: var(--text-400); border-radius: 34%; }
+.foto-edit:hover .avatar-vacio { border-color: var(--gold-500); color: var(--gold-700); }

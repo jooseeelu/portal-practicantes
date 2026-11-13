@@ -142,9 +142,9 @@ export const Modal = {
     onUnmounted(() => window.removeEventListener("keydown", tecla));
   },
   components: { Ic },
-  template: `<div class="modal-bg" @mousedown.self="$emit('cerrar')"><div class="modal" :style="{maxWidth: ancho+'px'}" role="dialog" aria-modal="true">
+  template: `<Teleport to="body"><div class="modal-bg" @mousedown.self="$emit('cerrar')"><div class="modal" :style="{maxWidth: ancho+'px'}" role="dialog" aria-modal="true">
     <header><h3>{{ titulo }}</h3><button class="icon-btn" @click="$emit('cerrar')" aria-label="Cerrar"><Ic n="x" /></button></header>
-    <div class="modal-body"><slot /></div><footer v-if="$slots.pie"><slot name="pie" /></footer></div></div>`,
+    <div class="modal-body"><slot /></div><footer v-if="$slots.pie"><slot name="pie" /></footer></div></div></Teleport>`,
 };
 
 export const Drawer = {
@@ -156,7 +156,7 @@ export const Drawer = {
     onUnmounted(() => window.removeEventListener("keydown", tecla));
   },
   components: { Ic },
-  template: `<div class="drawer-bg" @mousedown.self="$emit('cerrar')"><aside class="drawer"><header><h3>{{ titulo }}</h3><button class="icon-btn" @click="$emit('cerrar')" aria-label="Cerrar"><Ic n="x" /></button></header><div class="drawer-body"><slot /></div></aside></div>`,
+  template: `<Teleport to="body"><div class="drawer-bg" @mousedown.self="$emit('cerrar')"><aside class="drawer"><header><h3>{{ titulo }}</h3><button class="icon-btn" @click="$emit('cerrar')" aria-label="Cerrar"><Ic n="x" /></button></header><div class="drawer-body"><slot /></div></aside></div></Teleport>`,
 };
 
 /** Desplegable con buscador (como el del CRM): se escribe y filtra sin importar tildes. */

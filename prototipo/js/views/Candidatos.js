@@ -169,7 +169,7 @@ export default {
       <div v-else class="aviso ok"><Ic n="documentos" :s="16" /><span class="grow"><b>{{ n.archivo.name }}</b> se adjuntará a la ficha.</span><button class="btn btn-sm btn-ghost" @click="n.archivo=null">Quitar</button></div>
       <div v-if="duplicado" class="aviso warn"><Ic n="alert" :s="16" /><span class="grow"><b>Posible duplicado:</b> {{ nombreCompleto(duplicado) }} ya está registrado con ese correo o teléfono.</span><button class="btn btn-sm" @click="cerrarAlta(); go('candidato/'+duplicado.id)">Abrir su ficha</button></div>
       <div class="foto-alta">
-        <label class="foto-edit" title="Añadir foto"><Avatar :nombre="n.nombre || '?'" :apellidos="n.apellidos" :foto="n.foto" :s="60" /><span class="camara"><Ic n="camara" :s="14" /></span><input type="file" accept="image/*" hidden @change="fotoAlta" /></label>
+        <label class="foto-edit" title="Añadir foto"><Avatar v-if="n.nombre || n.foto" :nombre="n.nombre" :apellidos="n.apellidos" :foto="n.foto" :s="60" /><span v-else class="avatar avatar-vacio" style="width:60px;height:60px"><Ic n="camara" :s="24" /></span><span class="camara"><Ic n="camara" :s="14" /></span><input type="file" accept="image/*" hidden @change="fotoAlta" /></label>
         <div><b>Foto de la persona (opcional)</b><div class="sub">Ayuda a reconocerla en listados, agenda y cuadrante. Se puede añadir o cambiar después.</div></div>
       </div>
       <div class="grid2">
