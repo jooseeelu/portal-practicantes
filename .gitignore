@@ -1,0 +1,7 @@
+.claude/
+node_modules/
+*.xlsx
+*.xls
+*.csv
+.env
+.env.*

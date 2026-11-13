@@ -1,0 +1,44 @@
+/* Identidad propia del portal de prácticas: tinta azul noche + aguamarina eléctrico sobre fondos menta muy claros,
+   formas redondeadas y tipografía con carácter. (Los nombres --gold-* y --navy-* se conservan como «acento» y «tinta»
+   para no tocar los componentes: --gold-* = aguamarina de acento.) */
+:root {
+  --font-base: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Bricolage Grotesque", "Plus Jakarta Sans", sans-serif;
+
+  --ink: #131d3b; --navy-900: #121c38; --navy-700: #1e2b55; --navy-500: #34447d; --navy-300: #6474ff;
+  --teal-500: #0a8f85; --teal-600: #087a71;
+  --gold-300: #b6f5ee; --gold-400: #2be4d4; --gold-500: #14cdbd; --gold-700: #0a7f76;
+  --gold-bg: #e2fbf7; --gold-border: #a8ede5; --on-gold: #0e1a36;
+
+  --bg: #edf4f6; --surface: #ffffff; --surface-alt: #f0f5f7; --border: #e1e9ec; --border-strong: #c7d4d9;
+  --text-900: #121c38; --text-700: #3d4a66; --text-600: #5b6882; --text-400: #98a4b8;
+
+  --success: #17b26a; --ok-dark: #0d7a48; --success-bg: #e2f8ec;
+  --warning: #f79009; --amber: #f59e0b; --amber-dark: #9a5b00; --warning-bg: #fff3dc;
+  --info: #3b82f6; --info-dark: #1d5fd1; --info-bg: #e4eeff;
+  --danger: #f04461; --err-dark: #c2223f; --danger-bg: #ffe7eb;
+  --violet: #7c5cff; --violet-dark: #5a3fd6; --cyan: #06aed4; --cyan-dark: #05779a;
+
+  --radius-sm: 10px; --radius-md: 18px; --radius-lg: 26px;
+  --shadow-sm: 0 1px 2px rgba(18,28,56,.04), 0 6px 20px rgba(18,28,56,.05);
+  --shadow-md: 0 10px 30px rgba(18,28,56,.10); --shadow-lg: 0 24px 60px rgba(18,28,56,.22);
+  --page-max-panel: 1480px; --page-pad-x: 28px; --page-pad-top: 22px; --stack-gap: 16px;
+  --card-border: 1px solid var(--border); --sidebar-w: 256px; --header-h: 68px;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #2a3970; --navy-900: #eef2ff; --navy-700: #3a4a8a; --navy-500: #98a8ff; --navy-300: #8792ff;
+  --teal-500: #46e6d8; --teal-600: #2bd0c2;
+  --gold-300: #1d5a59; --gold-400: #2be4d4; --gold-500: #22cfc0; --gold-700: #62f0e3;
+  --gold-bg: #0e2c31; --gold-border: #1c5556; --on-gold: #071226;
+  --bg: #090f1e; --surface: #111a30; --surface-alt: #18223d; --border: #222e4d; --border-strong: #35446b;
+  --text-900: #eef2ff; --text-700: #c0cae0; --text-600: #9daac6; --text-400: #6c7b9c;
+  --success: #3ddc91; --ok-dark: #7cecb6; --success-bg: #0f3324;
+  --warning: #ffb547; --amber: #ffb547; --amber-dark: #ffcf87; --warning-bg: #3a2a0c;
+  --info: #6ea8ff; --info-dark: #a3c7ff; --info-bg: #14274d;
+  --danger: #ff6b84; --err-dark: #ffa3b3; --danger-bg: #3d1622;
+  --violet: #a28bff; --violet-dark: #c4b5ff; --cyan: #38cdf0; --cyan-dark: #86e1f7;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+  --shadow-md: 0 10px 30px rgba(0,0,0,.45); --shadow-lg: 0 24px 60px rgba(0,0,0,.6);
+}

@@ -1,0 +1,154 @@
+import { computed, reactive, ref } from "vue";
+import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast } from "../store.js";
+import { go } from "../router.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio } from "../ui.js";
+import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA } from "../data.js";
+import { HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal } from "../util.js";
+
+const H0 = 10, H1 = 20, PX = 64, DUR = 45; // horario visible, píxeles por hora y duración de una entrevista
+const estado = reactive({ vista: "calendario", semana: lunesDe(dia(3)), fEstado: "", fQuien: "", q: "" });
+
+export default {
+  components: { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio },
+  setup() {
+    const s = estado;
+    const dias = computed(() => [0, 1, 2, 3, 4].map((i) => dia(i, s.semana)));
+    const horas = Array.from({ length: H1 - H0 + 1 }, (_, i) => H0 + i);
+    const filtradas = computed(() => store.entrevistas.filter((e) => !s.fQuien || (s.fQuien === "_ninguno" ? !e.entrevistador : e.entrevistador === s.fQuien)));
+
+    // Reparto en carriles de las citas que se pisan
+    function colocar(evs) {
+      const l = evs.map((e) => ({ e, ini: aMin(e.hora), fin: aMin(e.hora) + DUR })).sort((a, b) => a.ini - b.ini);
+      const out = []; let grupo = [], fin = -1;
+      const cerrar = () => { const n = Math.max(...grupo.map((g) => g.carril)) + 1; grupo.forEach((g) => { g.n = n; out.push(g); }); grupo = []; };
+      for (const x of l) {
+        if (grupo.length && x.ini >= fin) { cerrar(); fin = -1; }
+        let c = 0; while (grupo.some((g) => g.carril === c && g.fin > x.ini)) c++;
+        x.carril = c; grupo.push(x); fin = Math.max(fin, x.fin);
+      }
+      if (grupo.length) cerrar();
+      return out.map((g) => ({ ...g, top: ((g.ini - H0 * 60) / 60) * PX, alto: (DUR / 60) * PX - 3, izq: (g.carril / g.n) * 100, ancho: 100 / g.n }));
+    }
+    const porDia = computed(() => dias.value.map((d) => ({ d, hoy: d === HOY_ISO, citas: colocar(filtradas.value.filter((e) => e.fecha === d)) })));
+    const tituloSemana = computed(() => `${fCorta(dias.value[0])} – ${fCorta(dias.value[4])}`);
+    const mover = (n) => { s.semana = n === 0 ? lunesDe(HOY_ISO) : dia(n * 7, s.semana); };
+
+    const lista = computed(() => {
+      const n = normal(s.q);
+      return filtradas.value.filter((e) => (!s.fEstado || e.estado === s.fEstado) && (!n || normal(nombreCompleto(candDe(e.candId))).includes(n)))
+        .sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
+    });
+    const cuentas = computed(() => Object.keys(ESTADOS_CITA).map((k) => ({ k, n: filtradas.value.filter((e) => e.estado === k).length, ...ESTADOS_CITA[k] })));
+
+    // Detalle de una cita
+    const sel = ref(null);
+    const selCand = computed(() => (sel.value ? candDe(sel.value.candId) : null));
+    const reprog = reactive({ abierto: false, fecha: "", hora: "" });
+    const confirmar = () => { sel.value.estado = "Confirmada"; addHist(sel.value.candId, "entrevista", "Entrevista confirmada"); toast("Cita confirmada · sincronizada con Notion"); };
+    const cancelar = () => { sel.value.estado = "Cancelada"; addHist(sel.value.candId, "entrevista", "Entrevista cancelada"); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "pendiente-entrevista", { silencioso: true }); toast("Cita cancelada"); sel.value = null; };
+    const abrirReprog = () => Object.assign(reprog, { abierto: true, fecha: sel.value.fecha, hora: sel.value.hora });
+    const guardarReprog = () => { Object.assign(sel.value, { fecha: reprog.fecha, hora: reprog.hora, estado: "Reprogramada" }); addHist(sel.value.candId, "entrevista", `Entrevista reprogramada para el ${reprog.fecha} a las ${reprog.hora}`); reprog.abierto = false; toast("Cita reprogramada · sincronizada con Notion"); };
+    const valorar = () => { if (sel.value.estado !== "Realizada") { sel.value.estado = "Realizada"; addHist(sel.value.candId, "entrevista", sel.value.entrevistador ? `Entrevista realizada por ${sel.value.entrevistador}` : "Entrevista realizada", sel.value.entrevistador || "José Luis"); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "entrevistado", { silencioso: true }); } store.fichaTab = "entrevista"; go("candidato/" + sel.value.candId); };
+    const recordar = () => toast(`Demo: recordatorio por WhatsApp a ${selCand.value.nombre} (plantilla «Recordatorio de entrevista»)`);
+
+    // Nueva cita
+    const nueva = reactive({ abierto: false, candId: "", fecha: dia(3), hora: "10:30", modalidad: "Presencial", entrevistador: "" });
+    const opCands = computed(() => store.candidatos.filter((c) => ["pendiente-revision", "pendiente-entrevista"].includes(c.estado)).map((c) => ({ valor: c.id, etiqueta: `${nombreCompleto(c)} · ${centroDe(c.centroId)?.nombre || "Autopostulado"}` })));
+    const choque = computed(() => store.entrevistas.find((e) => nueva.entrevistador && e.fecha === nueva.fecha && e.entrevistador === nueva.entrevistador && e.estado !== "Cancelada" && Math.abs(aMin(e.hora) - aMin(nueva.hora)) < DUR));
+    const abrirNueva = (fecha, hora) => Object.assign(nueva, { abierto: true, candId: "", fecha: fecha || dia(3), hora: hora || "10:30" });
+    const clicHueco = (d, ev) => { const y = ev.offsetY; const m = Math.round(((y / PX) * 60) / 15) * 15 + H0 * 60; abrirNueva(d, deMin(Math.min(m, H1 * 60))); };
+    const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
+
+    return { s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar,
+      nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
+  },
+  template: `
+  <div class="page">
+    <div class="page-head">
+      <div><h1>Entrevistas</h1><p>Agenda común del equipo. <span class="notion"><Ic n="sync" :s="13" />Notion sincronizado hace 2 min</span></p></div>
+      <div class="acciones">
+        <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><option v-for="p in ENTREVISTADORES" :key="p" :value="p">Agenda de {{ p }}</option><option value="_ninguno">Sin responsable asignado</option></select>
+        <div class="seg"><button :class="{on: s.vista==='calendario'}" @click="s.vista='calendario'"><Ic n="calendario" :s="15" />Calendario</button><button :class="{on: s.vista==='lista'}" @click="s.vista='lista'"><Ic n="tabla" :s="15" />Listado</button></div>
+        <button class="btn btn-accent" @click="abrirNueva()"><Ic n="plus" :s="16" />Nueva entrevista</button>
+      </div>
+    </div>
+
+    <!-- CALENDARIO -->
+    <div v-if="s.vista==='calendario'" class="card cal">
+      <div class="cal-bar">
+        <button class="btn btn-sm" @click="mover(0)">Hoy</button>
+        <button class="icon-btn" @click="mover(-1)" aria-label="Semana anterior"><Ic n="chevL" /></button><button class="icon-btn" @click="mover(1)" aria-label="Semana siguiente"><Ic n="chevR" /></button>
+        <b>{{ tituloSemana }}</b>
+        <span class="right leyenda"><span v-for="c in cuentas" :key="c.k"><i :style="{background: c.c}"></i>{{ c.k }}</span></span>
+      </div>
+      <div class="cal-grid">
+        <div class="cal-horas"><div class="cal-dhead"></div><div v-for="h in horas.slice(0,-1)" :key="h" class="cal-h" :style="{height: PX+'px'}">{{ h }}:00</div></div>
+        <div v-for="col in porDia" :key="col.d" class="cal-dia" :class="{hoy: col.hoy}">
+          <div class="cal-dhead"><small>{{ diaCorto(col.d) }}</small><b>{{ diaNum(col.d) }}</b><span v-if="col.citas.length">{{ col.citas.length }} citas</span></div>
+          <div class="cal-cuerpo" :style="{height: (horas.length-1)*PX+'px'}" @click.self="clicHueco(col.d, $event)" title="Haz clic en un hueco para programar">
+            <i v-for="h in horas.length-1" :key="h" class="cal-linea" :style="{top: (h-1)*PX+'px'}"></i>
+            <button v-for="x in col.citas" :key="x.e.id" class="cita" :class="'c-'+x.e.estado" :style="{top: x.top+'px', height: x.alto+'px', left: 'calc('+x.izq+'% + 3px)', width: 'calc('+x.ancho+'% - 6px)', '--c': ESTADOS_CITA[x.e.estado].c}" @click="sel=x.e">
+              <b>{{ x.e.hora }} · {{ nombreCompleto(candDe(x.e.candId)) }}</b>
+              <small><Ic :n="x.e.modalidad==='Online' ? 'video' : 'pin'" :s="11" />{{ x.e.entrevistador || "Sin asignar" }}</small>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTADO -->
+    <div v-else class="card">
+      <div class="barra-filtros">
+        <div class="buscar"><Ic n="search" :s="16" /><input class="inp" v-model="s.q" placeholder="Buscar candidato…" /></div>
+        <button class="pill" :class="{on: !s.fEstado}" @click="s.fEstado=''">Todas</button>
+        <button v-for="c in cuentas" :key="c.k" class="pill" :class="{on: s.fEstado===c.k}" @click="s.fEstado = s.fEstado===c.k ? '' : c.k">{{ c.k }} <b>{{ c.n }}</b></button>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Fecha y hora</th><th>Candidato</th><th>Centro</th><th>Modalidad</th><th>Responsable</th><th>Estado de la cita</th><th>Valoración</th><th>Observaciones</th></tr></thead>
+        <tbody><tr v-for="e in lista" :key="e.id" @click="sel=e">
+          <td class="nowrap"><b>{{ fCorta(e.fecha) }}</b> <span class="sub">{{ e.hora }}</span></td>
+          <td><div class="who"><Avatar :nombre="candDe(e.candId).nombre" :apellidos="candDe(e.candId).apellidos" :s="30" /><b>{{ nombreCompleto(candDe(e.candId)) }}</b></div></td>
+          <td>{{ centroDe(candDe(e.candId).centroId)?.nombre || 'Autopostulado' }}</td>
+          <td class="nowrap"><Ic :n="e.modalidad==='Online' ? 'video' : 'pin'" :s="14" /> {{ e.modalidad }}</td>
+          <td><span v-if="e.entrevistador">{{ e.entrevistador }}</span><span v-else class="muted">Sin asignar</span></td>
+          <td><Chip :texto="e.estado" :c="ESTADOS_CITA[e.estado].c" :cd="ESTADOS_CITA[e.estado].cd" /></td>
+          <td><Nota :v="candDe(e.candId).nota" v-if="e.estado==='Realizada' && candDe(e.candId).nota!=null" /><span v-else-if="e.estado==='Realizada'" class="tag gold">Sin valorar</span><span v-else class="muted">—</span></td>
+          <td><div class="cell-clip sub">{{ e.obs || '—' }}</div></td>
+        </tr></tbody></table>
+        <Vacio v-if="!lista.length" titulo="No hay entrevistas con estos filtros" texto="" />
+      </div>
+    </div>
+
+    <Modal v-if="sel" titulo="Entrevista" :ancho="520" @cerrar="sel=null">
+      <div class="who" style="cursor:pointer" @click="go('candidato/'+selCand.id)"><Avatar :nombre="selCand.nombre" :apellidos="selCand.apellidos" :s="46" /><div><b style="font-size:16px">{{ nombreCompleto(selCand) }}</b><small>{{ selCand.titulacion }} · {{ centroDe(selCand.centroId)?.nombre || 'Autopostulado' }}</small></div></div>
+      <div class="datos">
+        <div><span>Cuándo</span><b style="text-transform:capitalize">{{ fLarga(sel.fecha) }} · {{ sel.hora }}</b></div><div><span>Modalidad</span><b>{{ sel.modalidad }}</b></div>
+        <div><span>Entrevistador/a</span><b v-if="sel.entrevistador">{{ sel.entrevistador }}</b><b v-else class="muted">Sin asignar</b></div><div><span>Estado</span><Chip :texto="sel.estado" :c="ESTADOS_CITA[sel.estado].c" :cd="ESTADOS_CITA[sel.estado].cd" /></div>
+        <div><span>Turno que pide</span><b>{{ selCand.turno }}</b></div><div><span>Valoración</span><Nota :v="selCand.nota" /></div>
+      </div>
+      <div v-if="reprog.abierto" class="grid2"><div class="fld"><label>Nueva fecha</label><input class="inp" type="date" v-model="reprog.fecha" /></div><div class="fld"><label>Nueva hora</label><select class="inp" v-model="reprog.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div></div>
+      <div class="row wrap">
+        <template v-if="reprog.abierto"><button class="btn btn-primary btn-sm" @click="guardarReprog">Guardar nueva fecha</button><button class="btn btn-sm" @click="reprog.abierto=false">Descartar</button></template>
+        <template v-else-if="sel.estado!=='Realizada' && sel.estado!=='Cancelada'">
+          <button v-if="sel.estado!=='Confirmada'" class="btn btn-sm" @click="confirmar"><Ic n="check" :s="14" />Confirmar</button>
+          <button class="btn btn-sm" @click="abrirReprog"><Ic n="clock" :s="14" />Reprogramar</button>
+          <button class="btn btn-sm" @click="recordar"><Ic n="whatsapp" :s="14" />Recordar por WhatsApp</button>
+          <button class="btn btn-sm btn-danger" @click="cancelar"><Ic n="x" :s="14" />Cancelar cita</button>
+        </template>
+      </div>
+      <template #pie><button class="btn" @click="go('candidato/'+selCand.id)">Abrir ficha</button><button v-if="sel.estado!=='Cancelada'" class="btn btn-primary" @click="valorar"><Ic n="star" :s="16" />{{ sel.estado==='Realizada' ? 'Ver valoración' : 'Marcar realizada y valorar' }}</button></template>
+    </Modal>
+
+    <Modal v-if="nueva.abierto" titulo="Nueva entrevista" @cerrar="nueva.abierto=false">
+      <div class="fld"><label>Candidato (pendientes de entrevista)</label><SelectBuscable v-model="nueva.candId" :opciones="opCands" vacio="Elegir candidato…" /></div>
+      <div class="grid2">
+        <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="nueva.fecha" /></div>
+        <div class="fld"><label>Hora</label><select class="inp" v-model="nueva.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>
+        <div class="fld"><label>Modalidad</label><select class="inp" v-model="nueva.modalidad"><option>Presencial</option><option>Online</option></select></div>
+        <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="nueva.entrevistador"><option value="">Sin asignar</option><option v-for="p in ENTREVISTADORES" :key="p">{{ p }}</option></select></div>
+      </div>
+      <div v-if="choque" class="aviso warn"><Ic n="alert" :s="16" /><span><b>{{ nueva.entrevistador }} ya tiene una entrevista</b> a las {{ choque.hora }} con {{ nombreCompleto(candDe(choque.candId)) }}.</span></div>
+      <template #pie><button class="btn" @click="nueva.abierto=false">Cancelar</button><button class="btn btn-primary" @click="crear">Programar</button></template>
+    </Modal>
+  </div>`,
+};
