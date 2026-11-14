@@ -57,7 +57,7 @@ const App = {
   template: `
   <div class="shell">
     <aside class="side" :class="{open: menu}">
-      <div class="brand"><div class="brand-logo">e</div><div><b>Gestoría eMadrid</b><span>Portal de prácticas</span></div></div>
+      <div class="brand"><div class="brand-logo">P</div><div><b>Portal de prácticas</b><span>Prototipo</span></div></div>
       <nav class="nav">
         <a v-for="n in nav" :key="n.k" :class="{on: activo===n.k}" @click="ir(n.k)"><Ic :n="n.i" />{{ n.t }}<span v-if="n.b" class="badge" :class="{am: n.am}" :title="n.bt">{{ n.b }}</span></a>
         <div class="nav-label">Sistema</div>
@@ -88,7 +88,7 @@ const App = {
         </div>
         <span class="right sub nowrap" style="text-transform:capitalize">{{ hoy }}</span>
         <button class="icon-btn" @click="setTema(store.tema==='oscuro'?'claro':'oscuro')" :title="store.tema==='oscuro'?'Cambiar a tema claro':'Cambiar a tema oscuro'"><Ic :n="store.tema==='oscuro'?'sun':'moon'" /></button>
-        <div class="me"><Avatar nombre="José" apellidos="Luis" :s="32" /><span><b>José Luis</b><small>Administrador</small></span></div>
+        <div class="me"><Avatar nombre="Admin" apellidos="Demo" :s="32" /><span><b>Admin</b><small>Administrador</small></span></div>
       </header>
       <component :is="vista" :key="ruta.nombre + '/' + ruta.id" />
     </div>

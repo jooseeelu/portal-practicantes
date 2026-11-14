@@ -67,7 +67,7 @@ export default {
   template: `
   <div class="page">
     <div class="page-head">
-      <div><h1>Buenos días, José Luis</h1><p>Así está hoy el proceso de prácticas de la gestoría.</p></div>
+      <div><h1>Buenos días</h1><p>Así está hoy el proceso de prácticas de la gestoría.</p></div>
       <div class="acciones">
         <button class="btn" @click="go('entrevistas')"><Ic n="calendario" :s="16" />Programar entrevista</button>
         <button class="btn btn-accent" @click="go('candidatos/nuevo')"><Ic n="plus" :s="16" />Nuevo candidato</button>

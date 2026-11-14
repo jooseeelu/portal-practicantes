@@ -1,4 +1,4 @@
-# Portal de prácticas · Gestoría eMadrid
+# Portal de prácticas
 
 Portal **interno** para gestionar candidatos y estudiantes en prácticas: de la recepción del currículum a la finalización de las prácticas.
 
@@ -25,7 +25,7 @@ Y abrir <http://localhost:5180>.
 
 ## Tecnología
 
-Vue 3 sin paso de compilación (módulos ES, mismo enfoque que el CRM `emadrid-pwa-vue`). Vue se incluye en `prototipo/vendor` para funcionar sin internet; solo las tipografías se cargan desde Google Fonts.
+Vue 3 sin paso de compilación (módulos ES, con un enfoque ligero y sin dependencias). Vue se incluye en `prototipo/vendor` para funcionar sin internet; solo las tipografías se cargan desde Google Fonts.
 
 ## Siguientes pasos previstos
 

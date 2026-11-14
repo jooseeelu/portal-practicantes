@@ -201,7 +201,7 @@ export function crearDatos() {
     }
     // historial
     const base = ent ? ent[0] : -4;
-    const h = (d, tipo, texto, autor = "José Luis") => historial.push({ id: hid++, candId: id, fecha: dia(d), hora: `${9 + (hid % 8)}:${String((hid * 7) % 60).padStart(2, "0")}`, tipo, texto, autor });
+    const h = (d, tipo, texto, autor = "Admin") => historial.push({ id: hid++, candId: id, fecha: dia(d), hora: `${9 + (hid % 8)}:${String((hid * 7) % 60).padStart(2, "0")}`, tipo, texto, autor });
     h(base - 6, "alta", `Currículum recibido (${c.origen.toLowerCase()}) y candidatura registrada`);
     if (est !== "pr") h(base - 5, "estado", "Estado: Pendiente de revisión → Pendiente de entrevista");
     if (ent) {
@@ -209,7 +209,7 @@ export function crearDatos() {
       if (ent[4] === "Realizada") h(base, "entrevista", `Entrevista realizada por ${ent[3]}`, ent[3]);
       if (ent[4] === "Cancelada") h(base, "entrevista", "Entrevista cancelada: el candidato retira su candidatura");
     }
-    if (nota != null) h(base + 1, "valoracion", `Valoración final: ${String(nota).replace(".", ",")}/10`, ent ? ent[3] : "José Luis");
+    if (nota != null) h(base + 1, "valoracion", `Valoración final: ${String(nota).replace(".", ",")}/10`, ent ? ent[3] : "Admin");
     if (["se", "in", "fi"].includes(est)) h(base + 2, "estado", "Estado: En valoración → Seleccionado");
     if (est === "ns") h(base + 2, "estado", "Estado: En valoración → No seleccionado");
     if (est === "re") h(base + 2, "estado", "Estado: En valoración → En reserva (se recupera cuando haya hueco)");

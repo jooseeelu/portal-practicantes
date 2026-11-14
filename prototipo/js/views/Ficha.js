@@ -42,7 +42,7 @@ export default {
       if (v == null) return toast("Puntúa al menos un criterio o escribe la nota final.", "error");
       c.value.nota = Number(v); notaFinal.value = Number(v);
       ent.value.estado = "Realizada";
-      addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || "José Luis");
+      addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || "Admin");
       if (["entrevista-programada", "entrevistado", "pendiente-entrevista"].includes(c.value.estado)) cambiarEstado(c.value, "en-valoracion", { silencioso: true });
       toast("Valoración guardada · sincronizada con Notion");
     };
@@ -64,7 +64,7 @@ export default {
 
     // --- Notas internas ---
     const nuevaNota = ref("");
-    const addNota = () => { if (!nuevaNota.value.trim()) return; store.notas.push({ id: nuevoId(), candId: c.value.id, autor: "José Luis", fecha: HOY_ISO, texto: nuevaNota.value.trim() }); addHist(c.value.id, "nota", "Nueva observación interna"); nuevaNota.value = ""; };
+    const addNota = () => { if (!nuevaNota.value.trim()) return; store.notas.push({ id: nuevoId(), candId: c.value.id, autor: "Admin", fecha: HOY_ISO, texto: nuevaNota.value.trim() }); addHist(c.value.id, "nota", "Nueva observación interna"); nuevaNota.value = ""; };
 
     // --- Convertir en estudiante ---
     const inc = reactive({ abierto: false, inicio: dia(10), fin: dia(70), horaIni: "10:00", horaFin: "15:00", horas: 340, tutor: "", convenio: false });

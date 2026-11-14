@@ -17,12 +17,12 @@ export default {
     const nuevo = ref("");
     const addEstado = () => { const n = nuevo.value.trim(); if (!n) return; store.estados.push({ k: slug(n).replace(/\./g, "-") + "-" + store.estados.length, c: COLORES.gris.c, cd: COLORES.gris.cd, n, col: "gris", activo: true }); nuevo.value = ""; toast("Estado añadido"); };
     const equipo = [
-      ...[["José Luis", "Administrador"], ["Andrés", "Administrador"]].map(([n, r]) => ({ n, r })),
+      ...[["Admin", "Administrador"], ["Andrés", "Administrador"]].map(([n, r]) => ({ n, r })),
       ...[...new Set([...ENTREVISTADORES.slice(1), ...ASESORES])].map((n) => ({ n, r: "Asesor" })),
       { n: "Recepción", r: "Solo lectura" },
     ];
     const registro = [
-      [0, "09:12", "José Luis", "Abrió el currículum de un candidato"], [0, "09:05", "José Luis", "Inició sesión (código de verificación correcto)"],
+      [0, "09:12", "Admin", "Abrió el currículum de un candidato"], [0, "09:05", "Admin", "Inició sesión (código de verificación correcto)"],
       [-1, "17:40", "Vanesa", "Descargó un convenio de prácticas"], [-1, "13:02", "Belén", "Exportó el listado de candidatos a Excel"], [-2, "11:20", "Andrés", "Eliminó un documento duplicado"],
     ].map(([d, h, q, t]) => ({ f: fCompleta(dia(d)), h, q, t }));
     const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "retirada"].includes(c.estado)).length);
