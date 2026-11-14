@@ -2,7 +2,7 @@ name: Publicar prototipo en GitHub Pages
 
 on:
   push:
-    branches: [main, claude/portal-practicantes-project-tcuros]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
