@@ -1,5 +1,5 @@
 import { ref, computed } from "vue";
-import { store, toast, setTema } from "../store.js";
+import { store, toast, setTema, TURNOS_OFICINA } from "../store.js";
 import { Ic, Chip, Avatar } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
 import { slug, fCompleta, dia } from "../util.js";
@@ -27,7 +27,7 @@ export default {
     ].map(([d, h, q, t]) => ({ f: fCompleta(dia(d)), h, q, t }));
     const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "retirada"].includes(c.estado)).length);
     const demo = (m) => toast("Demo: " + m);
-    return { store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, registro, caducan, demo, COLORES, setTema };
+    return { TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, registro, caducan, demo, COLORES, setTema };
   },
   template: `
   <div class="page">
@@ -53,8 +53,8 @@ export default {
       <div v-else-if="tab==='turnos'" class="card-pad stack">
         <p class="sub">Horario habitual y número máximo de estudiantes que podéis supervisar a la vez. Cada estudiante puede tener además su propio horario.</p>
         <div class="grid2">
-          <div v-for="t in ['Mañana','Tarde']" :key="t" class="turno-conf">
-            <h3>Turno de {{ t.toLowerCase() }}</h3>
+          <div v-for="t in TURNOS_OFICINA" :key="t" class="turno-conf">
+            <h3>{{ t === 'Mañana' ? 'Turno de mañana' : t === 'Tarde' ? 'Turno de tarde 1' : 'Turno de tarde 2' }}</h3>
             <div class="grid3"><div class="fld"><label>Entrada</label><input class="inp" type="time" v-model="store.turnosDef[t].ini" /></div><div class="fld"><label>Salida</label><input class="inp" type="time" v-model="store.turnosDef[t].fin" /></div><div class="fld"><label>Aforo</label><input class="inp" type="number" min="1" max="20" v-model.number="store.aforo[t]" /></div></div>
           </div>
         </div>

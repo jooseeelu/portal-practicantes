@@ -1,5 +1,5 @@
 import { computed, reactive } from "vue";
-import { store, candDe, centroDe, nombreCompleto, estadoPracticas, turnoEstudiante } from "../store.js";
+import { store, candDe, centroDe, nombreCompleto, estadoPracticas, turnoEstudiante, etiquetaTurno } from "../store.js";
 import { ruta, go } from "../router.js";
 import { Ic, Chip, Avatar, Vacio } from "../ui.js";
 import { HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
@@ -26,10 +26,10 @@ export default {
       const aforo = store.aforo[turno];
       return { l, n: l.length, aforo, pasa: l.length > aforo, lleno: l.length === aforo };
     };
-    const cuadrante = computed(() => diasCuad.value.map((d) => ({ d, hoy: d === HOY_ISO, lunes: diaCorto(d) === "Lun", M: celda(d, "Mañana"), T: celda(d, "Tarde") })));
-    const excesos = computed(() => cuadrante.value.filter((f) => f.M.pasa || f.T.pasa).length);
+    const cuadrante = computed(() => diasCuad.value.map((d) => ({ d, hoy: d === HOY_ISO, lunes: diaCorto(d) === "Lun", M: celda(d, "Mañana"), T: celda(d, "Tarde"), T2: celda(d, "Tarde 2") })));
+    const excesos = computed(() => cuadrante.value.filter((f) => f.M.pasa || f.T.pasa || f.T2.pasa).length);
     const mover = (n) => { s.semana = n === 0 ? lunesDe(HOY_ISO) : dia(n * 7, s.semana); };
-    return { store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
+    return { etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
   },
   template: `
   <div class="page">
@@ -51,7 +51,7 @@ export default {
           <td><div class="who"><Avatar :nombre="f.c.nombre" :apellidos="f.c.apellidos" /><div><b>{{ nombreCompleto(f.c) }}</b><small>{{ f.c.titulacion }}</small></div></div></td>
           <td>{{ centroDe(f.e.centroId)?.nombre || '—' }}</td>
           <td><Chip :texto="f.est" :c="COLOR[f.est][0]" :cd="COLOR[f.est][1]" /></td>
-          <td class="nowrap"><b>{{ f.turno }}</b> <span class="sub">{{ f.e.horaIni }}–{{ f.e.horaFin }}</span></td>
+          <td class="nowrap"><b>{{ f.turno === 'Tarde' ? 'Tarde 1' : f.turno }}</b> <span class="sub">{{ f.e.horaIni }}–{{ f.e.horaFin }}</span></td>
           <td class="nowrap">{{ fCorta(f.e.inicio) }} → {{ fCorta(f.e.fin) }}</td>
           <td><div class="avance"><span><i :style="{width: f.pct+'%'}"></i></span><small v-if="f.est==='En curso'" :class="{urge: f.quedan<=14}">{{ f.quedan<=14 ? 'Termina ' + relativo(f.e.fin) : f.pct + ' %' }}</small><small v-else-if="f.est==='Prevista'">Empieza {{ relativo(f.e.inicio) }}</small><small v-else>Completadas</small></div></td>
           <td class="nowrap">{{ f.e.horas }} h</td><td><span v-if="f.e.tutor">{{ f.e.tutor }}</span><span v-else class="muted">Sin tutor</span></td>
@@ -67,13 +67,13 @@ export default {
         <button class="icon-btn" @click="mover(-1)"><Ic n="chevL" /></button><button class="icon-btn" @click="mover(1)"><Ic n="chevR" /></button>
         <b>{{ fCorta(diasCuad[0]) }} – {{ fCorta(diasCuad[diasCuad.length-1]) }}</b>
         <span v-if="excesos" class="aviso err" style="padding:4px 10px"><Ic n="alert" :s="14" /><b>{{ excesos }} día{{ excesos>1?'s':'' }} por encima del aforo</b></span>
-        <span class="right leyenda"><span><i style="background:var(--cyan)"></i>En curso</span><span><i class="dash"></i>Incorporación prevista</span><span class="sub">Aforo: {{ store.aforo['Mañana'] }} mañana · {{ store.aforo['Tarde'] }} tarde (editable en Ajustes)</span></span>
+        <span class="right leyenda"><span><i style="background:var(--cyan)"></i>En curso</span><span><i class="dash"></i>Incorporación prevista</span><span class="sub">Aforo: {{ store.aforo['Mañana'] }} mañana · {{ store.aforo['Tarde'] }} tarde 1 · {{ store.aforo['Tarde 2'] }} tarde 2 (editable en Ajustes)</span></span>
       </div>
       <div class="cuad">
-        <div class="cuad-head"><span></span><span>Mañana <small>{{ store.turnosDef['Mañana'].ini }}–{{ store.turnosDef['Mañana'].fin }}</small></span><span>Tarde <small>{{ store.turnosDef['Tarde'].ini }}–{{ store.turnosDef['Tarde'].fin }}</small></span></div>
+        <div class="cuad-head"><span></span><span>Mañana <small>{{ store.turnosDef['Mañana'].ini }}–{{ store.turnosDef['Mañana'].fin }}</small></span><span>Tarde 1 <small>{{ store.turnosDef['Tarde'].ini }}–{{ store.turnosDef['Tarde'].fin }}</small></span><span>Tarde 2 <small>{{ store.turnosDef['Tarde 2'].ini }}–{{ store.turnosDef['Tarde 2'].fin }}</small></span></div>
         <div v-for="f in cuadrante" :key="f.d" class="cuad-fila" :class="{hoy: f.hoy, lunes: f.lunes}">
           <div class="cuad-dia"><small>{{ diaCorto(f.d) }}</small><b>{{ diaNum(f.d) }}</b><span v-if="f.hoy">hoy</span></div>
-          <div v-for="t in [f.M, f.T]" class="cuad-celda" :class="{pasa: t.pasa, lleno: t.lleno}">
+          <div v-for="t in [f.M, f.T, f.T2]" class="cuad-celda" :class="{pasa: t.pasa, lleno: t.lleno}">
             <span class="aforo" :class="{pasa: t.pasa, lleno: t.lleno}">{{ t.n }} / {{ t.aforo }}</span>
             <a v-for="x in t.l" :key="x.e.candId" class="persona" :class="{previsto: x.previsto}" @click="go('candidato/'+x.e.candId)" :title="x.e.horaIni + '–' + x.e.horaFin + (x.e.tutor ? ' · tutor: ' + x.e.tutor : ' · sin tutor')">
               <Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :s="22" />{{ x.c.nombre }} {{ x.c.apellidos.split(' ')[0] }}<em v-if="x.nuevo">empieza</em><em v-else-if="x.ultimo" class="fin">último día</em>

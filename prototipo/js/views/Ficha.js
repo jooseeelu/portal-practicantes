@@ -1,5 +1,5 @@
 import { computed, reactive, ref } from "vue";
-import { store, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
+import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
@@ -69,7 +69,7 @@ export default {
     // --- Convertir en estudiante ---
     const inc = reactive({ abierto: false, inicio: dia(10), fin: dia(70), horaIni: "10:00", horaFin: "15:00", horas: 340, tutor: "", convenio: false });
     const abrirInc = () => {
-      const e = est.value, t = c.value.turno === "Tarde" ? "Tarde" : "Mañana";
+      const e = est.value, t = ["Tarde", "Tarde 2"].includes(c.value.turno) ? c.value.turno : "Mañana";
       Object.assign(inc, { abierto: true, inicio: e?.inicio || dia(10), fin: e?.fin || dia(70), horaIni: e?.horaIni || store.turnosDef[t].ini, horaFin: e?.horaFin || store.turnosDef[t].fin, horas: e?.horas || c.value.horas || 340, tutor: e ? e.tutor : "", convenio: e?.convenio || false });
     };
     const ocupacion = computed(() => { const t = turnoDe(inc.horaIni); const n = store.estudiantes.filter((e) => e.candId !== c.value.id && e.inicio <= inc.inicio && e.fin >= inc.inicio && turnoDe(e.horaIni) === t).length; return { t, n, aforo: store.aforo[t], pasa: n + 1 > store.aforo[t] }; });
@@ -92,7 +92,7 @@ export default {
     };
     const quitarFoto = () => { c.value.foto = ""; toast("Foto eliminada"); };
 
-    return { store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -138,7 +138,7 @@ export default {
           <div class="fld"><label>Correo electrónico</label><input class="inp" v-model="c.email" /></div>
           <div class="fld"><label>Teléfono</label><input class="inp" v-model="c.tel" /></div>
           <div class="fld"><label>Área de interés</label><select class="inp" v-model="c.area"><option v-for="a in AREAS" :key="a">{{ a }}</option></select></div>
-          <div class="fld"><label>Turno disponible</label><select class="inp" v-model="c.turno"><option v-for="t in TURNOS" :key="t">{{ t }}</option></select></div>
+          <div class="fld"><label>Turno disponible</label><select class="inp" v-model="c.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
           <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" v-model="c.horas" /></div>
           <div class="fld"><label>Registrado el</label><input class="inp" :value="fCompleta(c.creado)" disabled /></div>
         </div>
@@ -312,7 +312,7 @@ export default {
         <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="inc.tutor"><option value="">Sin tutor asignado</option><option v-for="a in ASESORES" :key="a">{{ a }}</option></select></div>
       </div>
       <label class="row"><input type="checkbox" v-model="inc.convenio" /> Convenio de prácticas firmado</label>
-      <div class="aviso" :class="ocupacion.pasa ? 'err' : ''"><Ic :n="ocupacion.pasa ? 'alert' : 'info'" :s="16" /><span>Turno de <b>{{ ocupacion.t.toLowerCase() }}</b> el día de inicio: {{ ocupacion.n }} de {{ ocupacion.aforo }} plazas ocupadas.<template v-if="ocupacion.pasa"> <b>Con esta incorporación se supera el aforo supervisable.</b></template></span></div>
+      <div class="aviso" :class="ocupacion.pasa ? 'err' : ''"><Ic :n="ocupacion.pasa ? 'alert' : 'info'" :s="16" /><span>Turno de <b>{{ etiquetaTurno(ocupacion.t).toLowerCase() }}</b> el día de inicio: {{ ocupacion.n }} de {{ ocupacion.aforo }} plazas ocupadas.<template v-if="ocupacion.pasa"> <b>Con esta incorporación se supera el aforo supervisable.</b></template></span></div>
       <template #pie><button class="btn" @click="inc.abierto=false">Cancelar</button><button class="btn btn-accent" @click="guardarInc"><Ic n="estudiantes" :s="16" />{{ est ? 'Guardar' : 'Incorporar' }}</button></template>
     </Modal>
   </div>
