@@ -1,8 +1,8 @@
 import { computed, reactive, ref } from "vue";
-import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
+import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto } from "../ui.js";
-import { TURNOS, AREAS, ORIGENES } from "../data.js";
+import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
 import { normal, fCorta, HOY_ISO, dia } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
@@ -56,7 +56,7 @@ export default {
 
     // Alta rápida
     const alta = ref(ruta.value.id === "nuevo");
-    const vacio = () => ({ nombre: "", apellidos: "", email: "", tel: "", centroId: "", titulacion: "", area: "", turno: "Por confirmar", horas: "", origen: "Centro educativo", obs: "", archivo: null, foto: "" });
+    const vacio = () => ({ nombre: "", apellidos: "", email: "", tel: "", centroId: "", titulacion: "", area: "", turno: "Por confirmar", horas: "", origen: "Centro educativo", obs: "", archivo: null, foto: "", situacion: "nuevo", inicio: "", fin: "", horaIni: "", horaFin: "", tutor: "" });
     const fotoAlta = async (ev) => { const a = ev.target.files[0]; ev.target.value = ""; try { n.foto = await leerFoto(a); } catch (e) { toast(e.message, "error"); } };
     const n = reactive(vacio());
     const soloDigitos = (s) => String(s || "").replace(/\D/g, "");
@@ -66,15 +66,23 @@ export default {
     const cerrarAlta = () => { alta.value = false; if (ruta.value.id === "nuevo") go("candidatos"); };
     function guardar() {
       if (!n.nombre.trim() || !n.apellidos.trim()) return toast("Escribe al menos el nombre y los apellidos.", "error");
+      const yaHizo = n.situacion === "practicas";
+      if (yaHizo && (!n.inicio || !n.fin)) return toast("Indica desde cuándo y hasta cuándo hizo las prácticas.", "error");
+      if (yaHizo && n.fin < n.inicio) return toast("La fecha de fin no puede ser anterior a la de inicio.", "error");
       const id = nuevoId();
       store.candidatos.push({ id, nombre: n.nombre.trim(), apellidos: n.apellidos.trim(), email: n.email.trim(), tel: n.tel.trim(), centroId: n.centroId || null, titulacion: n.titulacion, area: n.area, turno: n.turno, disponibilidad: n.turno, horas: Number(n.horas) || "", curso: "", origen: n.origen, obs: n.obs, estado: "pendiente-revision", nota: null, pros: [], contras: [], creado: HOY_ISO, cv: !!n.archivo, foto: n.foto });
       if (n.archivo) store.documentos.push({ id: nuevoId(), candId: id, nombre: n.archivo.name, tipo: "Currículum", fecha: HOY_ISO, tam: Math.max(1, Math.round(n.archivo.size / 1024)), ext: n.archivo.name.split(".").pop().toLowerCase() });
       addHist(id, "alta", `Candidatura registrada (${n.origen.toLowerCase()})${n.archivo ? " con currículum adjunto" : ""}`);
-      toast("Candidato registrado");
+      if (yaHizo) {
+        const t = ["Tarde", "Tarde 2"].includes(n.turno) ? n.turno : "Mañana";
+        const cand = store.candidatos.find((x) => x.id === id);
+        incorporar(cand, { inicio: n.inicio, fin: n.fin, horaIni: n.horaIni || store.turnosDef[t].ini, horaFin: n.horaFin || store.turnosDef[t].fin, horas: Number(n.horas) || 340, tutor: n.tutor, convenio: true });
+        if (n.fin < HOY_ISO) cambiarEstado(cand, "finalizado", { silencioso: true });
+      } else toast("Candidato registrado");
       alta.value = false;
       go("candidato/" + id);
     }
-    return { etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       alta, n, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -183,6 +191,15 @@ export default {
         <div class="fld"><label>Turno disponible</label><select class="inp" v-model="n.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
         <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" min="0" v-model="n.horas" placeholder="340" /></div>
         <div class="fld"><label>Cómo ha llegado</label><select class="inp" v-model="n.origen"><option v-for="o in ORIGENES" :key="o">{{ o }}</option></select></div>
+      </div>
+      <div class="fld"><label>Situación</label><select class="inp" v-model="n.situacion"><option value="nuevo">Candidato nuevo (todavía sin prácticas)</option><option value="practicas">Ya hizo, o está haciendo, prácticas con nosotros</option></select></div>
+      <div v-if="n.situacion==='practicas'" class="grid2">
+        <div class="fld"><label>Inicio de las prácticas *</label><input class="inp" type="date" v-model="n.inicio" /></div>
+        <div class="fld"><label>Fin de las prácticas *</label><input class="inp" type="date" v-model="n.fin" /></div>
+        <div class="fld"><label>Hora de entrada (opcional)</label><input class="inp" type="time" v-model="n.horaIni" /></div>
+        <div class="fld"><label>Hora de salida (opcional)</label><input class="inp" type="time" v-model="n.horaFin" /></div>
+        <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="n.tutor"><option value="">Sin tutor asignado</option><option v-for="a in ASESORES" :key="a">{{ a }}</option></select></div>
+        <div class="aviso gold" style="grid-column:1/-1"><Ic n="info" :s="16" /><span>Se registra directamente como estudiante en prácticas: sale en el cuadrante y en «Estudiantes». Si las fechas ya pasaron, queda como «Finalizado».</span></div>
       </div>
       <div class="fld"><label>Observaciones</label><textarea class="inp" v-model="n.obs" rows="2"></textarea></div>
       <template #pie><button class="btn" @click="cerrarAlta">Cancelar</button><button class="btn btn-primary" @click="guardar"><Ic n="check" :s="16" />Registrar candidato</button></template>
