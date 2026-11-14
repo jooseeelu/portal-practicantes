@@ -47,7 +47,7 @@ export function toast(msg, tipo = "ok") {
   setTimeout(() => { store.toasts = store.toasts.filter((t) => t.id !== id); }, tipo === "error" ? 6000 : 3200);
 }
 
-export function addHist(candId, tipo, texto, autor = "José Luis") {
+export function addHist(candId, tipo, texto, autor = "Admin") {
   store.historial.push({ id: nuevoId(), candId, fecha: HOY_ISO, hora: "12:00", tipo, texto, autor });
 }
 
