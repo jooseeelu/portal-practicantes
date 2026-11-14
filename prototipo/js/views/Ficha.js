@@ -66,6 +66,28 @@ export default {
     const nuevaNota = ref("");
     const addNota = () => { if (!nuevaNota.value.trim()) return; store.notas.push({ id: nuevoId(), candId: c.value.id, autor: "Admin", fecha: HOY_ISO, texto: nuevaNota.value.trim() }); addHist(c.value.id, "nota", "Nueva observación interna"); nuevaNota.value = ""; };
 
+    // --- Faltas de asistencia (si se recupera el día, el fin se alarga un día laborable) ---
+    const falta = reactive({ fecha: HOY_ISO, motivo: "", recupera: true });
+    const sigLaborable = (f) => { let d = dia(1, f); while ([0, 6].includes(new Date(d + "T12:00").getDay())) d = dia(1, d); return d; };
+    const antLaborable = (f) => { let d = dia(-1, f); while ([0, 6].includes(new Date(d + "T12:00").getDay())) d = dia(-1, d); return d; };
+    const addFalta = () => {
+      const e = est.value; if (!e || !falta.fecha) return;
+      const l = (e.faltas ||= []);
+      if (l.some((x) => x.fecha === falta.fecha)) return toast("Esa falta ya está apuntada.", "error");
+      if (falta.fecha < e.inicio || falta.fecha > e.fin) return toast("Ese día está fuera del periodo de prácticas.", "error");
+      l.push({ fecha: falta.fecha, motivo: falta.motivo.trim(), recupera: falta.recupera });
+      l.sort((a, b) => a.fecha.localeCompare(b.fecha));
+      if (falta.recupera) e.fin = sigLaborable(e.fin);
+      addHist(c.value.id, "nota", `Falta el ${fCorta(falta.fecha)}${falta.motivo.trim() ? " (" + falta.motivo.trim() + ")" : ""}${falta.recupera ? "; se recupera: el fin pasa al " + fCorta(e.fin) : "; no se recupera"}`);
+      toast(falta.recupera ? `Falta apuntada. Termina el ${fCorta(e.fin)}` : "Falta apuntada");
+      falta.motivo = "";
+    };
+    const quitarFalta = (x) => {
+      const e = est.value; e.faltas = e.faltas.filter((y) => y !== x);
+      if (x.recupera) e.fin = antLaborable(e.fin);
+      addHist(c.value.id, "nota", `Falta del ${fCorta(x.fecha)} eliminada`);
+    };
+
     // --- Convertir en estudiante ---
     const inc = reactive({ abierto: false, inicio: dia(10), fin: dia(70), horaIni: "10:00", horaFin: "15:00", horas: 340, tutor: "", convenio: false });
     const abrirInc = () => {
@@ -92,7 +114,7 @@ export default {
     };
     const quitarFoto = () => { c.value.foto = ""; toast("Foto eliminada"); };
 
-    return { etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -146,6 +168,11 @@ export default {
         <div v-if="est" class="practicas-box">
           <div class="row"><Ic n="estudiantes" /><b>Prácticas en la gestoría</b><Chip :texto="estadoPracticas(est)" c="var(--cyan)" cd="var(--cyan-dark)" /><button class="btn btn-sm right" @click="abrirInc"><Ic n="pencil" :s="14" />Editar</button></div>
           <div class="datos"><div><span>Inicio</span><b>{{ fCompleta(est.inicio) }}</b></div><div><span>Fin previsto</span><b>{{ fCompleta(est.fin) }}</b></div><div><span>Horario</span><b>{{ est.horaIni }}–{{ est.horaFin }}</b></div><div><span>Horas totales</span><b>{{ est.horas }} h</b></div><div><span>Tutor en la gestoría</span><b v-if="est.tutor">{{ est.tutor }}</b><b v-else class="muted">Sin asignar</b></div><div><span>Convenio</span><b>{{ est.convenio ? 'Firmado' : 'Pendiente de firma' }}</b></div></div>
+          <div class="faltas">
+            <b>Faltas de asistencia <span class="sub">({{ (est.faltas || []).length }})</span></b>
+            <div v-for="x in est.faltas || []" :key="x.fecha" class="falta"><span><b>{{ fLarga(x.fecha) }}</b><template v-if="x.motivo"> · {{ x.motivo }}</template></span><Chip :texto="x.recupera ? 'Se recupera (+1 día)' : 'No se recupera'" :c="x.recupera ? 'var(--gold-500)' : 'var(--text-400)'" :cd="x.recupera ? 'var(--gold-700)' : 'var(--text-600)'" /><button class="btn btn-sm" @click="quitarFalta(x)">Quitar</button></div>
+            <div class="falta-nueva"><input class="inp" type="date" v-model="falta.fecha" :min="est.inicio" :max="est.fin" /><input class="inp" v-model="falta.motivo" placeholder="Motivo (opcional)" @keydown.enter="addFalta" /><label class="check"><input type="checkbox" v-model="falta.recupera" /> Recupera el día (termina 1 día más tarde)</label><button class="btn" @click="addFalta"><Ic n="plus" :s="15" />Apuntar falta</button></div>
+          </div>
         </div>
         <p class="sub"><Ic n="check" :s="13" /> Los cambios se guardan al escribir (en el prototipo no se conservan al recargar).</p>
       </div>
