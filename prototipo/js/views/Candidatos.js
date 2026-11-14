@@ -1,5 +1,5 @@
 import { computed, reactive, ref } from "vue";
-import { store, centroDe, entrevistaDe, estadoDe, cambiarEstado, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
+import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES } from "../data.js";
@@ -74,7 +74,7 @@ export default {
       alta.value = false;
       go("candidato/" + id);
     }
-    return { store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       alta, n, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -96,7 +96,7 @@ export default {
       <div class="barra-filtros">
         <div class="buscar"><Ic n="search" :s="16" /><input class="inp" v-model="f.q" placeholder="Buscar por nombre, correo, teléfono, titulación u observaciones…" /></div>
         <SelectBuscable v-model="f.centro" :opciones="opCentros" etiqueta-todos="Todos los centros" style="width:210px" />
-        <select class="inp" v-model="f.turno" style="width:170px"><option value="">Cualquier turno</option><option v-for="t in TURNOS" :key="t">{{ t }}</option></select>
+        <select class="inp" v-model="f.turno" style="width:170px"><option value="">Cualquier turno</option><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select>
         <select class="inp" v-model="f.notaMin" style="width:150px"><option value="">Cualquier nota</option><option value="9">Nota 9 o más</option><option value="8">Nota 8 o más</option><option value="7">Nota 7 o más</option><option value="5">Nota 5 o más</option></select>
         <div class="seg right">
           <button :class="{on: f.vista==='tabla'}" @click="f.vista='tabla'"><Ic n="tabla" :s="15" />Tabla</button>
@@ -124,7 +124,7 @@ export default {
               <td><div class="who"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" /><div><b>{{ c.nombre }} {{ c.apellidos }}</b><small>{{ c.email }} · {{ c.tel }}</small></div></div></td>
               <td>{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</td>
               <td><div class="cell-clip" :title="c.titulacion">{{ c.titulacion }}</div></td>
-              <td class="nowrap">{{ c.turno }}</td>
+              <td class="nowrap">{{ etiquetaTurno(c.turno) }}</td>
               <td class="nowrap">{{ c.horas ? c.horas + ' h' : '—' }}</td>
               <td class="nowrap"><template v-if="fechaEnt(c)">{{ fCorta(fechaEnt(c)) }} <span class="sub">{{ entrevistaDe(c.id).hora }}</span></template><span v-else class="muted">—</span></td>
               <td><Chip :k="c.estado" /></td>
@@ -141,7 +141,7 @@ export default {
       <div v-else-if="f.vista==='tarjetas'" class="cands-grid">
         <button v-for="c in lista" :key="c.id" class="cand-card" @click="go('candidato/'+c.id)">
           <div class="row"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="44" /><div class="grow" style="text-align:left"><b>{{ c.nombre }} {{ c.apellidos }}</b><div class="sub">{{ c.titulacion }}</div></div></div>
-          <div class="cand-meta"><span><Ic n="centros" :s="14" />{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</span><span><Ic n="clock" :s="14" />{{ c.turno }}{{ c.horas ? ' · ' + c.horas + ' h' : '' }}</span></div>
+          <div class="cand-meta"><span><Ic n="centros" :s="14" />{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</span><span><Ic n="clock" :s="14" />{{ etiquetaTurno(c.turno) }}{{ c.horas ? ' · ' + c.horas + ' h' : '' }}</span></div>
           <div v-if="(c.pros && c.pros.length) || (c.contras && c.contras.length)" class="pc-mini"><span class="pro" :title="(c.pros || []).join(' · ')"><Ic n="plus" :s="12" />{{ (c.pros || []).length }} a favor</span><span class="con" :title="(c.contras || []).join(' · ')"><Ic n="minus" :s="12" />{{ (c.contras || []).length }} en contra</span></div>
           <div class="row"><Chip :k="c.estado" /><span class="right"><Nota :v="c.nota" /></span></div>
         </button>
@@ -155,7 +155,7 @@ export default {
           <div class="kcol-body">
             <div v-for="c in col.cands" :key="c.id" class="kcard" :class="{mov: arrastrando===c.id}" draggable="true" @dragstart="arrastrando=c.id" @dragend="arrastrando=null; sobre=''" @click="go('candidato/'+c.id)">
               <div class="row"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="28" /><b class="grow">{{ c.nombre }} {{ c.apellidos }}</b></div>
-              <div class="sub">{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }} · {{ c.turno }}</div>
+              <div class="sub">{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }} · {{ etiquetaTurno(c.turno) }}</div>
               <div class="row" v-if="c.nota!=null || fechaEnt(c)"><Nota :v="c.nota" v-if="c.nota!=null" /><span v-else class="tag"><Ic n="calendario" :s="12" />{{ fCorta(fechaEnt(c)) }} {{ entrevistaDe(c.id).hora }}</span></div>
             </div>
             <div v-if="!col.cands.length" class="kvacio">Suelta aquí</div>
@@ -180,7 +180,7 @@ export default {
         <div class="fld"><label>Centro educativo</label><SelectBuscable v-model="n.centroId" :opciones="opCentros" etiqueta-todos="Sin centro (autopostulado)" /></div>
         <div class="fld"><label>Titulación o especialidad</label><input class="inp" v-model="n.titulacion" list="dl-tit" placeholder="Elige o escribe" /><datalist id="dl-tit"><option v-for="t in titulaciones" :key="t" :value="t" /></datalist></div>
         <div class="fld"><label>Área de interés</label><select class="inp" v-model="n.area"><option value="">Sin indicar</option><option v-for="a in AREAS" :key="a">{{ a }}</option></select></div>
-        <div class="fld"><label>Turno disponible</label><select class="inp" v-model="n.turno"><option v-for="t in TURNOS" :key="t">{{ t }}</option></select></div>
+        <div class="fld"><label>Turno disponible</label><select class="inp" v-model="n.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
         <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" min="0" v-model="n.horas" placeholder="340" /></div>
         <div class="fld"><label>Cómo ha llegado</label><select class="inp" v-model="n.origen"><option v-for="o in ORIGENES" :key="o">{{ o }}</option></select></div>
       </div>

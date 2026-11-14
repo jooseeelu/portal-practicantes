@@ -8,13 +8,20 @@ try { tema = localStorage.getItem("emadrid-tema") === "oscuro" ? "oscuro" : "cla
 export const store = reactive({
   tema,
   estados: ESTADOS_INICIALES,
-  aforo: { Mañana: 4, Tarde: 4 },
-  turnosDef: { Mañana: { ini: "10:00", fin: "15:00" }, Tarde: { ini: "15:00", fin: "20:00" } },
+  aforo: { Mañana: 4, Tarde: 4, "Tarde 2": 4 },
+  turnosDef: { Mañana: { ini: "10:00", fin: "15:00" }, Tarde: { ini: "15:00", fin: "20:00" }, "Tarde 2": { ini: "16:00", fin: "21:00" } },
   retencionMeses: 12,
   toasts: [],
   fichaTab: "personal",
   ...crearDatos(),
 });
+
+// Turnos de la oficina y cómo se muestran (con su horario, que se edita en Ajustes)
+export const TURNOS_OFICINA = ["Mañana", "Tarde", "Tarde 2"];
+export const etiquetaTurno = (t) => {
+  const d = store.turnosDef[t];
+  return d && t !== "Mañana" ? `Tarde (${d.ini.replace(/^0/, "")}–${d.fin})` : t;
+};
 
 export function setTema(t) {
   store.tema = t;

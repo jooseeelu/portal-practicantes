@@ -32,6 +32,7 @@ export const normal = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g
 export const iniciales = (n = "", a = "") => ((n[0] || "") + (a[0] || "")).toUpperCase();
 export const aMin = (h) => { const [a, b] = String(h || "0:0").split(":").map(Number); return a * 60 + b; };
 export const deMin = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-export const turnoDe = (horaIni) => (aMin(horaIni) < 14 * 60 ? "Mañana" : "Tarde");
+// Mañana (hasta las 14:00), Tarde (entra sobre las 15:00) y Tarde 2 (entra sobre las 16:00)
+export const turnoDe = (horaIni) => (aMin(horaIni) < 14 * 60 ? "Mañana" : aMin(horaIni) < 15.5 * 60 ? "Tarde" : "Tarde 2");
 export const hash = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
 export const slug = (s) => normal(s).replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "");

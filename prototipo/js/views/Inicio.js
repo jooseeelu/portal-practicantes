@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { store, centroDe, candDe, nombreCompleto, estadoPracticas, turnoEstudiante } from "../store.js";
+import { store, centroDe, candDe, nombreCompleto, estadoPracticas, turnoEstudiante, TURNOS_OFICINA, etiquetaTurno } from "../store.js";
 import { go } from "../router.js";
 import { Ic, Chip, Avatar, Num } from "../ui.js";
 import { ESTADOS_CITA } from "../data.js";
@@ -29,7 +29,7 @@ export default {
     // Aforo: el día con más gente por turno en los próximos 14 días
     const picos = computed(() => {
       const out = [];
-      for (const turno of ["Mañana", "Tarde"]) {
+      for (const turno of TURNOS_OFICINA) {
         let max = 0, cuando = HOY_ISO;
         for (let i = 0; i <= 14; i++) {
           const d = dia(i);
@@ -58,11 +58,11 @@ export default {
       const l = Object.values(m).sort((a, b) => b.total - a.total).slice(0, 7); const max = l[0]?.total || 1;
       return l.map((x) => ({ ...x, w: (x.total / max) * 100, wa: (x.activos / max) * 100 }));
     });
-    const hoyTurnos = computed(() => ["Mañana", "Tarde"].map((t) => {
+    const hoyTurnos = computed(() => TURNOS_OFICINA.map((t) => {
       const l = enCurso.value.filter((e) => turnoEstudiante(e) === t);
       return { t, def: store.turnosDef[t], l: l.map((e) => candDe(e.candId)), n: l.length, aforo: store.aforo[t] };
     }));
-    return { kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante };
+    return { kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
   },
   template: `
   <div class="page">
@@ -120,14 +120,14 @@ export default {
         <div class="card-head"><h3>Hoy en la oficina</h3><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
         <div class="turnos-hoy">
           <div v-for="t in hoyTurnos" :key="t.t" class="turno-hoy">
-            <div class="row"><b>{{ t.t }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span><span class="right aforo" :class="{lleno: t.n>=t.aforo, pasa: t.n>t.aforo}">{{ t.n }} / {{ t.aforo }}</span></div>
+            <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span><span class="right aforo" :class="{lleno: t.n>=t.aforo, pasa: t.n>t.aforo}">{{ t.n }} / {{ t.aforo }}</span></div>
             <div class="medidor"><i v-for="k in t.aforo" :key="k" :class="{on: k<=t.n}"></i></div>
             <div class="row wrap" style="gap:6px">
               <a v-for="c in t.l" :key="c.id" class="persona" @click="go('candidato/'+c.id)"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="22" />{{ c.nombre }}</a>
               <span v-if="!t.l.length" class="muted">Nadie en este turno</span>
             </div>
           </div>
-          <div v-if="previstas.length" class="aviso gold"><Ic n="calendario" :s="16" /><span><b>{{ previstas.length }} incorporaciones previstas</b> el {{ fCorta(previstas[0].inicio) }}: {{ previstas.map(e => candDe(e.candId).nombre + ' (' + turnoEstudiante(e).toLowerCase() + ')').join(', ') }}.</span></div>
+          <div v-if="previstas.length" class="aviso gold"><Ic n="calendario" :s="16" /><span><b>{{ previstas.length }} incorporaciones previstas</b> el {{ fCorta(previstas[0].inicio) }}: {{ previstas.map(e => candDe(e.candId).nombre + ' (' + etiquetaTurno(turnoEstudiante(e)).toLowerCase() + ')').join(', ') }}.</span></div>
         </div>
       </section>
 

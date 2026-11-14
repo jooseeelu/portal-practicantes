@@ -41,7 +41,7 @@ export const ESTADOS_CITA = {
 export const ASESORES = ["Ileana", "Mayela", "Montse", "Milena", "Daniel", "Vanesa"];
 export const ENTREVISTADORES = ["Andrés", "Vanesa", "Belén", "José Manuel"];
 export const AREAS = ["Marketing", "Marketing y gestión", "Administración", "Administración y Finanzas", "Finanzas y análisis", "Comercio internacional", "Operaciones y logística", "Administración y documentación"];
-export const TURNOS = ["Mañana", "Tarde", "Disponibilidad completa", "Por confirmar"];
+export const TURNOS = ["Mañana", "Tarde", "Tarde 2", "Disponibilidad completa", "Por confirmar"];
 export const ORIGENES = ["Centro educativo", "Autopostulado", "Correo", "WhatsApp", "Manual"];
 export const HORAS_ENTREVISTA = Array.from({ length: 41 }, (_, i) => { const m = 600 + i * 15; return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; });
 
