@@ -2,7 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast } from "../store.js";
 import { go } from "../router.js";
 import { miNombre } from "../api.js";
-import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio } from "../ui.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio, pedirConfirmacion } from "../ui.js";
 import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA } from "../data.js";
 import { HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal } from "../util.js";
 
@@ -46,7 +46,10 @@ export default {
     const selCand = computed(() => (sel.value ? candDe(sel.value.candId) : null));
     const reprog = reactive({ abierto: false, fecha: "", hora: "" });
     const confirmar = () => { sel.value.estado = "Confirmada"; addHist(sel.value.candId, "entrevista", "Entrevista confirmada"); toast("Cita confirmada · sincronizada con Notion"); };
-    const cancelar = () => { sel.value.estado = "Cancelada"; addHist(sel.value.candId, "entrevista", "Entrevista cancelada"); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "pendiente-entrevista", { silencioso: true }); toast("Cita cancelada"); sel.value = null; };
+    const cancelar = async () => {
+      const e = sel.value, c0 = selCand.value;
+      if (!(await pedirConfirmacion({ titulo: "¿Cancelar esta entrevista?", texto: `La cita de ${nombreCompleto(c0)} (${fCorta(e.fecha)}, ${e.hora}) quedará cancelada y también en Notion. Se puede volver a programar después.`, boton: "Sí, cancelar la cita" }))) return;
+      sel.value.estado = "Cancelada"; addHist(sel.value.candId, "entrevista", "Entrevista cancelada"); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "pendiente-entrevista", { silencioso: true }); toast("Cita cancelada"); sel.value = null; };
     const abrirReprog = () => Object.assign(reprog, { abierto: true, fecha: sel.value.fecha, hora: sel.value.hora });
     const guardarReprog = () => { Object.assign(sel.value, { fecha: reprog.fecha, hora: reprog.hora, estado: "Reprogramada" }); addHist(sel.value.candId, "entrevista", `Entrevista reprogramada para el ${reprog.fecha} a las ${reprog.hora}`); reprog.abierto = false; toast("Cita reprogramada · sincronizada con Notion"); };
     const valorar = () => { if (sel.value.estado !== "Realizada") { sel.value.estado = "Realizada"; addHist(sel.value.candId, "entrevista", sel.value.entrevistador ? `Entrevista realizada por ${sel.value.entrevistador}` : "Entrevista realizada", sel.value.entrevistador || miNombre()); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "entrevistado", { silencioso: true }); } store.fichaTab = "entrevista"; go("candidato/" + sel.value.candId); };

@@ -1,7 +1,7 @@
 import { ref, reactive, computed, watch } from "vue";
 import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos } from "../store.js";
 import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria } from "../api.js";
-import { Ic, Chip, Avatar, Modal } from "../ui.js";
+import { Ic, Chip, Avatar, Modal, pedirConfirmacion } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
 import { slug, fCompleta, dia, HOY_ISO, iso, pad } from "../util.js";
 
@@ -60,7 +60,7 @@ export default {
     // Tras crear una cuenta o poner una contraseña nueva, se enseña una sola vez para pasársela a la persona.
     const entrega = reactive({ abierto: false, nombre: "", email: "", password: "" });
     const nuevaClave = async (p) => {
-      if (!window.confirm(`¿Poner una contraseña nueva a ${p.name}? La actual dejará de valer.`)) return;
+      if (!(await pedirConfirmacion({ titulo: `¿Poner una contraseña nueva a ${p.name}?`, texto: "La contraseña actual dejará de valer en ese momento.", boton: "Poner contraseña nueva" }))) return;
       const password = claveAleatoria();
       try { await ponerClave(p.id, password); Object.assign(entrega, { abierto: true, nombre: p.name, email: p.email, password }); }
       catch (e) { toast(e.message, "error"); }
@@ -89,8 +89,8 @@ export default {
     // --- Datos de demostración (solo en el entorno de pruebas) ---
     const puedeDemo = computed(() => enServidor.value && sesion.entorno === "pruebas" && admin.value);
     const rellenarDemo = () => { try { localStorage.removeItem("emadrid-pruebas-vaciado"); } catch (_) {} cargarDemo(); toast("Datos de demostración cargados; se están guardando"); };
-    const vaciarTodo = () => {
-      if (!window.confirm("¿Borrar TODOS los datos de este entorno (candidatos, entrevistas, centros…)? No se puede deshacer.")) return;
+    const vaciarTodo = async () => {
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar TODOS los datos de este entorno?", texto: "Candidatos, entrevistas, centros y todo lo demás. No se puede deshacer.", boton: "Borrar todo" }))) return;
       try { localStorage.setItem("emadrid-pruebas-vaciado", "1"); } catch (_) {}
       vaciarDatos(); toast("Entorno vaciado");
     };

@@ -155,3 +155,22 @@
 
 .avatar-vacio { --c: var(--text-400); background: var(--surface); border: 2px dashed var(--border-strong); color: var(--text-400); border-radius: 34%; }
 .foto-edit:hover .avatar-vacio { border-color: var(--gold-500); color: var(--gold-700); }
+
+/* Confirmación de acciones arriesgadas */
+.confirmar-bg { z-index: 150; }
+.confirmar { max-width: 440px; }
+.confirmar-cuerpo { display: flex; gap: 14px; padding: 22px 22px 12px; }
+.confirmar-cuerpo h3 { font-size: 19px; }
+.confirmar-cuerpo p { margin: 6px 0 0; color: var(--text-700); line-height: 1.5; }
+.confirmar-ico { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; background: var(--info-bg); color: var(--info-dark); }
+.confirmar-ico.peligro { background: var(--danger-bg); color: var(--err-dark); animation: late-peligro 1.6s ease-out 1; }
+.btn-peligro { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-peligro:hover { background: var(--err-dark); border-color: var(--err-dark); box-shadow: 0 8px 20px color-mix(in srgb, var(--danger) 35%, transparent); }
+@keyframes late-peligro { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+
+/* Contraseña con ojo para mostrarla u ocultarla */
+.clave-campo { position: relative; }
+.clave-campo .inp { padding-right: 46px; }
+.clave-ojo { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--text-600); }
+.clave-ojo:hover { background: var(--surface-alt); color: var(--text-900); }
+.clave-ojo:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 1px; }

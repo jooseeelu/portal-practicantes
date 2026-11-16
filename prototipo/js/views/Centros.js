@@ -2,7 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { store, centroDe, nombreCompleto, estadoPracticas, estudianteDe, toast } from "../store.js";
 import { ruta, go } from "../router.js";
 import { filtros } from "./Candidatos.js";
-import { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio } from "../ui.js";
+import { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio, pedirConfirmacion } from "../ui.js";
 import { ASESORES } from "../data.js";
 import { normal, slug } from "../util.js";
 
@@ -29,7 +29,7 @@ export default {
     const nuevoProg = ref("");
     const addProg = () => { const t = nuevoProg.value.trim(); if (t && !sel.value.programas.includes(t)) sel.value.programas.push(t); nuevoProg.value = ""; };
     const verCandidatos = (id) => { Object.assign(filtros, { q: "", estado: "", centro: id, turno: "", notaMin: "", rapido: "" }); go("candidatos"); };
-    const archivar = () => { sel.value.archivado = !sel.value.archivado; toast(sel.value.archivado ? "Centro archivado: deja de salir en los desplegables" : "Centro restaurado"); };
+    const archivar = async () => { if (!sel.value.archivado && !(await pedirConfirmacion({ titulo: `¿Archivar ${sel.value.nombre}?`, texto: "Dejará de salir en los desplegables al registrar candidatos. Sus candidatos y estudiantes no se borran y se puede restaurar.", boton: "Archivar" }))) return; sel.value.archivado = !sel.value.archivado; toast(sel.value.archivado ? "Centro archivado: deja de salir en los desplegables" : "Centro restaurado"); };
 
     const alta = reactive({ abierto: false, nombre: "", tipo: "Universidad", responsable: "Sin asignar", contacto: "", email: "", tel: "", horas: "", periodos: "" });
     const repetido = computed(() => alta.nombre.trim().length > 2 && store.centros.find((c) => normal(c.nombre) === normal(alta.nombre.trim())));

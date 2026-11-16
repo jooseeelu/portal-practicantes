@@ -2,7 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { miNombre } from "../api.js";
-import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto } from "../ui.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe } from "../util.js";
 
@@ -60,7 +60,7 @@ export default {
       });
       toast(files.length > 1 ? `${files.length} archivos añadidos` : "Archivo añadido");
     }
-    const borrarDoc = (d) => { store.documentos = store.documentos.filter((x) => x.id !== d.id); addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`); toast("Documento eliminado"); };
+    const borrarDoc = async (d) => { if (!(await pedirConfirmacion({ titulo: "¿Eliminar este documento?", texto: `«${d.nombre}» dejará de estar en la ficha.`, boton: "Eliminar" }))) return; store.documentos = store.documentos.filter((x) => x.id !== d.id); addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`); toast("Documento eliminado"); };
     const tam = (kb) => (kb >= 1024 ? (kb / 1024).toFixed(1).replace(".", ",") + " MB" : kb + " KB");
 
     // --- Notas internas ---
@@ -113,7 +113,7 @@ export default {
       const archivo = ev.target.files[0]; ev.target.value = "";
       try { c.value.foto = await leerFoto(archivo); addHist(c.value.id, "documento", "Foto de perfil actualizada"); toast("Foto actualizada"); } catch (e) { toast(e.message, "error"); }
     };
-    const quitarFoto = () => { c.value.foto = ""; toast("Foto eliminada"); };
+    const quitarFoto = async () => { if (!(await pedirConfirmacion({ titulo: "¿Quitar la foto?", texto: "Se mostrarán las iniciales en su lugar. Podrás subir otra cuando quieras.", boton: "Quitar foto" }))) return; c.value.foto = ""; toast("Foto eliminada"); };
 
     return { falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
