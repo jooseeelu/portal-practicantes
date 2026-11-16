@@ -191,3 +191,14 @@
 
 /* Visor del currículum: la primera página ocupa todo el cuadro, sin el visor interno del navegador */
 .visor-area.visor-real { height: min(84vh, 1040px); min-height: 520px; }
+
+/* Lectura del currículum con IA */
+.ia-fila { display: flex; align-items: flex-start; gap: 12px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 14px; cursor: pointer; }
+.ia-fila:has(input:checked) { border-color: var(--gold-500); background: var(--gold-bg); }
+.ia-fila input { margin-top: 4px; width: 17px; height: 17px; accent-color: var(--gold-500); flex: none; }
+.ia-fila small { display: block; font-size: 11.5px; color: var(--text-600); }
+.ia-fila b { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.ia-fila .ia-antes { margin-top: 2px; color: var(--text-400); }
+.ia-barra { width: 150px; height: 3px; background: var(--border); overflow: hidden; position: relative; margin-bottom: 6px; }
+.ia-barra i { position: absolute; inset: 0 auto 0 0; width: 40%; background: var(--gold-500); animation: ia-carga 1.1s cubic-bezier(.45,0,.55,1) infinite; }
+@keyframes ia-carga { from { transform: translateX(-100%); } to { transform: translateX(250%); } }

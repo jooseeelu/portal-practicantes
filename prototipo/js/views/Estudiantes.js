@@ -51,7 +51,7 @@ export default {
           <td><div class="who"><Avatar :nombre="f.c.nombre" :apellidos="f.c.apellidos" /><div><b>{{ nombreCompleto(f.c) }}</b><small>{{ f.c.titulacion }}</small></div></div></td>
           <td>{{ centroDe(f.e.centroId)?.nombre || '—' }}</td>
           <td><Chip :texto="f.est" :c="COLOR[f.est][0]" :cd="COLOR[f.est][1]" /></td>
-          <td class="nowrap"><b>{{ f.turno === 'Tarde' ? 'Tarde 1' : f.turno }}</b> <span class="sub">{{ f.e.horaIni }}–{{ f.e.horaFin }}</span></td>
+          <td class="nowrap"><b>{{ f.turno === 'Mañana' ? 'Mañana' : 'Tarde' }}</b> <span class="sub">{{ f.e.horaIni }}–{{ f.e.horaFin }}</span></td>
           <td class="nowrap">{{ fCorta(f.e.inicio) }} → {{ fCorta(f.e.fin) }}</td>
           <td><div class="avance"><span><i :style="{width: f.pct+'%'}"></i></span><small v-if="f.est==='En curso'" :class="{urge: f.quedan<=14}">{{ f.quedan<=14 ? 'Termina ' + relativo(f.e.fin) : f.pct + ' %' }}</small><small v-else-if="f.est==='Prevista'">Empieza {{ relativo(f.e.inicio) }}</small><small v-else>Completadas</small></div></td>
           <td class="nowrap">{{ f.e.horas }} h</td><td><span v-if="f.e.tutor">{{ f.e.tutor }}</span><span v-else class="muted">Sin tutor</span></td>
@@ -70,7 +70,7 @@ export default {
         <span class="right leyenda"><span><i style="background:var(--cyan)"></i>En curso</span><span><i class="dash"></i>Incorporación prevista</span><span class="sub">Aforo: {{ store.aforo['Mañana'] }} mañana · {{ store.aforo['Tarde'] }} tarde 1 · {{ store.aforo['Tarde 2'] }} tarde 2 (editable en Ajustes)</span></span>
       </div>
       <div class="cuad">
-        <div class="cuad-head"><span></span><span>Mañana <small>{{ store.turnosDef['Mañana'].ini }}–{{ store.turnosDef['Mañana'].fin }}</small></span><span>Tarde 1 <small>{{ store.turnosDef['Tarde'].ini }}–{{ store.turnosDef['Tarde'].fin }}</small></span><span>Tarde 2 <small>{{ store.turnosDef['Tarde 2'].ini }}–{{ store.turnosDef['Tarde 2'].fin }}</small></span></div>
+        <div class="cuad-head"><span></span><span>Mañana <small>{{ store.turnosDef['Mañana'].ini }}–{{ store.turnosDef['Mañana'].fin }}</small></span><span>Tarde <small>{{ store.turnosDef['Tarde'].ini }}–{{ store.turnosDef['Tarde'].fin }}</small></span><span>Tarde <small>{{ store.turnosDef['Tarde 2'].ini }}–{{ store.turnosDef['Tarde 2'].fin }}</small></span></div>
         <div v-for="f in cuadrante" :key="f.d" class="cuad-fila" :class="{hoy: f.hoy, lunes: f.lunes}">
           <div class="cuad-dia"><small>{{ diaCorto(f.d) }}</small><b>{{ diaNum(f.d) }}</b><span v-if="f.hoy">hoy</span></div>
           <div v-for="t in [f.M, f.T, f.T2]" class="cuad-celda" :class="{pasa: t.pasa, lleno: t.lleno}">

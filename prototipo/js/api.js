@@ -146,4 +146,15 @@ export async function urlArchivo(doc, { descargar = false } = {}) {
   }
   return `api/files/archivos/${doc.archivoId}/${encodeURIComponent(doc.archivo)}?token=${tokenArchivos.valor}${descargar ? "&download=1" : ""}`;
 }
+/** Lectura del currículum con IA (n8n + OpenAI). Devuelve una PROPUESTA de datos: no guarda nada. */
+const URL_LEER_CV = "https://n8n.gestoriainnova.com/webhook/practicas-leer-cv";
+export async function leerCurriculum(archivoId) {
+  let r;
+  try {
+    r = await fetch(URL_LEER_CV, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archivoId, token: sesion.token, entorno: sesion.entorno }) });
+  } catch { throw new ErrorApi(0, "No se pudo conectar con el servicio de lectura. Prueba de nuevo en un momento."); }
+  let d = null; try { d = await r.json(); } catch { /* sin cuerpo */ }
+  if (!r.ok || !d?.ok) throw new ErrorApi(r.status, d?.mensaje || "No se pudo leer el currículum. Rellena los datos a mano o prueba de nuevo.", d);
+  return d; // { datos, avisos }
+}
 export const borrarArchivo = (id) => pedir("DELETE", `api/collections/archivos/records/${id}`);

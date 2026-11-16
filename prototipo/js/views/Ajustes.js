@@ -235,11 +235,10 @@ export default {
 
       <div v-else class="card-pad">
         <div class="integ">
-          <div class="caja"><div class="row"><Ic n="sync" /><h3>Notion</h3><span class="notion right">Conectado (simulado)</span></div><p class="sub">Sincronización bidireccional de la agenda de entrevistas: lo que se rellena aquí aparece en Notion y al revés.</p></div>
+          <div class="caja"><div class="row"><Ic n="sync" /><h3>Notion</h3><span class="tag right">En preparación</span></div><p class="sub">Sincronización bidireccional de la agenda de entrevistas: lo que se rellena aquí aparece en Notion y al revés.</p></div>
           <div class="caja"><div class="row"><Ic n="whatsapp" /><h3>WhatsApp</h3><span class="tag right">Siguiente fase</span></div><p class="sub">API oficial de Meta a través de Chatwoot y n8n, como en el CRM: convocatorias, recordatorios de entrevista y avisos de incorporación con plantillas.</p></div>
           <div class="caja"><div class="row"><Ic n="mail" /><h3>Correo</h3><span class="tag right">Siguiente fase</span></div><p class="sub">Envío desde la ficha con plantillas y entrada automática de currículums que llegan por correo.</p></div>
-          <div class="caja"><div class="row"><Ic n="calendario" /><h3>Google Calendar</h3><span class="tag right">Más adelante</span></div><p class="sub">Las entrevistas en el calendario de cada persona responsable.</p></div>
-          <div class="caja"><div class="row"><Ic n="sparkles" /><h3>Lectura de currículums con IA</h3><span class="tag right">Más adelante</span></div><p class="sub">Propuesta de datos a partir del PDF, siempre con revisión humana antes de guardar.</p></div>
+          <div class="caja"><div class="row"><Ic n="sparkles" /><h3>Lectura de currículums con IA</h3><span class="tag right" style="background:var(--success-bg);color:var(--ok-dark)">Activa</span></div><p class="sub">En la pestaña Currículum de cada ficha: propone los datos a partir del PDF y una persona elige qué se guarda. El archivo se envía a OpenAI solo para leerlo.</p></div>
           <div class="caja"><div class="row"><Ic n="pencil" /><h3>Convenios y firma</h3><span class="tag right">Más adelante</span></div><p class="sub">Generación del convenio desde la ficha y firma electrónica.</p></div>
         </div>
       </div>

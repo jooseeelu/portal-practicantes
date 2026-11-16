@@ -36,3 +36,46 @@ export const deMin = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 export const turnoDe = (horaIni) => (aMin(horaIni) < 14 * 60 ? "Mañana" : aMin(horaIni) < 15.5 * 60 ? "Tarde" : "Tarde 2");
 export const hash = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
 export const slug = (s) => normal(s).replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "");
+
+// --- Días laborables: la oficina no hace entrevistas en fin de semana ---
+export const esFinde = (s) => { if (!s) return false; const d = aDate(s).getDay(); return d === 0 || d === 6; };
+/** Si la fecha cae en sábado o domingo, devuelve el lunes siguiente. */
+export const laborable = (s) => { let f = s; while (esFinde(f)) f = dia(1, f); return f; };
+
+// --- Enlaces de contacto ---
+/** Teléfono en formato internacional para wa.me (España por defecto si son 9 cifras). */
+export const telWhatsApp = (tel) => { const d = String(tel || "").replace(/[^0-9]/g, ""); return d.length === 9 ? "34" + d : d.replace(/^00/, ""); };
+export const urlWhatsApp = (tel, texto = "") => { const n = telWhatsApp(tel); return n.length >= 10 ? "https://wa.me/" + n + (texto ? "?text=" + encodeURIComponent(texto) : "") : ""; };
+
+// --- Descargas hechas en el navegador ---
+export function descargarBlob(blob, nombre) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+/** CSV que Excel abre bien en español: separador «;», comillas dobles y marca UTF-8. */
+export function descargarCsv(nombre, cabeceras, filas) {
+  const celda = (v) => { let t = v == null ? "" : String(v); if (/^[=+\-@]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; };
+  const texto = [cabeceras, ...filas].map((f) => f.map(celda).join(";")).join("\r\n");
+  descargarBlob(new Blob(["\uFEFF" + texto], { type: "text/csv;charset=utf-8" }), nombre);
+}
+let TABLA_CRC = null;
+function crc32(b) {
+  if (!TABLA_CRC) { TABLA_CRC = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; TABLA_CRC[n] = c >>> 0; } }
+  let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = TABLA_CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0;
+}
+/** ZIP sin compresión (los PDF e imágenes ya van comprimidos). archivos: [{ nombre, datos: Uint8Array }]. */
+export function crearZip(archivos) {
+  const enc = new TextEncoder(), partes = [], central = []; let pos = 0;
+  const ahora = new Date(), hora = (ahora.getHours() << 11) | (ahora.getMinutes() << 5) | (ahora.getSeconds() >> 1), fecha = ((ahora.getFullYear() - 1980) << 9) | ((ahora.getMonth() + 1) << 5) | ahora.getDate();
+  for (const a of archivos) {
+    const nom = enc.encode(a.nombre), crc = crc32(a.datos), n = a.datos.length;
+    const cab = new DataView(new ArrayBuffer(30)); cab.setUint32(0, 0x04034b50, true); cab.setUint16(4, 20, true); cab.setUint16(6, 0x0800, true); cab.setUint16(8, 0, true); cab.setUint16(10, hora, true); cab.setUint16(12, fecha, true); cab.setUint32(14, crc, true); cab.setUint32(18, n, true); cab.setUint32(22, n, true); cab.setUint16(26, nom.length, true); cab.setUint16(28, 0, true);
+    partes.push(new Uint8Array(cab.buffer), nom, a.datos);
+    const cen = new DataView(new ArrayBuffer(46)); cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true); cen.setUint16(10, 0, true); cen.setUint16(12, hora, true); cen.setUint16(14, fecha, true); cen.setUint32(16, crc, true); cen.setUint32(20, n, true); cen.setUint32(24, n, true); cen.setUint16(28, nom.length, true); cen.setUint32(42, pos, true);
+    central.push(new Uint8Array(cen.buffer), nom);
+    pos += 30 + nom.length + n;
+  }
+  const tamCentral = central.reduce((s, x) => s + x.length, 0);
+  const fin = new DataView(new ArrayBuffer(22)); fin.setUint32(0, 0x06054b50, true); fin.setUint16(8, archivos.length, true); fin.setUint16(10, archivos.length, true); fin.setUint32(12, tamCentral, true); fin.setUint32(16, pos, true);
+  return new Blob([...partes, ...central, new Uint8Array(fin.buffer)], { type: "application/zip" });
+}
