@@ -57,7 +57,7 @@ const App = {
   template: `
   <div class="shell">
     <aside class="side" :class="{open: menu}">
-      <div class="brand"><div class="brand-logo">P</div><div><b>Portal de prácticas</b><span>Prototipo</span></div></div>
+      <div class="brand"><img class="brand-logo" src="img/logo-g.svg" alt="" /><div><b>Gestoría eMadrid</b><span>Portal de prácticas</span></div></div>
       <nav class="nav">
         <a v-for="n in nav" :key="n.k" :class="{on: activo===n.k}" @click="ir(n.k)"><Ic :n="n.i" />{{ n.t }}<span v-if="n.b" class="badge" :class="{am: n.am}" :title="n.bt">{{ n.b }}</span></a>
         <div class="nav-label">Sistema</div>
