@@ -100,34 +100,6 @@ export function registrar(accion, detalle = "") {
   pedir("POST", "api/collections/accesos/records", { usuario: sesion.usuario.id, nombre: miNombre(), accion, detalle }).catch(() => {});
 }
 
-// --- Archivos (currículums, convenios…) ---
-export const MAX_ARCHIVO_MB = 15;
-export async function subirArchivo(archivo, docId, candId) {
-  const f = new FormData();
-  f.append("archivo", archivo); f.append("docId", String(docId)); f.append("candId", String(candId));
-  let r;
-  try { r = await fetch("api/collections/archivos/records", { method: "POST", headers: { Authorization: sesion.token }, body: f }); }
-  catch { throw new ErrorApi(0, "No se pudo conectar con el servidor. Revisa tu conexión."); }
-  let d = null; try { d = await r.json(); } catch { /* sin cuerpo */ }
-  if (!r.ok) throw new ErrorApi(r.status, mensajeDe(r.status, d), d);
-  return d; // { id, archivo (nombre guardado) }
-}
-export const borrarArchivo = (id) => pedir("DELETE", `api/collections/archivos/records/${id}`).catch(() => {});
-/** Enlace temporal (unos minutos) para abrir un archivo privado. */
-export async function urlArchivo(d, descargar = false) {
-  const t = await pedir("POST", "api/files/token");
-  return `api/files/archivos/${d.archivoId}/${encodeURIComponent(d.archivo)}?token=${t.token}${descargar ? "&download=1" : ""}`;
-}
-/** Abre (o descarga) el archivo de un documento y lo anota en el registro de acciones. */
-export async function abrirArchivo(d, descargar = false) {
-  const ventana = descargar ? null : window.open("", "_blank");
-  try {
-    const url = await urlArchivo(d, descargar);
-    registrar(descargar ? "Descargó un documento" : "Abrió un documento", d.nombre);
-    if (ventana) { ventana.opener = null; ventana.location.href = url; } else location.href = url;
-  } catch (e) { if (ventana) ventana.close(); throw e; }
-}
-
 // --- Equipo ---
 export const listarEquipo = async () => (await pedir("GET", "api/collections/users/records?perPage=500&sort=name&skipTotal=1")).items;
 export const crearPersona = (p) => pedir("POST", "api/collections/users/records", { ...p, passwordConfirm: p.password, emailVisibility: true, verified: true });
