@@ -7,7 +7,7 @@ import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA } from "../data.js";
 import { HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal, esFinde, urlWhatsApp } from "../util.js";
 
 const H0 = 10, H1 = 20, PX = 64, DUR = 45; // horario visible, píxeles por hora y duración de una entrevista
-const estado = reactive({ vista: "calendario", semana: lunesDe(dia(3)), fEstado: "", fQuien: "", q: "" });
+const estado = reactive({ vista: "calendario", semana: lunesDe(dia(3)), fEstado: "", fQuien: "", q: "", orden: { col: "fecha", dir: "desc" } });
 
 export default {
   components: { OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio },
@@ -37,9 +37,18 @@ export default {
     const lista = computed(() => {
       const n = normal(s.q);
       return filtradas.value.filter((e) => (!s.fEstado || e.estado === s.fEstado) && (!n || normal(nombreCompleto(candDe(e.candId))).includes(n)))
-        .sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
+        .sort((a, b) => {
+          const v = (e) => {
+            const c = candDe(e.candId);
+            return s.orden.col === "cand" ? normal(nombreCompleto(c)) : s.orden.col === "centro" ? normal(centroDe(c.centroId)?.nombre || "Autopostulado") : s.orden.col === "resp" ? normal(e.entrevistador || "zzz") : s.orden.col === "estado" ? e.estado : s.orden.col === "nota" ? String(c.nota ?? -1).padStart(5, "0") : e.fecha + e.hora;
+          };
+          const r = v(a).localeCompare(v(b)) || (a.fecha + a.hora).localeCompare(b.fecha + b.hora);
+          return s.orden.dir === "asc" ? r : -r;
+        });
     });
-    const cuentas = computed(() => Object.keys(ESTADOS_CITA).map((k) => ({ k, n: filtradas.value.filter((e) => e.estado === k).length, ...ESTADOS_CITA[k] })));
+    const ordenar = (col) => { s.orden = s.orden.col === col ? { col, dir: s.orden.dir === "asc" ? "desc" : "asc" } : { col, dir: col === "fecha" ? "desc" : "asc" }; };
+    const flecha = (col) => (s.orden.col === col ? (s.orden.dir === "asc" ? "▲" : "▼") : "↕");
+    const cuentas = computed(() => Object.keys(ESTADOS_CITA).map((k) => ({ ...ESTADOS_CITA[k], k, n: filtradas.value.filter((e) => e.estado === k).length })));
 
     // Detalle de una cita
     const sel = ref(null);
@@ -61,6 +70,22 @@ export default {
       window.open(url, "_blank", "noopener"); addHist(c.id, "entrevista", "Recordatorio de la entrevista por WhatsApp"); registrar("Abrió WhatsApp para recordar una entrevista", nombreCompleto(c));
     };
 
+    // Menú contextual (clic derecho o mantener pulsado)
+    const menuDe = (e) => {
+      const c = candDe(e.candId), abierta = !["Cancelada", "Realizada"].includes(e.estado);
+      return { titulo: nombreCompleto(c) + " · " + fCorta(e.fecha) + " " + e.hora, items: [
+        { t: "Ver la cita", i: "eye", f: () => { sel.value = e; } },
+        { t: "Abrir la ficha", i: "user", f: () => go("candidato/" + c.id) },
+        { sep: true },
+        { t: "Confirmar", i: "check", oculto: !abierta || e.estado === "Confirmada", f: () => { sel.value = e; confirmar(); sel.value = null; } },
+        { t: "Reprogramar", i: "calendario", oculto: !abierta, f: () => { sel.value = e; abrirReprog(); } },
+        { t: "Recordar por WhatsApp", i: "whatsapp", oculto: !abierta, f: () => { sel.value = e; recordar(); sel.value = null; } },
+        { t: "Marcar como realizada y valorar", i: "star", oculto: !abierta, f: () => { sel.value = e; valorar(); } },
+        { sep: true, oculto: !abierta },
+        { t: "Cancelar la cita", i: "trash", peligro: true, oculto: !abierta, f: async () => { sel.value = e; await cancelar(); sel.value = null; } },
+      ] };
+    };
+
     // Nueva cita
     const nueva = reactive({ abierto: false, candId: "", fecha: dia(3), hora: "10:30", modalidad: "Presencial", entrevistador: "" });
     const opCands = computed(() => store.candidatos.filter((c) => ["pendiente-revision", "pendiente-entrevista"].includes(c.estado)).map((c) => ({ valor: c.id, etiqueta: `${nombreCompleto(c)} · ${centroDe(c.centroId)?.nombre || "Autopostulado"}` })));
@@ -69,7 +94,7 @@ export default {
     const clicHueco = (d, ev) => { const y = ev.offsetY; const m = Math.round(((y / PX) * 60) / 15) * 15 + H0 * 60; abrirNueva(d, deMin(Math.min(m, H1 * 60))); };
     const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); if (esFinde(nueva.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
 
-    return { s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    return { menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
@@ -97,7 +122,7 @@ export default {
           <div class="cal-dhead"><small>{{ diaCorto(col.d) }}</small><b>{{ diaNum(col.d) }}</b><span v-if="col.citas.length">{{ col.citas.length }} citas</span></div>
           <div class="cal-cuerpo" :style="{height: (horas.length-1)*PX+'px'}" @click.self="clicHueco(col.d, $event)" title="Haz clic en un hueco para programar">
             <i v-for="h in horas.length-1" :key="h" class="cal-linea" :style="{top: (h-1)*PX+'px'}"></i>
-            <button v-for="x in col.citas" :key="x.e.id" class="cita" :class="'c-'+x.e.estado" :style="{top: x.top+'px', height: x.alto+'px', left: 'calc('+x.izq+'% + 3px)', width: 'calc('+x.ancho+'% - 6px)', '--c': ESTADOS_CITA[x.e.estado].c}" @click="sel=x.e">
+            <button v-for="x in col.citas" :key="x.e.id" class="cita" :class="'c-'+x.e.estado" :style="{top: x.top+'px', height: x.alto+'px', left: 'calc('+x.izq+'% + 3px)', width: 'calc('+x.ancho+'% - 6px)', '--c': ESTADOS_CITA[x.e.estado].c}" @click="sel=x.e" v-ctx="() => menuDe(x.e)">
               <b>{{ x.e.hora }} · {{ nombreCompleto(candDe(x.e.candId)) }}</b>
               <small><Ic :n="x.e.modalidad==='Online' ? 'video' : 'pin'" :s="11" />{{ x.e.entrevistador || "Sin asignar" }}</small>
             </button>
@@ -111,11 +136,11 @@ export default {
       <div class="barra-filtros">
         <div class="buscar"><Ic n="search" :s="16" /><input class="inp" v-model="s.q" placeholder="Buscar candidato…" /></div>
         <button class="pill" :class="{on: !s.fEstado}" @click="s.fEstado=''">Todas</button>
-        <button v-for="c in cuentas" :key="c.k" class="pill" :class="{on: s.fEstado===c.k}" @click="s.fEstado = s.fEstado===c.k ? '' : c.k">{{ c.k }} <b>{{ c.n }}</b></button>
+        <button v-for="c in cuentas" :key="c.k" class="pill" :class="{on: s.fEstado===c.k}" @click="s.fEstado = s.fEstado===c.k ? '' : c.k"><i class="punto" :style="{background: c.c}"></i>{{ c.k }} <b>{{ c.n }}</b></button>
       </div>
       <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Fecha y hora</th><th>Candidato</th><th>Centro</th><th>Modalidad</th><th>Responsable</th><th>Estado de la cita</th><th>Valoración</th><th>Observaciones</th></tr></thead>
-        <tbody><tr v-for="e in lista" :key="e.id" @click="sel=e">
+        <thead><tr><th v-for="h in [['fecha','Fecha y hora'],['cand','Candidato'],['centro','Centro'],[null,'Modalidad'],['resp','Responsable'],['estado','Estado de la cita'],['nota','Valoración'],[null,'Observaciones']]" :key="h[1]" :class="h[0] ? {ordenable: true, activa: s.orden.col===h[0]} : ''" @click="h[0] && ordenar(h[0])" :title="h[0] ? 'Ordenar por ' + h[1].toLowerCase() : ''">{{ h[1] }}<span v-if="h[0]" class="flecha">{{ flecha(h[0]) }}</span></th></tr></thead>
+        <tbody><tr v-for="e in lista" :key="e.id" @click="sel=e" v-ctx="() => menuDe(e)">
           <td class="nowrap"><b>{{ fCorta(e.fecha) }}</b> <span class="sub">{{ e.hora }}</span></td>
           <td><div class="who"><Avatar :nombre="candDe(e.candId).nombre" :apellidos="candDe(e.candId).apellidos" :s="30" /><b>{{ nombreCompleto(candDe(e.candId)) }}</b></div></td>
           <td>{{ centroDe(candDe(e.candId).centroId)?.nombre || 'Autopostulado' }}</td>

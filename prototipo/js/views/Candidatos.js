@@ -4,7 +4,7 @@ import { ruta, go } from "../router.js";
 import { registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
-import { normal, descargarCsv, fCorta, HOY_ISO, dia } from "../util.js";
+import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
 export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", notaMin: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
@@ -88,7 +88,13 @@ export default {
       alta.value = false;
       go("candidato/" + id);
     }
-    return { ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+
+    const menuCand = (c) => ({ titulo: nombreCompleto(c), items: [
+      { t: "Abrir la ficha", i: "user", f: () => go("candidato/" + c.id) },
+      { t: "Escribir por WhatsApp", i: "whatsapp", f: () => { const u = urlWhatsApp(c.tel, ""); if (!u) return toast("Esta persona no tiene un teléfono válido en su ficha.", "error"); window.open(u, "_blank", "noopener"); registrar("Abrió WhatsApp", nombreCompleto(c)); } },
+      { t: "Enviar un correo", i: "mail", f: () => { if (!c.email) return toast("Esta persona no tiene correo en su ficha.", "error"); window.location.href = "mailto:" + c.email; registrar("Abrió el correo", nombreCompleto(c)); } },
+    ] });
+    return { menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       alta, n, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -134,7 +140,7 @@ export default {
             <th title="Currículum adjunto">CV</th><th>Observaciones</th>
           </tr></thead>
           <tbody>
-            <tr v-for="c in lista" :key="c.id" @click="go('candidato/'+c.id)">
+            <tr v-for="c in lista" :key="c.id" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
               <td><div class="who"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" /><div><b>{{ c.nombre }} {{ c.apellidos }}</b><small>{{ c.email }} · {{ c.tel }}</small></div></div></td>
               <td>{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</td>
               <td><div class="cell-clip" :title="c.titulacion">{{ c.titulacion }}</div></td>
@@ -153,7 +159,7 @@ export default {
 
       <!-- TARJETAS -->
       <div v-else-if="f.vista==='tarjetas'" class="cands-grid">
-        <button v-for="c in lista" :key="c.id" class="cand-card" @click="go('candidato/'+c.id)">
+        <button v-for="c in lista" :key="c.id" class="cand-card" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
           <div class="row"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="44" /><div class="grow" style="text-align:left"><b>{{ c.nombre }} {{ c.apellidos }}</b><div class="sub">{{ c.titulacion }}</div></div></div>
           <div class="cand-meta"><span><Ic n="centros" :s="14" />{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</span><span><Ic n="clock" :s="14" />{{ etiquetaTurno(c.turno) }}{{ c.horas ? ' · ' + c.horas + ' h' : '' }}</span></div>
           <div v-if="(c.pros && c.pros.length) || (c.contras && c.contras.length)" class="pc-mini"><span class="pro" :title="(c.pros || []).join(' · ')"><Ic n="plus" :s="12" />{{ (c.pros || []).length }} a favor</span><span class="con" :title="(c.contras || []).join(' · ')"><Ic n="minus" :s="12" />{{ (c.contras || []).length }} en contra</span></div>

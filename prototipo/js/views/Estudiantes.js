@@ -2,7 +2,9 @@ import { computed, reactive } from "vue";
 import { store, candDe, centroDe, nombreCompleto, estadoPracticas, turnoEstudiante, etiquetaTurno } from "../store.js";
 import { ruta, go } from "../router.js";
 import { Ic, Chip, Avatar, Vacio } from "../ui.js";
-import { HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
+import { registrar } from "../api.js";
+import { toast } from "../store.js";
+import { urlWhatsApp, HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
 
 const COLOR = { "En curso": ["var(--cyan)", "var(--cyan-dark)"], Prevista: ["var(--gold-500)", "var(--gold-700)"], Finalizada: ["var(--text-400)", "var(--text-600)"] };
 const estado = reactive({ semana: lunesDe(HOY_ISO), filtro: "activos" });
@@ -29,7 +31,13 @@ export default {
     const cuadrante = computed(() => diasCuad.value.map((d) => ({ d, hoy: d === HOY_ISO, lunes: diaCorto(d) === "Lun", M: celda(d, "Mañana"), T: celda(d, "Tarde"), T2: celda(d, "Tarde 2") })));
     const excesos = computed(() => cuadrante.value.filter((f) => f.M.pasa || f.T.pasa || f.T2.pasa).length);
     const mover = (n) => { s.semana = n === 0 ? lunesDe(HOY_ISO) : dia(n * 7, s.semana); };
-    return { etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
+
+    const menuCand = (c) => ({ titulo: nombreCompleto(c), items: [
+      { t: "Abrir la ficha", i: "user", f: () => go("candidato/" + c.id) },
+      { t: "Escribir por WhatsApp", i: "whatsapp", f: () => { const u = urlWhatsApp(c.tel, ""); if (!u) return toast("Esta persona no tiene un teléfono válido en su ficha.", "error"); window.open(u, "_blank", "noopener"); registrar("Abrió WhatsApp", nombreCompleto(c)); } },
+      { t: "Enviar un correo", i: "mail", f: () => { if (!c.email) return toast("Esta persona no tiene correo en su ficha.", "error"); window.location.href = "mailto:" + c.email; registrar("Abrió el correo", nombreCompleto(c)); } },
+    ] });
+    return { menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
   },
   template: `
   <div class="page">
@@ -47,7 +55,7 @@ export default {
       </div>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>Estudiante</th><th>Centro</th><th>Estado</th><th>Turno y horario</th><th>Periodo</th><th style="min-width:130px">Avance</th><th>Horas</th><th>Tutor</th><th>Convenio</th></tr></thead>
-        <tbody><tr v-for="f in filas" :key="f.e.candId" @click="go('candidato/'+f.e.candId)">
+        <tbody><tr v-for="f in filas" :key="f.e.candId" @click="go('candidato/'+f.e.candId)" v-ctx="() => menuCand(f.c)">
           <td><div class="who"><Avatar :nombre="f.c.nombre" :apellidos="f.c.apellidos" /><div><b>{{ nombreCompleto(f.c) }}</b><small>{{ f.c.titulacion }}</small></div></div></td>
           <td>{{ centroDe(f.e.centroId)?.nombre || '—' }}</td>
           <td><Chip :texto="f.est" :c="COLOR[f.est][0]" :cd="COLOR[f.est][1]" /></td>

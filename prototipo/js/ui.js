@@ -1,4 +1,4 @@
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { store, estadoDe } from "./store.js";
 import { iniciales, hash, normal } from "./util.js";
 
@@ -268,4 +268,60 @@ export const OpcionesPersonas = {
     return { grupos, huerfano };
   },
   template: `<option v-if="huerfano" :value="huerfano">{{ prefijo }}{{ huerfano }}</option><optgroup v-for="[g, lista] in grupos" :key="g" :label="g"><option v-for="n in lista" :key="n" :value="n">{{ prefijo }}{{ n }}</option></optgroup>`,
+};
+
+/* ---------- Menú contextual: clic derecho (ordenador) o mantener pulsado (móvil) ---------- */
+export const menuCtx = reactive({ abierto: false, x: 0, y: 0, titulo: "", items: [] });
+let ultimaApertura = 0;
+export function abrirMenu(x, y, items, titulo = "") {
+  const l = items.filter((i) => i && !i.oculto);
+  if (!l.length) return;
+  Object.assign(menuCtx, { abierto: true, x, y, titulo, items: l });
+  ultimaApertura = Date.now();
+}
+export const cerrarMenu = () => { menuCtx.abierto = false; };
+
+/** v-ctx="() => [{ t: 'Texto', i: 'icono', f: () => …, peligro: true }, { sep: true }]" */
+export const vCtx = {
+  mounted(el, b) {
+    el._ctx = b.value; el.setAttribute("data-ctx", "");
+    let t = null, x0 = 0, y0 = 0, disparado = 0;
+    const abrir = (x, y) => { const f = el._ctx; const it = typeof f === "function" ? f() : f; const l = it && it.items ? it.items : it; if (l && l.length) { abrirMenu(x, y, l, (it && it.titulo) || ""); disparado = Date.now(); try { navigator.vibrate?.(12); } catch (_) { /* sin vibración */ } } };
+    const ini = (e) => { if (e.touches.length !== 1) return; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; clearTimeout(t); t = setTimeout(() => abrir(x0, y0), 450); };
+    const mueve = (e) => { const p = e.touches[0]; if (p && Math.hypot(p.clientX - x0, p.clientY - y0) > 10) clearTimeout(t); };
+    const fin = () => clearTimeout(t);
+    const derecho = (e) => { e.preventDefault(); if (Date.now() - disparado < 900) return; abrir(e.clientX, e.clientY); };
+    const clic = (e) => { if (Date.now() - disparado < 700) { e.preventDefault(); e.stopPropagation(); } };
+    el.addEventListener("touchstart", ini, { passive: true });
+    el.addEventListener("touchmove", mueve, { passive: true });
+    el.addEventListener("touchend", fin); el.addEventListener("touchcancel", fin);
+    el.addEventListener("contextmenu", derecho);
+    el.addEventListener("click", clic, true);
+    el._ctxLimpiar = () => { clearTimeout(t); el.removeEventListener("touchstart", ini); el.removeEventListener("touchmove", mueve); el.removeEventListener("touchend", fin); el.removeEventListener("touchcancel", fin); el.removeEventListener("contextmenu", derecho); el.removeEventListener("click", clic, true); };
+  },
+  updated(el, b) { el._ctx = b.value; },
+  unmounted(el) { el._ctxLimpiar?.(); },
+};
+
+export const MenuCtx = {
+  components: { Ic },
+  setup() {
+    const caja = ref(null); const pos = reactive({ x: 0, y: 0 });
+    const tecla = (e) => { if (e.key === "Escape") cerrarMenu(); };
+    const fuera = (e) => { if (menuCtx.abierto && Date.now() - ultimaApertura > 350 && !caja.value?.contains(e.target)) cerrarMenu(); };
+    onMounted(() => { window.addEventListener("keydown", tecla); window.addEventListener("pointerdown", fuera, true); window.addEventListener("scroll", cerrarMenu, true); window.addEventListener("resize", cerrarMenu); });
+    onUnmounted(() => { window.removeEventListener("keydown", tecla); window.removeEventListener("pointerdown", fuera, true); window.removeEventListener("scroll", cerrarMenu, true); window.removeEventListener("resize", cerrarMenu); });
+    watch(() => menuCtx.abierto, async (a) => {
+      if (!a) return;
+      pos.x = menuCtx.x; pos.y = menuCtx.y; await nextTick();
+      const r = caja.value?.getBoundingClientRect(); if (!r) return;
+      pos.x = Math.max(8, Math.min(menuCtx.x, window.innerWidth - r.width - 8)); pos.y = Math.max(8, Math.min(menuCtx.y, window.innerHeight - r.height - 8));
+    });
+    const elegir = (i) => { cerrarMenu(); if (!i.desactivado) setTimeout(() => i.f?.(), 0); };
+    return { menuCtx, caja, pos, elegir, cerrarMenu };
+  },
+  template: `<Teleport to="body"><div v-if="menuCtx.abierto" class="ctx-bg" @contextmenu.prevent="cerrarMenu"><div ref="caja" class="ctx" role="menu" :style="{left: pos.x+'px', top: pos.y+'px'}">
+    <div v-if="menuCtx.titulo" class="ctx-tit">{{ menuCtx.titulo }}</div>
+    <template v-for="(i, n) in menuCtx.items" :key="n"><div v-if="i.sep" class="ctx-sep"></div>
+    <button v-else class="ctx-item" :class="{peligro: i.peligro}" :disabled="i.desactivado" role="menuitem" @click="elegir(i)"><Ic v-if="i.i" :n="i.i" :s="16" /><span>{{ i.t }}</span></button></template></div></div></Teleport>`,
 };
