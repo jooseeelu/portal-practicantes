@@ -1,7 +1,7 @@
 import { ref, reactive, computed, watch } from "vue";
 import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos } from "../store.js";
 import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria } from "../api.js";
-import { Ic, Chip, Avatar, Modal } from "../ui.js";
+import { Ic, Chip, Avatar, Modal, pedirConfirmacion } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
 import { slug, fCompleta, dia, HOY_ISO, iso, pad } from "../util.js";
 
@@ -11,7 +11,7 @@ export default {
   components: { Ic, Chip, Avatar, Modal },
   setup() {
     const tab = tabActual;
-    const tabs = [["estados", "Estados del proceso", "kanban"], ["turnos", "Turnos y aforo", "clock"], ["equipo", "Equipo y permisos", "candidatos"], ["datos", "Protección de datos", "shield"], ["integraciones", "Integraciones", "link"]];
+    const tabs = [["estados", "Estados del proceso", "kanban"], ["turnos", "Turnos y aforo", "clock"], ["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["datos", "Protección de datos", "shield"], ["integraciones", "Integraciones", "link"]];
     const usados = (k) => store.candidatos.filter((c) => c.estado === k).length;
     const mover = (i, d) => { const j = i + d; if (j < 0 || j >= store.estados.length) return; const a = store.estados; [a[i], a[j]] = [a[j], a[i]]; };
     const color = (e, col) => Object.assign(e, { col, c: COLORES[col].c, cd: COLORES[col].cd });
@@ -19,6 +19,24 @@ export default {
     const addEstado = () => { const n = nuevo.value.trim(); if (!n) return; store.estados.push({ k: slug(n).replace(/\./g, "-") + "-" + store.estados.length, c: COLORES.gris.c, cd: COLORES.gris.cd, n, col: "gris", activo: true }); nuevo.value = ""; toast("Estado añadido"); };
     const enServidor = computed(() => sesion.modo === "servidor");
     const admin = computed(() => esAdmin());
+
+    // --- Personas que entrevistan, tutorizan o llevan centros (no necesitan cuenta) ---
+    const GRUPOS = [{ k: "equipo", t: "Equipo de la gestoría", i: "briefcase" }, { k: "practicantes", t: "Practicantes", i: "estudiantes" }];
+    const nuevaP = reactive({ equipo: "", practicantes: "" });
+    const normalN = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const addPersona = (g) => {
+      const n = nuevaP[g].trim().replace(/\s+/g, " ");
+      if (!n) return;
+      const ya = [...store.personas.equipo, ...store.personas.practicantes].find((x) => normalN(x) === normalN(n));
+      if (ya) { toast(`«${ya}» ya está en la lista.`, "error"); return; }
+      store.personas[g].push(n); nuevaP[g] = ""; toast(`«${n}» añadido`);
+    };
+    const quitarPersona = async (g, i) => {
+      const n = store.personas[g][i];
+      if (!(await pedirConfirmacion({ titulo: `¿Quitar a ${n} de la lista?`, texto: "Dejará de salir en los desplegables y en el filtro de agendas. Las entrevistas, prácticas y centros que ya tiene asignados no cambian.", boton: "Quitar" }))) return;
+      store.personas[g].splice(i, 1);
+    };
+    const pasarA = (g, i) => { const otro = g === "equipo" ? "practicantes" : "equipo"; store.personas[otro].push(store.personas[g].splice(i, 1)[0]); };
 
     // --- Equipo ---
     const EQUIPO_DEMO = [
@@ -60,7 +78,7 @@ export default {
     // Tras crear una cuenta o poner una contraseña nueva, se enseña una sola vez para pasársela a la persona.
     const entrega = reactive({ abierto: false, nombre: "", email: "", password: "" });
     const nuevaClave = async (p) => {
-      if (!window.confirm(`¿Poner una contraseña nueva a ${p.name}? La actual dejará de valer.`)) return;
+      if (!(await pedirConfirmacion({ titulo: `¿Poner una contraseña nueva a ${p.name}?`, texto: "La contraseña actual dejará de valer en ese momento.", boton: "Poner contraseña nueva" }))) return;
       const password = claveAleatoria();
       try { await ponerClave(p.id, password); Object.assign(entrega, { abierto: true, nombre: p.name, email: p.email, password }); }
       catch (e) { toast(e.message, "error"); }
@@ -89,15 +107,15 @@ export default {
     // --- Datos de demostración (solo en el entorno de pruebas) ---
     const puedeDemo = computed(() => enServidor.value && sesion.entorno === "pruebas" && admin.value);
     const rellenarDemo = () => { try { localStorage.removeItem("emadrid-pruebas-vaciado"); } catch (_) {} cargarDemo(); toast("Datos de demostración cargados; se están guardando"); };
-    const vaciarTodo = () => {
-      if (!window.confirm("¿Borrar TODOS los datos de este entorno (candidatos, entrevistas, centros…)? No se puede deshacer.")) return;
+    const vaciarTodo = async () => {
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar TODOS los datos de este entorno?", texto: "Candidatos, entrevistas, centros y todo lo demás. No se puede deshacer.", boton: "Borrar todo" }))) return;
       try { localStorage.setItem("emadrid-pruebas-vaciado", "1"); } catch (_) {}
       vaciarDatos(); toast("Entorno vaciado");
     };
 
     const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "retirada"].includes(c.estado)).length);
     const demo = (m) => toast((enServidor.value ? "Todavía no disponible: " : "Demo: ") + m);
-    return { TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    return { GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
@@ -174,6 +192,25 @@ export default {
           </div>
           <template #pie><button class="btn btn-primary" @click="cerrarEntrega">Hecho</button></template>
         </Modal>
+      </div>
+
+      <div v-else-if="tab==='personas'" class="card-pad stack">
+        <p class="sub">Las personas que salen al elegir quién hace una entrevista, en el filtro «Agenda de…», en el tutor de unas prácticas y en quién lleva cada centro. No hace falta que tengan cuenta en el portal.</p>
+        <div v-if="!admin" class="aviso"><Ic n="lock" :s="16" /><span>Solo un administrador puede cambiar esta lista.</span></div>
+        <div class="personas-grid">
+          <div v-for="g in GRUPOS" :key="g.k" class="caja">
+            <div class="row"><Ic :n="g.i" /><h3>{{ g.t }}</h3><span class="tag right">{{ store.personas[g.k].length }}</span></div>
+            <div class="personas-lista">
+              <span v-for="(p, i) in store.personas[g.k]" :key="p" class="persona-chip">
+                <Avatar :nombre="p" apellidos="" :s="24" />{{ p }}
+                <button v-if="admin" class="x-mini" @click="pasarA(g.k, i)" :title="g.k==='equipo' ? 'Pasar a practicantes' : 'Pasar al equipo'" :aria-label="(g.k==='equipo' ? 'Pasar a practicantes a ' : 'Pasar al equipo a ') + p"><Ic n="sync" :s="11" /></button>
+                <button v-if="admin" class="x-mini" @click="quitarPersona(g.k, i)" :title="'Quitar a ' + p" :aria-label="'Quitar a ' + p"><Ic n="x" :s="11" /></button>
+              </span>
+              <span v-if="!store.personas[g.k].length" class="muted">Nadie todavía.</span>
+            </div>
+            <div v-if="admin" class="row"><input class="inp" v-model="nuevaP[g.k]" :placeholder="'Nombre…'" @keydown.enter="addPersona(g.k)" /><button class="btn" @click="addPersona(g.k)"><Ic n="plus" :s="15" />Añadir</button></div>
+          </div>
+        </div>
       </div>
 
       <div v-else-if="tab==='datos'" class="card-pad stack">

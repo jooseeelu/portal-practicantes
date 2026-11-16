@@ -25,6 +25,7 @@ export const ICONS = {
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  ojoNo: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
   check: '<path d="M20 6L9 17l-5-5"/>',
   x: '<path d="M18 6L6 18M6 6l12 12"/>',
@@ -217,4 +218,54 @@ export const Vacio = {
   props: { icono: { type: String, default: "search" }, titulo: String, texto: String },
   components: { Ic },
   template: `<div class="vacio-box"><Ic :n="icono" :s="30" /><b>{{ titulo }}</b><span>{{ texto }}</span><slot /></div>`,
+};
+
+// --- Confirmación antes de acciones arriesgadas (cancelar una cita, borrar, cerrar sesión…) ---
+// Uso:  if (!(await pedirConfirmacion({ titulo: "¿Cancelar la cita?", texto: "…", boton: "Cancelar la cita" }))) return;
+// El botón con el foco es «No, volver»: un Intro sin querer nunca ejecuta la acción.
+export const confirmacion = ref(null);
+export function pedirConfirmacion({ titulo = "¿Seguro?", texto = "", boton = "Confirmar", peligro = true } = {}) {
+  if (confirmacion.value) confirmacion.value.ok(false);
+  return new Promise((ok) => { confirmacion.value = { titulo, texto, boton, peligro, ok }; });
+}
+export const Confirmacion = {
+  components: { Ic },
+  setup() {
+    const volver = ref(null);
+    const responder = (si) => { const c = confirmacion.value; confirmacion.value = null; if (c) c.ok(si); };
+    const tecla = (e) => { if (confirmacion.value && e.key === "Escape") { e.stopPropagation(); responder(false); } };
+    watch(confirmacion, async (v) => { if (v) { await nextTick(); volver.value?.focus(); } });
+    onMounted(() => window.addEventListener("keydown", tecla, true));
+    onUnmounted(() => window.removeEventListener("keydown", tecla, true));
+    return { confirmacion, responder, volver };
+  },
+  template: `<Teleport to="body"><div v-if="confirmacion" class="modal-bg confirmar-bg" @mousedown.self="responder(false)">
+    <div class="modal confirmar" role="alertdialog" aria-modal="true" :aria-label="confirmacion.titulo">
+      <div class="confirmar-cuerpo"><span class="confirmar-ico" :class="{peligro: confirmacion.peligro}"><Ic :n="confirmacion.peligro ? 'alert' : 'info'" :s="22" /></span>
+        <div><h3>{{ confirmacion.titulo }}</h3><p v-if="confirmacion.texto">{{ confirmacion.texto }}</p></div></div>
+      <footer><button ref="volver" class="btn" @click="responder(false)">No, volver</button><button class="btn" :class="confirmacion.peligro ? 'btn-peligro' : 'btn-primary'" @click="responder(true)">{{ confirmacion.boton }}</button></footer>
+    </div></div></Teleport>`,
+};
+
+/** Campo de contraseña con el ojo para mostrarla u ocultarla. */
+export const CampoClave = {
+  props: { modelValue: { type: String, default: "" }, id: String, autocomplete: String, required: Boolean },
+  emits: ["update:modelValue"],
+  components: { Ic },
+  setup: () => ({ ver: ref(false) }),
+  template: `<div class="clave-campo"><input :id="id" class="inp" :type="ver ? 'text' : 'password'" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" :autocomplete="autocomplete" :required="required" spellcheck="false" autocapitalize="off" />
+    <button type="button" class="clave-ojo" @click="ver = !ver" :aria-pressed="ver" :aria-label="ver ? 'Ocultar contraseña' : 'Mostrar contraseña'" :title="ver ? 'Ocultar contraseña' : 'Mostrar contraseña'"><Ic :n="ver ? 'ojoNo' : 'eye'" :s="18" /></button></div>`,
+};
+
+/** Opciones de un <select> con las personas de Ajustes → Personas, en dos grupos.
+ *  Si la ficha tiene un nombre que ya no está en la lista, se sigue mostrando para no perderlo.
+ *  prefijo: texto delante del nombre (p. ej. «Agenda de »). */
+export const OpcionesPersonas = {
+  props: { actual: { type: String, default: "" }, prefijo: { type: String, default: "" } },
+  setup(p) {
+    const grupos = computed(() => [["Equipo de la gestoría", store.personas?.equipo || []], ["Practicantes", store.personas?.practicantes || []]]);
+    const huerfano = computed(() => p.actual && p.actual !== "Sin asignar" && !grupos.value.some(([, l]) => l.includes(p.actual)) ? p.actual : "");
+    return { grupos, huerfano };
+  },
+  template: `<option v-if="huerfano" :value="huerfano">{{ prefijo }}{{ huerfano }}</option><optgroup v-for="[g, lista] in grupos" :key="g" :label="g"><option v-for="n in lista" :key="n" :value="n">{{ prefijo }}{{ n }}</option></optgroup>`,
 };

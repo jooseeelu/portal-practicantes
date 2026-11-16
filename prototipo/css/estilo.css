@@ -155,3 +155,36 @@
 
 .avatar-vacio { --c: var(--text-400); background: var(--surface); border: 2px dashed var(--border-strong); color: var(--text-400); border-radius: 34%; }
 .foto-edit:hover .avatar-vacio { border-color: var(--gold-500); color: var(--gold-700); }
+
+/* Confirmación de acciones arriesgadas */
+.confirmar-bg { z-index: 150; }
+.confirmar { max-width: 440px; }
+.confirmar-cuerpo { display: flex; gap: 14px; padding: 22px 22px 12px; }
+.confirmar-cuerpo h3 { font-size: 19px; }
+.confirmar-cuerpo p { margin: 6px 0 0; color: var(--text-700); line-height: 1.5; }
+.confirmar-ico { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; background: var(--info-bg); color: var(--info-dark); }
+.confirmar-ico.peligro { background: var(--danger-bg); color: var(--err-dark); animation: late-peligro 1.6s ease-out 1; }
+.btn-peligro { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-peligro:hover { background: var(--err-dark); border-color: var(--err-dark); box-shadow: 0 8px 20px color-mix(in srgb, var(--danger) 35%, transparent); }
+@keyframes late-peligro { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+
+/* Contraseña con ojo para mostrarla u ocultarla */
+.clave-campo { position: relative; }
+.clave-campo .inp { padding-right: 46px; }
+.clave-ojo { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--text-600); }
+.clave-ojo:hover { background: var(--surface-alt); color: var(--text-900); }
+.clave-ojo:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 1px; }
+
+/* Visor de archivos reales */
+.visor-area.visor-real { padding: 0; display: block; background: var(--surface-alt); }
+.visor-real iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+.visor-real .visor-img { display: block; max-width: 100%; margin: 0 auto; }
+.visor-real .vacio-box, .visor-area > .vacio-box { height: 100%; justify-content: center; }
+
+/* Ajustes → Personas */
+.personas-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.personas-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+.persona-chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 6px 4px 4px; border-radius: 999px; background: var(--surface); border: var(--card-border); font-weight: 600; font-size: 13px; animation: pop .25s cubic-bezier(.2,.9,.3,1.2) backwards; }
+.persona-chip .x-mini { width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 50%; padding: 0; }
+.persona-chip .x-mini:hover { background: var(--surface-alt); color: var(--text-900); }
+@media (max-width: 760px) { .personas-grid { grid-template-columns: 1fr; } }

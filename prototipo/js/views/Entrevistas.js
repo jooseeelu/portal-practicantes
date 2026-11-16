@@ -2,7 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast } from "../store.js";
 import { go } from "../router.js";
 import { miNombre } from "../api.js";
-import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio } from "../ui.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA } from "../data.js";
 import { HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal } from "../util.js";
 
@@ -10,7 +10,7 @@ const H0 = 10, H1 = 20, PX = 64, DUR = 45; // horario visible, píxeles por hora
 const estado = reactive({ vista: "calendario", semana: lunesDe(dia(3)), fEstado: "", fQuien: "", q: "" });
 
 export default {
-  components: { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio },
+  components: { OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio },
   setup() {
     const s = estado;
     const dias = computed(() => [0, 1, 2, 3, 4].map((i) => dia(i, s.semana)));
@@ -46,7 +46,10 @@ export default {
     const selCand = computed(() => (sel.value ? candDe(sel.value.candId) : null));
     const reprog = reactive({ abierto: false, fecha: "", hora: "" });
     const confirmar = () => { sel.value.estado = "Confirmada"; addHist(sel.value.candId, "entrevista", "Entrevista confirmada"); toast("Cita confirmada · sincronizada con Notion"); };
-    const cancelar = () => { sel.value.estado = "Cancelada"; addHist(sel.value.candId, "entrevista", "Entrevista cancelada"); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "pendiente-entrevista", { silencioso: true }); toast("Cita cancelada"); sel.value = null; };
+    const cancelar = async () => {
+      const e = sel.value, c0 = selCand.value;
+      if (!(await pedirConfirmacion({ titulo: "¿Cancelar esta entrevista?", texto: `La cita de ${nombreCompleto(c0)} (${fCorta(e.fecha)}, ${e.hora}) quedará cancelada y también en Notion. Se puede volver a programar después.`, boton: "Sí, cancelar la cita" }))) return;
+      sel.value.estado = "Cancelada"; addHist(sel.value.candId, "entrevista", "Entrevista cancelada"); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "pendiente-entrevista", { silencioso: true }); toast("Cita cancelada"); sel.value = null; };
     const abrirReprog = () => Object.assign(reprog, { abierto: true, fecha: sel.value.fecha, hora: sel.value.hora });
     const guardarReprog = () => { Object.assign(sel.value, { fecha: reprog.fecha, hora: reprog.hora, estado: "Reprogramada" }); addHist(sel.value.candId, "entrevista", `Entrevista reprogramada para el ${reprog.fecha} a las ${reprog.hora}`); reprog.abierto = false; toast("Cita reprogramada · sincronizada con Notion"); };
     const valorar = () => { if (sel.value.estado !== "Realizada") { sel.value.estado = "Realizada"; addHist(sel.value.candId, "entrevista", sel.value.entrevistador ? `Entrevista realizada por ${sel.value.entrevistador}` : "Entrevista realizada", sel.value.entrevistador || miNombre()); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "entrevistado", { silencioso: true }); } store.fichaTab = "entrevista"; go("candidato/" + sel.value.candId); };
@@ -68,7 +71,7 @@ export default {
     <div class="page-head">
       <div><h1>Entrevistas</h1><p>Agenda común del equipo. <span class="notion"><Ic n="sync" :s="13" />Notion sincronizado hace 2 min</span></p></div>
       <div class="acciones">
-        <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><option v-for="p in ENTREVISTADORES" :key="p" :value="p">Agenda de {{ p }}</option><option value="_ninguno">Sin responsable asignado</option></select>
+        <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><OpcionesPersonas prefijo="Agenda de " /><option value="_ninguno">Sin responsable asignado</option></select>
         <div class="seg"><button :class="{on: s.vista==='calendario'}" @click="s.vista='calendario'"><Ic n="calendario" :s="15" />Calendario</button><button :class="{on: s.vista==='lista'}" @click="s.vista='lista'"><Ic n="tabla" :s="15" />Listado</button></div>
         <button class="btn btn-accent" @click="abrirNueva()"><Ic n="plus" :s="16" />Nueva entrevista</button>
       </div>
@@ -146,7 +149,7 @@ export default {
         <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="nueva.fecha" /></div>
         <div class="fld"><label>Hora</label><select class="inp" v-model="nueva.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>
         <div class="fld"><label>Modalidad</label><select class="inp" v-model="nueva.modalidad"><option>Presencial</option><option>Online</option></select></div>
-        <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="nueva.entrevistador"><option value="">Sin asignar</option><option v-for="p in ENTREVISTADORES" :key="p">{{ p }}</option></select></div>
+        <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="nueva.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="nueva.entrevistador" /></select></div>
       </div>
       <div v-if="choque" class="aviso warn"><Ic n="alert" :s="16" /><span><b>{{ nueva.entrevistador }} ya tiene una entrevista</b> a las {{ choque.hora }} con {{ nombreCompleto(candDe(choque.candId)) }}.</span></div>
       <template #pie><button class="btn" @click="nueva.abierto=false">Cancelar</button><button class="btn btn-primary" @click="crear">Programar</button></template>

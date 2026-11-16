@@ -1,7 +1,7 @@
 import { computed, reactive, ref } from "vue";
 import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
-import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto } from "../ui.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
 import { normal, fCorta, HOY_ISO, dia } from "../util.js";
 
@@ -14,7 +14,7 @@ const COLS = [
 ];
 
 export default {
-  components: { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
+  components: { OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
   setup() {
     const f = filtros;
     const opCentros = computed(() => store.centros.filter((c) => !c.archivado).map((c) => ({ valor: c.id, etiqueta: c.nombre })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)));
@@ -198,7 +198,7 @@ export default {
         <div class="fld"><label>Fin de las prácticas *</label><input class="inp" type="date" v-model="n.fin" /></div>
         <div class="fld"><label>Hora de entrada (opcional)</label><input class="inp" type="time" v-model="n.horaIni" /></div>
         <div class="fld"><label>Hora de salida (opcional)</label><input class="inp" type="time" v-model="n.horaFin" /></div>
-        <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="n.tutor"><option value="">Sin tutor asignado</option><option v-for="a in ASESORES" :key="a">{{ a }}</option></select></div>
+        <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="n.tutor"><option value="">Sin tutor asignado</option><OpcionesPersonas :actual="n.tutor" /></select></div>
         <div class="aviso gold" style="grid-column:1/-1"><Ic n="info" :s="16" /><span>Se registra directamente como estudiante en prácticas: sale en el cuadrante y en «Estudiantes». Si las fechas ya pasaron, queda como «Finalizado».</span></div>
       </div>
       <div class="fld"><label>Observaciones</label><textarea class="inp" v-model="n.obs" rows="2"></textarea></div>
