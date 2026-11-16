@@ -241,7 +241,7 @@ export default {
             </template>
           </div>
           <div v-if="cvActual.archivoId" class="visor-area visor-real">
-            <iframe v-if="urlVisor && cvActual.ext==='pdf'" :src="urlVisor" title="Currículum"></iframe>
+            <iframe v-if="urlVisor && cvActual.ext==='pdf'" :src="urlVisor + '#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH'" title="Currículum"></iframe>
             <img v-else-if="urlVisor && /^(jpe?g|png|webp)$/.test(cvActual.ext)" :src="urlVisor" alt="Currículum escaneado" class="visor-img" />
             <div v-else-if="urlVisor" class="vacio-box"><Ic n="documentos" :s="30" /><b>Documento de Word</b><span>El navegador no puede mostrarlo dentro de la ficha.</span><button class="btn btn-primary" @click="abrirArchivo(cvActual, true)"><Ic n="download" :s="15" />Descargar</button></div>
             <div v-else-if="errorVisor" class="vacio-box"><Ic n="alert" :s="30" /><b>No se pudo abrir el documento</b><span>{{ errorVisor }}</span></div>
