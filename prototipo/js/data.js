@@ -226,3 +226,19 @@ export function crearDatos() {
   notas.push({ id: 3, candId: 10, autor: "Belén", fecha: dia(-5), texto: "Confirmar si puede empezar el 23/11 en turno de tarde." });
   return { centros, candidatos, entrevistas, estudiantes, documentos, historial, notas, nextId: 1000, hoy: HOY_ISO };
 }
+
+// Plantillas de mensajes (WhatsApp y correo). Se editan en Ajustes → Mensajes.
+export const DIRECCION = "Calle General Álvarez de Castro 41, Escalera Izquierda, Primera Planta, Despacho 10";
+export const FIRMA_INICIAL = "Equipo de prácticas · Gestoría eMadrid";
+
+export const plantillasIniciales = () => [
+  { id: "recordatorio", nombre: "Recordatorio de entrevista", uso: "entrevista", asunto: "Recordatorio de tu entrevista · Gestoría eMadrid",
+    texto: "Hola {nombre}, te escribimos de Gestoría eMadrid para recordarte tu entrevista de prácticas el {fecha} a las {hora}{lugar}. ¿Nos confirmas que puedes asistir? Gracias.\n\n{firma}" },
+  { id: "confirmacion", nombre: "Confirmación de entrevista", uso: "entrevista", asunto: "Confirmación de tu entrevista · Gestoría eMadrid",
+    texto: "Hola {nombre}, te confirmamos tu entrevista de prácticas en Gestoría eMadrid el {fecha} a las {hora}{lugar}. Si no puedes asistir, avísanos con tiempo, por favor.\n\n{firma}" },
+  { id: "documentacion", nombre: "Pedir documentación", uso: "general", asunto: "Documentación para tus prácticas · Gestoría eMadrid",
+    texto: "Hola {nombre}, para seguir con tu proceso de prácticas en Gestoría eMadrid necesitamos que nos envíes tu currículum actualizado y los datos de tu centro educativo. Gracias.\n\n{firma}" },
+  { id: "bienvenida", nombre: "Bienvenida a las prácticas", uso: "estudiante", asunto: "Bienvenida a tus prácticas · Gestoría eMadrid",
+    texto: "Hola {nombre}, ¡te damos la bienvenida a las prácticas en Gestoría eMadrid! Empiezas el {inicio} con horario {horario}. Te esperamos en {lugar_oficina}.\n\n{firma}" },
+];
+

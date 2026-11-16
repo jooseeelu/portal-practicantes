@@ -2,6 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
 import { registrar } from "../api.js";
+import { elegirMensaje } from "../mensajes.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
 import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
@@ -91,8 +92,8 @@ export default {
 
     const menuCand = (c) => ({ titulo: nombreCompleto(c), items: [
       { t: "Abrir la ficha", i: "user", f: () => go("candidato/" + c.id) },
-      { t: "Escribir por WhatsApp", i: "whatsapp", f: () => { const u = urlWhatsApp(c.tel, ""); if (!u) return toast("Esta persona no tiene un teléfono válido en su ficha.", "error"); window.open(u, "_blank", "noopener"); registrar("Abrió WhatsApp", nombreCompleto(c)); } },
-      { t: "Enviar un correo", i: "mail", f: () => { if (!c.email) return toast("Esta persona no tiene correo en su ficha.", "error"); window.location.href = "mailto:" + c.email; registrar("Abrió el correo", nombreCompleto(c)); } },
+      { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
+      { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
     return { menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       alta, n, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };

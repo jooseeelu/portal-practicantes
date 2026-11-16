@@ -1,6 +1,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
+import { elegirMensaje } from "../mensajes.js";
 import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
@@ -183,12 +184,8 @@ export default {
       ia.abierto = false;
     }
     // --- Contacto directo desde la ficha ---
-    const abrirWhatsApp = () => {
-      const url = urlWhatsApp(c.value.tel);
-      if (!url) return toast("El teléfono de la ficha no parece válido.", "error");
-      window.open(url, "_blank", "noopener"); registrar("Abrió WhatsApp desde una ficha", nombreCompleto(c.value));
-    };
-    const abrirCorreo = () => { location.href = "mailto:" + encodeURIComponent(c.value.email).replace("%40", "@"); registrar("Abrió el correo desde una ficha", nombreCompleto(c.value)); };
+    const abrirWhatsApp = (ev) => elegirMensaje("whatsapp", c.value, ev);
+    const abrirCorreo = (ev) => elegirMensaje("correo", c.value, ev);
     return { abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
@@ -215,8 +212,8 @@ export default {
       <div class="ficha-acc">
         <div class="fld"><label>Estado de la candidatura</label><select class="inp" v-model="estadoSel"><option v-for="e in store.estados.filter(x => x.activo || x.k===c.estado)" :key="e.k" :value="e.k">{{ e.n }}</option></select></div>
         <div class="row">
-          <button class="btn btn-sm" @click="abrirWhatsApp" :disabled="!c.tel" :title="c.tel ? 'Abrir un chat de WhatsApp con ' + c.nombre : 'Falta el teléfono en la ficha'"><Ic n="whatsapp" :s="15" />WhatsApp</button>
-          <button class="btn btn-sm" @click="abrirCorreo" :disabled="!c.email" :title="c.email ? 'Escribir un correo a ' + c.email : 'Falta el correo en la ficha'"><Ic n="mail" :s="15" />Correo</button>
+          <button class="btn btn-sm" @click="abrirWhatsApp($event)" :disabled="!c.tel" :title="c.tel ? 'Abrir un chat de WhatsApp con ' + c.nombre : 'Falta el teléfono en la ficha'"><Ic n="whatsapp" :s="15" />WhatsApp</button>
+          <button class="btn btn-sm" @click="abrirCorreo($event)" :disabled="!c.email" :title="c.email ? 'Escribir un correo a ' + c.email : 'Falta el correo en la ficha'"><Ic n="mail" :s="15" />Correo</button>
           <button v-if="!ent || ent.estado==='Cancelada'" class="btn btn-sm btn-primary" @click="prog.abierto=true"><Ic n="calendario" :s="15" />Programar entrevista</button>
           <button v-else-if="!est || estadoPracticas(est)==='Prevista'" class="btn btn-sm btn-accent" @click="abrirInc"><Ic n="estudiantes" :s="15" />{{ est ? 'Editar incorporación' : 'Convertir en estudiante' }}</button>
         </div>

@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from "vue";
 import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast } from "../store.js";
 import { go } from "../router.js";
+import { enviarPlantilla } from "../mensajes.js";
 import { miNombre, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA } from "../data.js";
@@ -63,12 +64,7 @@ export default {
     const guardarReprog = () => { if (esFinde(reprog.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); Object.assign(sel.value, { fecha: reprog.fecha, hora: reprog.hora, estado: "Reprogramada" }); addHist(sel.value.candId, "entrevista", `Entrevista reprogramada para el ${reprog.fecha} a las ${reprog.hora}`); reprog.abierto = false; toast("Cita reprogramada"); };
     const valorar = () => { if (sel.value.estado !== "Realizada") { sel.value.estado = "Realizada"; addHist(sel.value.candId, "entrevista", sel.value.entrevistador ? `Entrevista realizada por ${sel.value.entrevistador}` : "Entrevista realizada", sel.value.entrevistador || miNombre()); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "entrevistado", { silencioso: true }); } store.fichaTab = "entrevista"; go("candidato/" + sel.value.candId); };
     const miAgenda = computed(() => { const yo = miNombre(); return [...(store.personas?.equipo || []), ...(store.personas?.practicantes || [])].includes(yo) ? yo : ""; });
-    const recordar = () => {
-      const c = selCand.value, e = sel.value;
-      const url = urlWhatsApp(c.tel, `Hola ${c.nombre}, te escribimos de Gestoría eMadrid para recordarte tu entrevista de prácticas el ${fLarga(e.fecha).toLowerCase()} a las ${e.hora}${e.modalidad === "Online" ? " (online)" : " en nuestra oficina"}. ¿Nos confirmas que puedes asistir? Gracias.`);
-      if (!url) return toast("Esta persona no tiene un teléfono válido en su ficha.", "error");
-      window.open(url, "_blank", "noopener"); addHist(c.id, "entrevista", "Recordatorio de la entrevista por WhatsApp"); registrar("Abrió WhatsApp para recordar una entrevista", nombreCompleto(c));
-    };
+    const recordar = (canal) => enviarPlantilla(typeof canal === "string" ? canal : "whatsapp", selCand.value, "recordatorio");
 
     // Menú contextual (clic derecho o mantener pulsado)
     const menuDe = (e) => {
@@ -79,7 +75,8 @@ export default {
         { sep: true },
         { t: "Confirmar", i: "check", oculto: !abierta || e.estado === "Confirmada", f: () => { sel.value = e; confirmar(); sel.value = null; } },
         { t: "Reprogramar", i: "calendario", oculto: !abierta, f: () => { sel.value = e; abrirReprog(); } },
-        { t: "Recordar por WhatsApp", i: "whatsapp", oculto: !abierta, f: () => { sel.value = e; recordar(); sel.value = null; } },
+        { t: "Recordar por WhatsApp", i: "whatsapp", oculto: !abierta, f: () => { sel.value = e; recordar("whatsapp"); sel.value = null; } },
+        { t: "Recordar por correo", i: "mail", oculto: !abierta, f: () => { sel.value = e; recordar("correo"); sel.value = null; } },
         { t: "Marcar como realizada y valorar", i: "star", oculto: !abierta, f: () => { sel.value = e; valorar(); } },
         { sep: true, oculto: !abierta },
         { t: "Cancelar la cita", i: "trash", peligro: true, oculto: !abierta, f: async () => { sel.value = e; await cancelar(); sel.value = null; } },
