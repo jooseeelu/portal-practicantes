@@ -1,10 +1,10 @@
 import { computed, reactive, ref, watch } from "vue";
 import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
-import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo } from "../api.js";
+import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
-import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe } from "../util.js";
+import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe, normal } from "../util.js";
 
 const CRITERIOS = [["conocimientos", "Conocimientos"], ["comunicacion", "Comunicación"], ["disponibilidad", "Disponibilidad"], ["adecuacion", "Adecuación al puesto"]];
 const TIPOS_DOC = ["Currículum", "Convenio", "Anexo", "Justificante", "Otro"];
@@ -148,7 +148,41 @@ export default {
     };
     const quitarFoto = async () => { if (!(await pedirConfirmacion({ titulo: "¿Quitar la foto?", texto: "Se mostrarán las iniciales en su lugar. Podrás subir otra cuando quieras.", boton: "Quitar foto" }))) return; c.value.foto = ""; toast("Foto eliminada"); };
 
-    return { falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    // --- Lectura del currículum con IA: propone datos y una persona decide cuáles aplicar ---
+    const CAMPOS_IA = [["nombre", "Nombre"], ["apellidos", "Apellidos"], ["email", "Correo electrónico"], ["tel", "Teléfono"], ["titulacion", "Titulación"], ["curso", "Curso"], ["idiomas", "Idiomas"], ["herramientas", "Herramientas"], ["experiencia", "Experiencia previa"]];
+    const ia = reactive({ abierto: false, cargando: false, error: "", campos: [], avisos: [], centro: "", centroId: "", usarCentro: false, otros: [], doc: "" });
+    const puedeLeerIA = computed(() => enServidor() && !!cvActual.value?.archivoId && /^(pdf|jpe?g|png|webp)$/.test(cvActual.value.ext || ""));
+    async function leerConIA() {
+      const d = cvActual.value; if (!d || ia.cargando) return;
+      Object.assign(ia, { abierto: true, cargando: true, error: "", campos: [], avisos: [], centro: "", centroId: "", usarCentro: false, otros: [], doc: d.nombre });
+      try {
+        const r = await leerCurriculum(d.archivoId);
+        const x = r.datos || {};
+        ia.campos = CAMPOS_IA.map(([k, etq]) => ({ k, etq, actual: String(c.value[k] ?? ""), nuevo: x[k] || "" }))
+          .filter((f) => f.nuevo && normal(f.nuevo) !== normal(f.actual)).map((f) => ({ ...f, usar: !f.actual }));
+        if (x.centro) {
+          const n = normal(x.centro);
+          const m = store.centros.find((ce) => !ce.archivado && (normal(ce.nombre) === n || (normal(ce.nombre).length > 3 && (n.includes(normal(ce.nombre)) || normal(ce.nombre).includes(n)))));
+          ia.centro = x.centro; ia.centroId = m && m.id !== c.value.centroId ? m.id : ""; ia.usarCentro = !!ia.centroId && !c.value.centroId;
+        }
+        ia.otros = [["Localidad", x.localidad], ["Disponibilidad", x.disponibilidad]].filter(([, v]) => v);
+        ia.avisos = r.avisos || [];
+        registrar("Leyó un currículum con IA", d.nombre);
+      } catch (e) { ia.error = e.message; } finally { ia.cargando = false; }
+    }
+    function aplicarIA() {
+      const usados = ia.campos.filter((f) => f.usar);
+      usados.forEach((f) => { c.value[f.k] = f.nuevo; });
+      const conCentro = ia.usarCentro && ia.centroId;
+      if (conCentro) c.value.centroId = ia.centroId;
+      const n = usados.length + (conCentro ? 1 : 0);
+      if (n) {
+        addHist(c.value.id, "documento", "Datos rellenados desde el currículum con IA: " + [...usados.map((f) => f.etq.toLowerCase()), ...(conCentro ? ["centro"] : [])].join(", "));
+        toast(n > 1 ? n + " datos aplicados a la ficha" : "Dato aplicado a la ficha");
+      }
+      ia.abierto = false;
+    }
+    return { ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -218,6 +252,9 @@ export default {
           <div class="fld"><label>Titulación</label><input class="inp" v-model="c.titulacion" list="dl-prog" /><datalist id="dl-prog"><option v-for="p in (centroDe(c.centroId)?.programas || [])" :key="p" :value="p" /></datalist></div>
           <div class="fld"><label>Curso</label><input class="inp" v-model="c.curso" placeholder="2.º" /></div>
           <div class="fld"><label>Especialidad / área</label><select class="inp" v-model="c.area"><option v-for="a in AREAS" :key="a">{{ a }}</option></select></div>
+          <div class="fld"><label>Idiomas</label><input class="inp" v-model="c.idiomas" placeholder="Inglés (B2), francés (básico)…" /></div>
+          <div class="fld"><label>Herramientas</label><input class="inp" v-model="c.herramientas" placeholder="Excel, Word, Canva…" /></div>
+          <div class="fld" style="grid-column:1/-1"><label>Experiencia previa</label><textarea class="inp" v-model="c.experiencia" rows="2" placeholder="Prácticas o trabajos anteriores"></textarea></div>
         </div>
         <div v-if="centroDe(c.centroId)" class="centro-mini" @click="go('centros/'+c.centroId)">
           <Ic n="centros" :s="22" /><div class="grow"><b>{{ centroDe(c.centroId).nombre }}</b><div class="sub">{{ centroDe(c.centroId).tipo }} · prácticas de {{ centroDe(c.centroId).horas }} · {{ centroDe(c.centroId).periodos }} · responsable en la gestoría: {{ centroDe(c.centroId).responsable }}</div></div><Ic n="chevR" />
@@ -267,11 +304,25 @@ export default {
           <button v-for="d in docs.filter(x => x.tipo==='Currículum')" :key="d.id" class="doc-fila" :class="{on: cvActual && cvActual.id===d.id}" @click="cvSel=d.id"><Ic n="documentos" :s="16" /><span class="grow"><b>{{ d.nombre }}</b><small>{{ fCorta(d.fecha) }} · {{ tam(d.tam) }}</small></span></button>
           <Dropzone compacto :texto="subiendo ? 'Subiendo…' : 'Soltar o elegir el currículum'" @archivos="subir($event, 'Currículum')" />
           <div class="ia-box">
-            <div class="row"><Ic n="sparkles" :s="16" /><b>Lectura con IA</b><span class="tag">Fase posterior</span></div>
-            <p class="sub">Propondrá nombre, contacto, formación e idiomas a partir del PDF. Siempre los revisa una persona antes de guardarlos.</p>
-            <button class="btn btn-sm" disabled>Extraer datos del currículum</button>
+            <div class="row"><Ic n="sparkles" :s="16" /><b>Lectura con IA</b></div>
+            <p class="sub">Propone nombre, contacto, formación e idiomas a partir del currículum. Tú eliges qué se guarda en la ficha.</p>
+            <button class="btn btn-sm" :disabled="!puedeLeerIA || ia.cargando" @click="leerConIA" :title="puedeLeerIA ? '' : 'Hace falta un currículum subido en PDF o imagen'"><Ic n="sparkles" :s="14" />{{ ia.cargando ? 'Leyendo…' : 'Extraer datos del currículum' }}</button>
           </div>
         </aside>
+        <Modal v-if="ia.abierto" titulo="Datos leídos del currículum" :ancho="620" @cerrar="ia.abierto=false">
+          <div v-if="ia.cargando" class="vacio-box" style="padding:28px"><div class="ia-barra"><i></i></div><b>Leyendo «{{ ia.doc }}»…</b><span>Suele tardar entre 5 y 20 segundos.</span></div>
+          <div v-else-if="ia.error" class="aviso err"><Ic n="alert" :s="16" /><span>{{ ia.error }}</span></div>
+          <template v-else>
+            <p class="sub">Marca lo que quieras pasar a la ficha. Lo que ya estaba escrito no se cambia si no lo marcas.</p>
+            <div v-for="a in ia.avisos" :key="a" class="aviso warn"><Ic n="alert" :s="16" /><span>{{ a }}</span></div>
+            <p v-if="!ia.campos.length && !ia.centro" class="sub"><b>No hay nada nuevo:</b> la ficha ya tiene todo lo que se lee en el currículum.</p>
+            <label v-for="f in ia.campos" :key="f.k" class="ia-fila"><input type="checkbox" v-model="f.usar" /><span class="grow"><small>{{ f.etq }}</small><b>{{ f.nuevo }}</b><small v-if="f.actual" class="ia-antes">Ahora en la ficha: {{ f.actual }}</small></span></label>
+            <label v-if="ia.centro && ia.centroId" class="ia-fila"><input type="checkbox" v-model="ia.usarCentro" /><span class="grow"><small>Centro educativo</small><b>{{ centroDe(ia.centroId)?.nombre }}</b><small class="ia-antes">En el currículum: {{ ia.centro }}<template v-if="c.centroId"> · Ahora en la ficha: {{ centroDe(c.centroId)?.nombre }}</template></small></span></label>
+            <div v-else-if="ia.centro && !c.centroId" class="aviso"><Ic n="info" :s="16" /><span>El currículum menciona <b>{{ ia.centro }}</b>, que no está en la lista de centros. Si procede, elígelo o créalo a mano.</span></div>
+            <p v-for="o in ia.otros" :key="o[0]" class="sub"><b>{{ o[0] }}:</b> {{ o[1] }}</p>
+          </template>
+          <template #pie><button class="btn" @click="ia.abierto=false">{{ ia.error || ia.cargando ? 'Cerrar' : 'No aplicar nada' }}</button><button v-if="!ia.cargando && !ia.error" class="btn btn-primary" :disabled="!ia.campos.some(f => f.usar) && !(ia.usarCentro && ia.centroId)" @click="aplicarIA"><Ic n="check" :s="15" />Aplicar a la ficha</button></template>
+        </Modal>
       </div>
 
       <!-- ENTREVISTA -->
