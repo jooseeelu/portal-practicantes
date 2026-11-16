@@ -68,7 +68,7 @@ export default {
     <Vacio v-if="!lista.length" titulo="Ningún centro con estos filtros" texto="" />
 
     <Drawer v-if="sel" :titulo="sel.nombre" @cerrar="go('centros')">
-      <div class="row wrap"><span class="tag">{{ sel.tipo }}</span><span v-if="sel.archivado" class="tag gold">Archivado</span><button class="btn btn-sm btn-accent right" :disabled="!selDatos.total" @click="verCandidatos(sel.id)"><Ic n="user" :s="14" />Ver candidatos ({{ selDatos.total }})</button><button class="btn btn-sm" @click="archivar"><Ic :n="sel.archivado ? 'restore' : 'archive'" :s="14" />{{ sel.archivado ? 'Restaurar' : 'Archivar' }}</button></div>
+      <div class="row wrap"><span class="tag">{{ sel.tipo }}</span><span v-if="sel.archivado" class="tag gold">Archivado</span><span class="row right" style="gap:8px"><button class="btn btn-sm btn-accent" :disabled="!selDatos.total" @click="verCandidatos(sel.id)"><Ic n="user" :s="14" />Ver candidatos ({{ selDatos.total }})</button><button class="btn btn-sm" @click="archivar"><Ic :n="sel.archivado ? 'restore' : 'archive'" :s="14" />{{ sel.archivado ? 'Restaurar' : 'Archivar' }}</button></span></div>
       <div class="centro-nums"><div><b>{{ selDatos.total }}</b><span>candidatos</span></div><div><b>{{ selDatos.proceso }}</b><span>en proceso</span></div><div><b style="color:var(--cyan-dark)">{{ selDatos.activos }}</b><span>en prácticas</span></div><div><b>{{ selDatos.hechos }}</b><span>finalizadas</span></div></div>
       <div class="grid2">
         <div class="fld"><label>Nombre del centro</label><input class="inp" v-model="sel.nombre" /></div>

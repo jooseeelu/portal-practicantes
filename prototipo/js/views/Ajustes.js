@@ -140,13 +140,13 @@ export default {
         <div v-if="!enServidor" class="aviso"><Ic n="info" :s="16" /><span>Demostración: aquí no hay cuentas reales. En el portal con servidor, un administrador añade y desactiva personas desde esta pantalla.</span></div>
         <div v-else-if="!admin" class="aviso"><Ic n="info" :s="16" /><span>Solo un administrador puede añadir personas o cambiar roles.</span></div>
         <div v-if="errEquipo" class="aviso err"><Ic n="alert" :s="16" /><span>{{ errEquipo }}</span></div>
-        <table class="tbl sin-hover"><thead><tr><th>Persona</th><th>Rol</th><th>Qué puede hacer</th><th>Acceso</th><th v-if="enServidor && admin"></th></tr></thead>
+        <table class="tbl sin-hover tbl-tarjetas"><thead><tr><th>Persona</th><th>Rol</th><th>Qué puede hacer</th><th>Acceso</th><th v-if="enServidor && admin"></th></tr></thead>
           <tbody><tr v-for="p in equipo" :key="p.id" :class="{inactiva: !p.activo || caducada(p)}">
             <td><div class="who"><Avatar :nombre="p.name || p.email" apellidos="" :s="28" /><span><b>{{ p.name || '—' }}</b><small v-if="p.email" class="sub" style="display:block">{{ p.email }}</small></span></div></td>
             <td><span class="tag" :class="{gold: p.rol==='admin'}">{{ ROLES[p.rol] || p.rol }}</span></td>
-            <td class="sub">{{ permisos(p.rol) }}</td>
+            <td class="sub solo-escritorio">{{ permisos(p.rol) }}</td>
             <td><span v-if="p.activo && !caducada(p)" class="ico-ok row" style="gap:5px"><Ic n="check" :s="15" />{{ accesoDe(p) }}</span><span v-else class="tag off">{{ accesoDe(p) }}</span></td>
-            <td v-if="enServidor && admin" class="nowrap"><button class="btn btn-sm" @click="editar(p)"><Ic n="pencil" :s="14" />Editar</button> <button class="btn btn-sm" @click="nuevaClave(p)" :disabled="p.id===sesion.usuario?.id" :title="p.id===sesion.usuario?.id ? 'Tu contraseña se cambia desde tu menú, arriba a la derecha' : 'Poner una contraseña nueva'"><Ic n="lock" :s="14" />Contraseña</button></td>
+            <td v-if="enServidor && admin" class="nowrap fila-acciones"><button class="btn btn-sm" @click="editar(p)"><Ic n="pencil" :s="14" />Editar</button> <button class="btn btn-sm" @click="nuevaClave(p)" :disabled="p.id===sesion.usuario?.id" :title="p.id===sesion.usuario?.id ? 'Tu contraseña se cambia desde tu menú, arriba a la derecha' : 'Poner una contraseña nueva'"><Ic n="lock" :s="14" />Contraseña</button></td>
           </tr></tbody></table>
         <p class="sub">Los roles Técnico, Asesor, Colaborador y Consulta tienen los mismos permisos; solo cambia el nombre. La verificación en dos pasos por correo se activará cuando se configure el buzón de envío.</p>
 
@@ -193,7 +193,7 @@ export default {
           <div class="row wrap"><button class="btn btn-sm" @click="rellenarDemo" :disabled="store.candidatos.length>0" :title="store.candidatos.length>0 ? 'Vacía antes el entorno' : ''"><Ic n="plus" :s="14" />Cargar datos de demostración</button><button class="btn btn-sm btn-danger" @click="vaciarTodo"><Ic n="trash" :s="14" />Vaciar todos los datos</button></div></div>
         <div v-if="!enServidor || admin"><h3 style="margin-bottom:10px">Registro de acciones sensibles</h3>
           <p v-if="!registro.length" class="sub">Todavía no hay nada registrado.</p>
-          <table v-else class="tbl sin-hover"><thead><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Qué hizo</th></tr></thead><tbody><tr v-for="(r,i) in registro" :key="i"><td class="nowrap">{{ r.f }}</td><td>{{ r.h }}</td><td><b>{{ r.q }}</b></td><td>{{ r.t }}</td></tr></tbody></table></div>
+          <div v-else class="tbl-wrap"><table class="tbl sin-hover"><thead><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Qué hizo</th></tr></thead><tbody><tr v-for="(r,i) in registro" :key="i"><td class="nowrap">{{ r.f }}</td><td>{{ r.h }}</td><td><b>{{ r.q }}</b></td><td>{{ r.t }}</td></tr></tbody></table></div></div>
       </div>
 
       <div v-else class="card-pad">
