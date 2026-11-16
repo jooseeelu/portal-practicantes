@@ -4,7 +4,7 @@ import { ruta, go } from "../router.js";
 import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
-import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe, normal } from "../util.js";
+import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe, normal, esFinde, urlWhatsApp } from "../util.js";
 
 const CRITERIOS = [["conocimientos", "Conocimientos"], ["comunicacion", "Comunicación"], ["disponibilidad", "Disponibilidad"], ["adecuacion", "Adecuación al puesto"]];
 const TIPOS_DOC = ["Currículum", "Convenio", "Anexo", "Justificante", "Otro"];
@@ -35,7 +35,7 @@ export default {
 
     // --- Entrevista: programar y valorar ---
     const prog = reactive({ abierto: false, fecha: dia(3), hora: "10:30", modalidad: "Presencial", entrevistador: "" });
-    const guardarProg = () => { programarEntrevista(c.value, prog); prog.abierto = false; tab.value = "entrevista"; };
+    const guardarProg = () => { if (esFinde(prog.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c.value, prog); prog.abierto = false; tab.value = "entrevista"; };
     const media = computed(() => { const v = CRITERIOS.map(([k]) => ent.value?.criterios[k].n).filter((x) => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 2) / 2 : null; });
     const notaFinal = ref(c.value?.nota ?? null);
     const guardarValoracion = () => {
@@ -45,7 +45,7 @@ export default {
       ent.value.estado = "Realizada";
       addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || miNombre());
       if (["entrevista-programada", "entrevistado", "pendiente-entrevista"].includes(c.value.estado)) cambiarEstado(c.value, "en-valoracion", { silencioso: true });
-      toast("Valoración guardada · sincronizada con Notion");
+      toast("Valoración guardada");
     };
     const addPregunta = () => ent.value.preguntas.push({ q: "", a: "" });
 
@@ -182,7 +182,14 @@ export default {
       }
       ia.abierto = false;
     }
-    return { ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    // --- Contacto directo desde la ficha ---
+    const abrirWhatsApp = () => {
+      const url = urlWhatsApp(c.value.tel);
+      if (!url) return toast("El teléfono de la ficha no parece válido.", "error");
+      window.open(url, "_blank", "noopener"); registrar("Abrió WhatsApp desde una ficha", nombreCompleto(c.value));
+    };
+    const abrirCorreo = () => { location.href = "mailto:" + encodeURIComponent(c.value.email).replace("%40", "@"); registrar("Abrió el correo desde una ficha", nombreCompleto(c.value)); };
+    return { abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -208,8 +215,8 @@ export default {
       <div class="ficha-acc">
         <div class="fld"><label>Estado de la candidatura</label><select class="inp" v-model="estadoSel"><option v-for="e in store.estados.filter(x => x.activo || x.k===c.estado)" :key="e.k" :value="e.k">{{ e.n }}</option></select></div>
         <div class="row">
-          <button class="btn btn-sm" @click="demo('se abriría WhatsApp (API de Meta vía Chatwoot) con la plantilla elegida')" title="WhatsApp"><Ic n="whatsapp" :s="15" />WhatsApp</button>
-          <button class="btn btn-sm" @click="demo('se abriría el redactor de correo con plantillas')" title="Correo"><Ic n="mail" :s="15" />Correo</button>
+          <button class="btn btn-sm" @click="abrirWhatsApp" :disabled="!c.tel" :title="c.tel ? 'Abrir un chat de WhatsApp con ' + c.nombre : 'Falta el teléfono en la ficha'"><Ic n="whatsapp" :s="15" />WhatsApp</button>
+          <button class="btn btn-sm" @click="abrirCorreo" :disabled="!c.email" :title="c.email ? 'Escribir un correo a ' + c.email : 'Falta el correo en la ficha'"><Ic n="mail" :s="15" />Correo</button>
           <button v-if="!ent || ent.estado==='Cancelada'" class="btn btn-sm btn-primary" @click="prog.abierto=true"><Ic n="calendario" :s="15" />Programar entrevista</button>
           <button v-else-if="!est || estadoPracticas(est)==='Prevista'" class="btn btn-sm btn-accent" @click="abrirInc"><Ic n="estudiantes" :s="15" />{{ est ? 'Editar incorporación' : 'Convertir en estudiante' }}</button>
         </div>
@@ -242,7 +249,7 @@ export default {
             <div class="falta-nueva"><input class="inp" type="date" v-model="falta.fecha" :min="est.inicio" :max="est.fin" /><input class="inp" v-model="falta.motivo" placeholder="Motivo (opcional)" @keydown.enter="addFalta" /><label class="check"><input type="checkbox" v-model="falta.recupera" /> Recupera el día (termina 1 día más tarde)</label><button class="btn" @click="addFalta"><Ic n="plus" :s="15" />Apuntar falta</button></div>
           </div>
         </div>
-        <p class="sub"><Ic n="check" :s="13" /> Los cambios se guardan al escribir (en el prototipo no se conservan al recargar).</p>
+        <p class="sub"><Ic n="check" :s="13" /> Los cambios se guardan solos al escribir.</p>
       </div>
 
       <!-- FORMACIÓN -->
@@ -337,7 +344,6 @@ export default {
               <div class="fld"><label>Modalidad</label><select class="inp" v-model="ent.modalidad"><option>Presencial</option><option>Online</option></select></div>
               <div class="fld"><label>Entrevistador/a (opcional)</label><select class="inp" v-model="ent.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="ent.entrevistador" /></select></div>
               <div class="fld"><label>Estado de la cita</label><select class="inp" v-model="ent.estado"><option v-for="(v,k) in ESTADOS_CITA" :key="k">{{ k }}</option></select></div>
-              <div class="fld"><label>Sincronización</label><span class="notion" style="align-self:flex-start;margin-top:6px"><Ic n="sync" :s="13" />Notion (bidireccional)</span></div>
             </div>
           </div>
 
@@ -424,7 +430,6 @@ export default {
         <div class="fld"><label>Modalidad</label><select class="inp" v-model="prog.modalidad"><option>Presencial</option><option>Online</option></select></div>
         <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="prog.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="prog.entrevistador" /></select></div>
       </div>
-      <div class="aviso"><Ic n="sync" :s="16" /><span>La cita se creará también en Notion. Más adelante podrá avisar al candidato por WhatsApp o correo.</span></div>
       <template #pie><button class="btn" @click="prog.abierto=false">Cancelar</button><button class="btn btn-primary" @click="guardarProg">Programar</button></template>
     </Modal>
 

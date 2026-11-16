@@ -1,10 +1,10 @@
 import { computed, reactive, ref } from "vue";
 import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast } from "../store.js";
 import { go } from "../router.js";
-import { miNombre } from "../api.js";
+import { miNombre, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA } from "../data.js";
-import { HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal } from "../util.js";
+import { HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal, esFinde, urlWhatsApp } from "../util.js";
 
 const H0 = 10, H1 = 20, PX = 64, DUR = 45; // horario visible, píxeles por hora y duración de una entrevista
 const estado = reactive({ vista: "calendario", semana: lunesDe(dia(3)), fEstado: "", fQuien: "", q: "" });
@@ -45,15 +45,21 @@ export default {
     const sel = ref(null);
     const selCand = computed(() => (sel.value ? candDe(sel.value.candId) : null));
     const reprog = reactive({ abierto: false, fecha: "", hora: "" });
-    const confirmar = () => { sel.value.estado = "Confirmada"; addHist(sel.value.candId, "entrevista", "Entrevista confirmada"); toast("Cita confirmada · sincronizada con Notion"); };
+    const confirmar = () => { sel.value.estado = "Confirmada"; addHist(sel.value.candId, "entrevista", "Entrevista confirmada"); toast("Cita confirmada"); };
     const cancelar = async () => {
       const e = sel.value, c0 = selCand.value;
-      if (!(await pedirConfirmacion({ titulo: "¿Cancelar esta entrevista?", texto: `La cita de ${nombreCompleto(c0)} (${fCorta(e.fecha)}, ${e.hora}) quedará cancelada y también en Notion. Se puede volver a programar después.`, boton: "Sí, cancelar la cita" }))) return;
+      if (!(await pedirConfirmacion({ titulo: "¿Cancelar esta entrevista?", texto: `La cita de ${nombreCompleto(c0)} (${fCorta(e.fecha)}, ${e.hora}) quedará cancelada. Se puede volver a programar después.`, boton: "Sí, cancelar la cita" }))) return;
       sel.value.estado = "Cancelada"; addHist(sel.value.candId, "entrevista", "Entrevista cancelada"); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "pendiente-entrevista", { silencioso: true }); toast("Cita cancelada"); sel.value = null; };
     const abrirReprog = () => Object.assign(reprog, { abierto: true, fecha: sel.value.fecha, hora: sel.value.hora });
-    const guardarReprog = () => { Object.assign(sel.value, { fecha: reprog.fecha, hora: reprog.hora, estado: "Reprogramada" }); addHist(sel.value.candId, "entrevista", `Entrevista reprogramada para el ${reprog.fecha} a las ${reprog.hora}`); reprog.abierto = false; toast("Cita reprogramada · sincronizada con Notion"); };
+    const guardarReprog = () => { if (esFinde(reprog.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); Object.assign(sel.value, { fecha: reprog.fecha, hora: reprog.hora, estado: "Reprogramada" }); addHist(sel.value.candId, "entrevista", `Entrevista reprogramada para el ${reprog.fecha} a las ${reprog.hora}`); reprog.abierto = false; toast("Cita reprogramada"); };
     const valorar = () => { if (sel.value.estado !== "Realizada") { sel.value.estado = "Realizada"; addHist(sel.value.candId, "entrevista", sel.value.entrevistador ? `Entrevista realizada por ${sel.value.entrevistador}` : "Entrevista realizada", sel.value.entrevistador || miNombre()); const c = selCand.value; if (c.estado === "entrevista-programada") cambiarEstado(c, "entrevistado", { silencioso: true }); } store.fichaTab = "entrevista"; go("candidato/" + sel.value.candId); };
-    const recordar = () => toast(`Demo: recordatorio por WhatsApp a ${selCand.value.nombre} (plantilla «Recordatorio de entrevista»)`);
+    const miAgenda = computed(() => { const yo = miNombre(); return [...(store.personas?.equipo || []), ...(store.personas?.practicantes || [])].includes(yo) ? yo : ""; });
+    const recordar = () => {
+      const c = selCand.value, e = sel.value;
+      const url = urlWhatsApp(c.tel, `Hola ${c.nombre}, te escribimos de Gestoría eMadrid para recordarte tu entrevista de prácticas el ${fLarga(e.fecha).toLowerCase()} a las ${e.hora}${e.modalidad === "Online" ? " (online)" : " en nuestra oficina"}. ¿Nos confirmas que puedes asistir? Gracias.`);
+      if (!url) return toast("Esta persona no tiene un teléfono válido en su ficha.", "error");
+      window.open(url, "_blank", "noopener"); addHist(c.id, "entrevista", "Recordatorio de la entrevista por WhatsApp"); registrar("Abrió WhatsApp para recordar una entrevista", nombreCompleto(c));
+    };
 
     // Nueva cita
     const nueva = reactive({ abierto: false, candId: "", fecha: dia(3), hora: "10:30", modalidad: "Presencial", entrevistador: "" });
@@ -61,17 +67,17 @@ export default {
     const choque = computed(() => store.entrevistas.find((e) => nueva.entrevistador && e.fecha === nueva.fecha && e.entrevistador === nueva.entrevistador && e.estado !== "Cancelada" && Math.abs(aMin(e.hora) - aMin(nueva.hora)) < DUR));
     const abrirNueva = (fecha, hora) => Object.assign(nueva, { abierto: true, candId: "", fecha: fecha || dia(3), hora: hora || "10:30" });
     const clicHueco = (d, ev) => { const y = ev.offsetY; const m = Math.round(((y / PX) * 60) / 15) * 15 + H0 * 60; abrirNueva(d, deMin(Math.min(m, H1 * 60))); };
-    const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
+    const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); if (esFinde(nueva.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
 
-    return { s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar,
+    return { s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
   <div class="page">
     <div class="page-head">
-      <div><h1>Entrevistas</h1><p>Agenda común del equipo. <span class="notion"><Ic n="sync" :s="13" />Notion sincronizado hace 2 min</span></p></div>
+      <div><h1>Entrevistas</h1><p>Agenda común del equipo, de lunes a viernes.</p></div>
       <div class="acciones">
-        <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><OpcionesPersonas prefijo="Agenda de " /><option value="_ninguno">Sin responsable asignado</option></select>
+        <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><option v-if="miAgenda" :value="miAgenda">Mi agenda</option><OpcionesPersonas prefijo="Agenda de " /><option value="_ninguno">Sin responsable asignado</option></select>
         <div class="seg"><button :class="{on: s.vista==='calendario'}" @click="s.vista='calendario'"><Ic n="calendario" :s="15" />Calendario</button><button :class="{on: s.vista==='lista'}" @click="s.vista='lista'"><Ic n="tabla" :s="15" />Listado</button></div>
         <button class="btn btn-accent" @click="abrirNueva()"><Ic n="plus" :s="16" />Nueva entrevista</button>
       </div>

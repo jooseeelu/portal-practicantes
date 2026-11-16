@@ -1,6 +1,6 @@
 // Datos DE DEMOSTRACIÓN (inventados). Nombres, correos (@ejemplo.test) y teléfonos no son reales.
 // Los centros, estados, turnos y áreas salen de los Excel de la gestoría.
-import { dia, slug, HOY_ISO } from "./util.js";
+import { dia, slug, HOY_ISO, laborable } from "./util.js";
 
 export const COLORES = {
   gris: { c: "var(--text-400)", cd: "var(--text-600)", n: "Gris" },
@@ -181,7 +181,7 @@ export function crearDatos() {
       const realizada = ent[4] === "Realizada";
       const cr = (k, d) => ({ n: realizada && nota != null ? clamp(q + d) : null, t: realizada && nota != null ? COM[band][k] : "" });
       entrevistas.push({
-        id: eid++, candId: id, fecha: dia(ent[0]), hora: ent[1], modalidad: ent[2], entrevistador: ent[3], estado: ent[4],
+        id: eid++, candId: id, fecha: laborable(dia(ent[0])), hora: ent[1], modalidad: ent[2], entrevistador: ent[3], estado: ent[4],
         criterios: { conocimientos: cr(0, 0), comunicacion: cr(1, 0.5), disponibilidad: cr(2, -0.5), adecuacion: cr(3, 0) },
         preguntas: realizada ? [
           { q: "¿Por qué quieres hacer las prácticas en una gestoría?", a: "Quiere conocer cómo funciona el trabajo administrativo real y aplicar lo estudiado." },

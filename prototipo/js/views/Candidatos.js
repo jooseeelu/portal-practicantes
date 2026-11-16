@@ -1,9 +1,10 @@
 import { computed, reactive, ref } from "vue";
 import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
+import { registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
-import { normal, fCorta, HOY_ISO, dia } from "../util.js";
+import { normal, descargarCsv, fCorta, HOY_ISO, dia } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
 export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", notaMin: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
@@ -45,6 +46,11 @@ export default {
     });
     const ordenar = (k) => { if (f.orden === k) f.desc = !f.desc; else { f.orden = k; f.desc = k === "nota" || k === "entrevista"; } };
     const fases = computed(() => store.estados.filter((e) => e.activo).map((e) => ({ ...e, cnt: base.value.filter((c) => c.estado === e.k).length })));
+    const exportar = () => {
+      const filas = lista.value.map((c) => { const e = entrevistaDe(c.id); return [c.nombre, c.apellidos, c.email, c.tel, centroDe(c.centroId)?.nombre || "Autopostulado", c.titulacion, c.area, c.turno, c.horas, estadoDe(c.estado).n, c.nota == null ? "" : String(c.nota).replace(".", ","), e ? e.fecha : "", e ? e.hora : "", e ? e.estado : "", c.origen, c.creado, c.obs]; });
+      descargarCsv("candidatos-" + HOY_ISO + ".csv", ["Nombre", "Apellidos", "Correo", "Teléfono", "Centro", "Titulación", "Área", "Turno", "Horas", "Estado", "Valoración", "Fecha entrevista", "Hora entrevista", "Estado de la cita", "Origen", "Registrado", "Observaciones"], filas);
+      registrar("Exportó candidatos a Excel", filas.length + " fichas"); toast(filas.length + " candidatos exportados");
+    };
     const hayFiltros = computed(() => f.q || f.estado || f.centro || f.turno || f.notaMin || f.rapido);
     const limpiar = () => Object.assign(f, { q: "", estado: "", centro: "", turno: "", notaMin: "", rapido: "" });
     const rapido = (k) => { f.rapido = f.rapido === k ? "" : k; };
@@ -82,7 +88,7 @@ export default {
       alta.value = false;
       go("candidato/" + id);
     }
-    return { ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       alta, n, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -90,7 +96,7 @@ export default {
     <div class="page-head">
       <div><h1>Candidatos</h1><p>{{ store.candidatos.length }} personas en la base de datos · {{ lista.length }} con los filtros actuales</p></div>
       <div class="acciones">
-        <button class="btn"><Ic n="download" :s="16" />Exportar a Excel</button>
+        <button class="btn" @click="exportar" :disabled="!lista.length"><Ic n="download" :s="16" />Exportar a Excel</button>
         <button class="btn btn-accent" @click="abrirAlta"><Ic n="plus" :s="16" />Nuevo candidato</button>
       </div>
     </div>

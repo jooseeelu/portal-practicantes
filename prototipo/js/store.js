@@ -43,7 +43,7 @@ export function cargarDemo() {
 export const TURNOS_OFICINA = ["Mañana", "Tarde", "Tarde 2"];
 export const etiquetaTurno = (t) => {
   const d = store.turnosDef[t];
-  return d && t !== "Mañana" ? `Tarde (${d.ini.replace(/^0/, "")}–${d.fin})` : t;
+  return d && t !== "Mañana" ? `Tarde · ${d.ini.replace(/^0/, "")}–${d.fin}` : t;
 };
 
 export function setTema(t) {
@@ -110,7 +110,7 @@ export function programarEntrevista(c, { fecha, hora, modalidad, entrevistador }
   });
   if (["pendiente-revision", "pendiente-entrevista"].includes(c.estado)) cambiarEstado(c, "entrevista-programada", { silencioso: true });
   addHist(c.id, "entrevista", `Entrevista programada para el ${fecha} a las ${hora} (${modalidad.toLowerCase()})`);
-  toast(`Entrevista programada con ${nombreCompleto(c)} · sincronizada con Notion`);
+  toast(`Entrevista programada con ${nombreCompleto(c)}`);
 }
 
 export { dia, HOY_ISO };
