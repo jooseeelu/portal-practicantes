@@ -180,3 +180,11 @@
 .visor-real iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
 .visor-real .visor-img { display: block; max-width: 100%; margin: 0 auto; }
 .visor-real .vacio-box, .visor-area > .vacio-box { height: 100%; justify-content: center; }
+
+/* Ajustes → Personas */
+.personas-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.personas-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+.persona-chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 6px 4px 4px; border-radius: 999px; background: var(--surface); border: var(--card-border); font-weight: 600; font-size: 13px; animation: pop .25s cubic-bezier(.2,.9,.3,1.2) backwards; }
+.persona-chip .x-mini { width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 50%; padding: 0; }
+.persona-chip .x-mini:hover { background: var(--surface-alt); color: var(--text-900); }
+@media (max-width: 760px) { .personas-grid { grid-template-columns: 1fr; } }

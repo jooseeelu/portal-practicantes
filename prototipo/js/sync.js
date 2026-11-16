@@ -10,7 +10,7 @@ const COLECCIONES = {
   candidatos: (x) => x.id, centros: (x) => x.id, entrevistas: (x) => x.id, estudiantes: (x) => x.candId,
   documentos: (x) => x.id, historial: (x) => x.id, notas: (x) => x.id,
 };
-const AJUSTES = ["estados", "aforo", "turnosDef", "retencionMeses"];
+const AJUSTES = ["estados", "aforo", "turnosDef", "retencionMeses", "personas"];
 const K_AJUSTES = "ajustes/general";
 
 const remoto = new Map(); // "tipo/clave" -> { id, json }

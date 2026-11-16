@@ -2,7 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { store, centroDe, nombreCompleto, estadoPracticas, estudianteDe, toast } from "../store.js";
 import { ruta, go } from "../router.js";
 import { filtros } from "./Candidatos.js";
-import { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio, pedirConfirmacion } from "../ui.js";
+import { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { ASESORES } from "../data.js";
 import { normal, slug } from "../util.js";
 
@@ -10,7 +10,7 @@ const estado = reactive({ q: "", tipo: "", resp: "", archivados: false });
 const TIPOS = ["Universidad", "FP / Instituto"];
 
 export default {
-  components: { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio },
+  components: { OpcionesPersonas, Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio },
   setup() {
     const s = estado;
     const datos = (c) => {
@@ -54,7 +54,7 @@ export default {
       <div class="buscar"><Ic n="search" :s="16" /><input class="inp" v-model="s.q" placeholder="Buscar centro o persona de contacto…" /></div>
       <button class="pill" :class="{on: !s.tipo}" @click="s.tipo=''">Todos</button>
       <button v-for="t in TIPOS" :key="t" class="pill" :class="{on: s.tipo===t}" @click="s.tipo = s.tipo===t ? '' : t">{{ t }}</button>
-      <select class="inp" v-model="s.resp" style="width:200px"><option value="">Cualquier responsable</option><option v-for="a in ASESORES" :key="a">{{ a }}</option><option>Sin asignar</option></select>
+      <select class="inp" v-model="s.resp" style="width:200px"><option value="">Cualquier responsable</option><OpcionesPersonas :actual="s.resp" /><option>Sin asignar</option></select>
       <label class="row sub right" style="gap:6px"><input type="checkbox" v-model="s.archivados" /> Mostrar archivados</label>
     </div></div>
 
@@ -74,7 +74,7 @@ export default {
         <div class="fld"><label>Nombre del centro</label><input class="inp" v-model="sel.nombre" /></div>
         <div class="fld"><label>Tipo</label><select class="inp" v-model="sel.tipo"><option v-for="t in TIPOS" :key="t">{{ t }}</option></select></div>
         <div class="fld"><label>Responsable de prácticas del centro</label><input class="inp" v-model="sel.contacto" /></div>
-        <div class="fld"><label>Asesor de la gestoría que lo lleva</label><select class="inp" v-model="sel.responsable"><option>Sin asignar</option><option v-for="a in ASESORES" :key="a">{{ a }}</option></select></div>
+        <div class="fld"><label>Asesor de la gestoría que lo lleva</label><select class="inp" v-model="sel.responsable"><option>Sin asignar</option><OpcionesPersonas :actual="sel.responsable" /></select></div>
         <div class="fld"><label>Correo de contacto</label><input class="inp" v-model="sel.email" /></div>
         <div class="fld"><label>Teléfono</label><input class="inp" v-model="sel.tel" /></div>
         <div class="fld"><label>Horas de prácticas habituales</label><input class="inp" v-model="sel.horas" /></div>
@@ -97,7 +97,7 @@ export default {
       <div class="grid2">
         <div class="fld" style="grid-column:1/-1"><label>Nombre *</label><input class="inp" v-model="alta.nombre" /></div>
         <div class="fld"><label>Tipo</label><select class="inp" v-model="alta.tipo"><option v-for="t in TIPOS" :key="t">{{ t }}</option></select></div>
-        <div class="fld"><label>Asesor que lo lleva</label><select class="inp" v-model="alta.responsable"><option>Sin asignar</option><option v-for="a in ASESORES" :key="a">{{ a }}</option></select></div>
+        <div class="fld"><label>Asesor que lo lleva</label><select class="inp" v-model="alta.responsable"><option>Sin asignar</option><OpcionesPersonas :actual="alta.responsable" /></select></div>
         <div class="fld"><label>Responsable de prácticas</label><input class="inp" v-model="alta.contacto" /></div>
         <div class="fld"><label>Correo</label><input class="inp" v-model="alta.email" /></div>
         <div class="fld"><label>Horas habituales</label><input class="inp" v-model="alta.horas" placeholder="340 h" /></div>

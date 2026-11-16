@@ -12,6 +12,11 @@ export const ajustesPorDefecto = () => ({
   aforo: { Mañana: 4, Tarde: 4, "Tarde 2": 4 },
   turnosDef: { Mañana: { ini: "10:00", fin: "15:00" }, Tarde: { ini: "15:00", fin: "20:00" }, "Tarde 2": { ini: "16:00", fin: "21:00" } },
   retencionMeses: 12,
+  // Quién puede entrevistar, ser tutor o llevar un centro (se edita en Ajustes → Personas)
+  personas: {
+    equipo: ["José Luis", "Vanesa", "José Manuel", "Roxana", "Andrés"],
+    practicantes: ["Milena", "Montserrat", "Belén", "Johan", "Joaquín", "Mayela", "Ileana", "Daniel", "Mey"],
+  },
 });
 const DATOS = ["centros", "candidatos", "entrevistas", "estudiantes", "documentos", "historial", "notas"];
 

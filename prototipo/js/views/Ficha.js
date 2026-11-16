@@ -2,7 +2,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo } from "../api.js";
-import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion } from "../ui.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe } from "../util.js";
 
@@ -11,7 +11,7 @@ const TIPOS_DOC = ["Currículum", "Convenio", "Anexo", "Justificante", "Otro"];
 const ICONO_HIST = { alta: "plus", estado: "sync", entrevista: "calendario", valoracion: "star", incorporacion: "estudiantes", documento: "documentos", nota: "note" };
 
 export default {
-  components: { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
+  components: { OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
   setup() {
     const c = computed(() => candDe(ruta.value.id));
     const tab = ref(store.fichaTab || "personal"); store.fichaTab = "personal";
@@ -284,7 +284,7 @@ export default {
               <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="ent.fecha" /></div>
               <div class="fld"><label>Hora</label><select class="inp" v-model="ent.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>
               <div class="fld"><label>Modalidad</label><select class="inp" v-model="ent.modalidad"><option>Presencial</option><option>Online</option></select></div>
-              <div class="fld"><label>Entrevistador/a (opcional)</label><select class="inp" v-model="ent.entrevistador"><option value="">Sin asignar</option><option v-for="p in ENTREVISTADORES" :key="p">{{ p }}</option></select></div>
+              <div class="fld"><label>Entrevistador/a (opcional)</label><select class="inp" v-model="ent.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="ent.entrevistador" /></select></div>
               <div class="fld"><label>Estado de la cita</label><select class="inp" v-model="ent.estado"><option v-for="(v,k) in ESTADOS_CITA" :key="k">{{ k }}</option></select></div>
               <div class="fld"><label>Sincronización</label><span class="notion" style="align-self:flex-start;margin-top:6px"><Ic n="sync" :s="13" />Notion (bidireccional)</span></div>
             </div>
@@ -371,7 +371,7 @@ export default {
         <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="prog.fecha" /></div>
         <div class="fld"><label>Hora</label><select class="inp" v-model="prog.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>
         <div class="fld"><label>Modalidad</label><select class="inp" v-model="prog.modalidad"><option>Presencial</option><option>Online</option></select></div>
-        <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="prog.entrevistador"><option value="">Sin asignar</option><option v-for="p in ENTREVISTADORES" :key="p">{{ p }}</option></select></div>
+        <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="prog.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="prog.entrevistador" /></select></div>
       </div>
       <div class="aviso"><Ic n="sync" :s="16" /><span>La cita se creará también en Notion. Más adelante podrá avisar al candidato por WhatsApp o correo.</span></div>
       <template #pie><button class="btn" @click="prog.abierto=false">Cancelar</button><button class="btn btn-primary" @click="guardarProg">Programar</button></template>
@@ -385,7 +385,7 @@ export default {
         <div class="fld"><label>Hora de entrada</label><input class="inp" type="time" v-model="inc.horaIni" /></div>
         <div class="fld"><label>Hora de salida</label><input class="inp" type="time" v-model="inc.horaFin" /></div>
         <div class="fld"><label>Horas totales</label><input class="inp" type="number" v-model.number="inc.horas" /></div>
-        <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="inc.tutor"><option value="">Sin tutor asignado</option><option v-for="a in ASESORES" :key="a">{{ a }}</option></select></div>
+        <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="inc.tutor"><option value="">Sin tutor asignado</option><OpcionesPersonas :actual="inc.tutor" /></select></div>
       </div>
       <label class="row"><input type="checkbox" v-model="inc.convenio" /> Convenio de prácticas firmado</label>
       <div class="aviso" :class="ocupacion.pasa ? 'err' : ''"><Ic :n="ocupacion.pasa ? 'alert' : 'info'" :s="16" /><span>Turno de <b>{{ etiquetaTurno(ocupacion.t).toLowerCase() }}</b> el día de inicio: {{ ocupacion.n }} de {{ ocupacion.aforo }} plazas ocupadas.<template v-if="ocupacion.pasa"> <b>Con esta incorporación se supera el aforo supervisable.</b></template></span></div>
