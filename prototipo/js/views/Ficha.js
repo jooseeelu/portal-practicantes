@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from "vue";
 import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
+import { miNombre } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe } from "../util.js";
@@ -42,7 +43,7 @@ export default {
       if (v == null) return toast("Puntúa al menos un criterio o escribe la nota final.", "error");
       c.value.nota = Number(v); notaFinal.value = Number(v);
       ent.value.estado = "Realizada";
-      addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || "Admin");
+      addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || miNombre());
       if (["entrevista-programada", "entrevistado", "pendiente-entrevista"].includes(c.value.estado)) cambiarEstado(c.value, "en-valoracion", { silencioso: true });
       toast("Valoración guardada · sincronizada con Notion");
     };
@@ -64,7 +65,7 @@ export default {
 
     // --- Notas internas ---
     const nuevaNota = ref("");
-    const addNota = () => { if (!nuevaNota.value.trim()) return; store.notas.push({ id: nuevoId(), candId: c.value.id, autor: "Admin", fecha: HOY_ISO, texto: nuevaNota.value.trim() }); addHist(c.value.id, "nota", "Nueva observación interna"); nuevaNota.value = ""; };
+    const addNota = () => { if (!nuevaNota.value.trim()) return; store.notas.push({ id: nuevoId(), candId: c.value.id, autor: miNombre(), fecha: HOY_ISO, texto: nuevaNota.value.trim() }); addHist(c.value.id, "nota", "Nueva observación interna"); nuevaNota.value = ""; };
 
     // --- Faltas de asistencia (si se recupera el día, el fin se alarga un día laborable) ---
     const falta = reactive({ fecha: HOY_ISO, motivo: "", recupera: true });

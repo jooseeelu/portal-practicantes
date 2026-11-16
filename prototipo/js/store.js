@@ -1,20 +1,38 @@
 import { reactive } from "vue";
 import { crearDatos, ESTADOS_INICIALES } from "./data.js";
-import { HOY_ISO, turnoDe, dia } from "./util.js";
+import { HOY_ISO, turnoDe, dia, pad } from "./util.js";
+import { miNombre } from "./api.js";
 
 let tema = "claro";
 try { tema = localStorage.getItem("emadrid-tema") === "oscuro" ? "oscuro" : "claro"; } catch { /* sin almacenamiento */ }
 
-export const store = reactive({
-  tema,
-  estados: ESTADOS_INICIALES,
+/** Ajustes de fábrica (los que se cambian en la pantalla de Ajustes). */
+export const ajustesPorDefecto = () => ({
+  estados: ESTADOS_INICIALES.map((e) => ({ ...e })),
   aforo: { Mañana: 4, Tarde: 4, "Tarde 2": 4 },
   turnosDef: { Mañana: { ini: "10:00", fin: "15:00" }, Tarde: { ini: "15:00", fin: "20:00" }, "Tarde 2": { ini: "16:00", fin: "21:00" } },
   retencionMeses: 12,
+});
+const DATOS = ["centros", "candidatos", "entrevistas", "estudiantes", "documentos", "historial", "notas"];
+
+// El portal arranca vacío: los datos llegan del servidor (sync.js) o, en modo demo, de cargarDemo().
+export const store = reactive({
+  tema,
+  ...ajustesPorDefecto(),
   toasts: [],
   fichaTab: "personal",
-  ...crearDatos(),
+  ...Object.fromEntries(DATOS.map((k) => [k, []])),
 });
+
+export function vaciarDatos() {
+  for (const k of DATOS) store[k].splice(0);
+  Object.assign(store, ajustesPorDefecto());
+}
+/** Rellena el portal con los datos de demostración (inventados). */
+export function cargarDemo() {
+  const d = crearDatos();
+  for (const k of DATOS) store[k].splice(0, store[k].length, ...d[k]);
+}
 
 // Turnos de la oficina y cómo se muestran (con su horario, que se edita en Ajustes)
 export const TURNOS_OFICINA = ["Mañana", "Tarde", "Tarde 2"];
@@ -38,7 +56,9 @@ export const entrevistaDe = (candId) => entrevistasDe(candId)[0] || null;
 export const estudianteDe = (candId) => store.estudiantes.find((e) => e.candId === candId) || null;
 export const docsDe = (candId) => store.documentos.filter((d) => d.candId === candId);
 export const histDe = (candId) => store.historial.filter((h) => h.candId === candId).sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora) || b.id - a.id);
-export const nuevoId = () => ++store.nextId;
+// Identificador único aunque varias personas creen fichas a la vez (hora en ms + azar).
+let ultimoId = 0;
+export const nuevoId = () => { const n = Date.now() * 1000 + Math.floor(Math.random() * 1000); ultimoId = n > ultimoId ? n : ultimoId + 1; return ultimoId; };
 
 /** Estado de las prácticas de un estudiante según las fechas. */
 export function estadoPracticas(e) {
@@ -54,8 +74,9 @@ export function toast(msg, tipo = "ok") {
   setTimeout(() => { store.toasts = store.toasts.filter((t) => t.id !== id); }, tipo === "error" ? 6000 : 3200);
 }
 
-export function addHist(candId, tipo, texto, autor = "Admin") {
-  store.historial.push({ id: nuevoId(), candId, fecha: HOY_ISO, hora: "12:00", tipo, texto, autor });
+export function addHist(candId, tipo, texto, autor = miNombre()) {
+  const ahora = new Date();
+  store.historial.push({ id: nuevoId(), candId, fecha: HOY_ISO, hora: `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`, tipo, texto, autor });
 }
 
 export function cambiarEstado(c, k, { silencioso = false } = {}) {
