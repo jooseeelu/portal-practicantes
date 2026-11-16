@@ -1,7 +1,7 @@
-// Utilidades de fechas y texto. «HOY» está fijo para que la demo sea coherente con los Excel (noviembre 2026).
-export const HOY_ISO = "2026-11-13";
+// Utilidades de fechas y texto. «HOY» es la fecha real; los datos de demo se calculan en relación a ella.
 export const pad = (n) => String(n).padStart(2, "0");
 export const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const HOY_ISO = iso(new Date());
 export const aDate = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
 export const HOY = aDate(HOY_ISO);
 /** Fecha ISO desplazada `n` días desde `base` (ISO, por defecto hoy). */

@@ -1,13 +1,14 @@
-import { ref, computed } from "vue";
-import { store, toast, setTema, TURNOS_OFICINA } from "../store.js";
-import { Ic, Chip, Avatar } from "../ui.js";
+import { ref, reactive, computed, watch } from "vue";
+import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos } from "../store.js";
+import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria } from "../api.js";
+import { Ic, Chip, Avatar, Modal } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
-import { slug, fCompleta, dia } from "../util.js";
+import { slug, fCompleta, dia, HOY_ISO, iso, pad } from "../util.js";
 
 const tabActual = ref("estados");
 
 export default {
-  components: { Ic, Chip, Avatar },
+  components: { Ic, Chip, Avatar, Modal },
   setup() {
     const tab = tabActual;
     const tabs = [["estados", "Estados del proceso", "kanban"], ["turnos", "Turnos y aforo", "clock"], ["equipo", "Equipo y permisos", "candidatos"], ["datos", "Protección de datos", "shield"], ["integraciones", "Integraciones", "link"]];
@@ -16,18 +17,87 @@ export default {
     const color = (e, col) => Object.assign(e, { col, c: COLORES[col].c, cd: COLORES[col].cd });
     const nuevo = ref("");
     const addEstado = () => { const n = nuevo.value.trim(); if (!n) return; store.estados.push({ k: slug(n).replace(/\./g, "-") + "-" + store.estados.length, c: COLORES.gris.c, cd: COLORES.gris.cd, n, col: "gris", activo: true }); nuevo.value = ""; toast("Estado añadido"); };
-    const equipo = [
-      ...[["Admin", "Administrador"], ["Andrés", "Administrador"]].map(([n, r]) => ({ n, r })),
-      ...[...new Set([...ENTREVISTADORES.slice(1), ...ASESORES])].map((n) => ({ n, r: "Asesor" })),
-      { n: "Recepción", r: "Solo lectura" },
-    ];
-    const registro = [
-      [0, "09:12", "Admin", "Abrió el currículum de un candidato"], [0, "09:05", "Admin", "Inició sesión (código de verificación correcto)"],
+    const enServidor = computed(() => sesion.modo === "servidor");
+    const admin = computed(() => esAdmin());
+
+    // --- Equipo ---
+    const EQUIPO_DEMO = [
+      ...[["Admin", "admin"], ["Andrés", "admin"]].map(([name, rol]) => ({ name, rol })),
+      ...[...new Set([...ENTREVISTADORES.slice(1), ...ASESORES])].map((name) => ({ name, rol: "asesor" })),
+    ].map((p, i) => ({ id: "demo" + i, email: "", activo: true, fin: "", ...p }));
+    const equipo = ref([]), errEquipo = ref("");
+    const cargarEquipo = async () => {
+      if (!enServidor.value) { equipo.value = EQUIPO_DEMO; return; }
+      try { equipo.value = await listarEquipo(); errEquipo.value = ""; } catch (e) { errEquipo.value = e.message; }
+    };
+    const finDe = (p) => (p.fin ? String(p.fin).slice(0, 10) : "");
+    const caducada = (p) => !!finDe(p) && finDe(p) < HOY_ISO;
+    const accesoDe = (p) => (!p.activo ? "Desactivado" : caducada(p) ? `Caducó el ${fCompleta(finDe(p))}` : finDe(p) ? `Hasta el ${fCompleta(finDe(p))}` : "Activo");
+    const permisos = (rol) => (rol === "admin" ? "Todo: borrar fichas, cambiar los ajustes y gestionar el equipo" : "Ver y editar candidatos, entrevistas, estudiantes, centros y documentos. No borra fichas ni cambia ajustes");
+
+    const form = reactive({ abierto: false, id: null, name: "", email: "", rol: "asesor", fin: "", activo: true, password: "", error: "", ocupado: false });
+    const nuevaPersona = () => Object.assign(form, { abierto: true, id: null, name: "", email: "", rol: "asesor", fin: "", activo: true, password: claveAleatoria(), error: "" });
+    const editar = (p) => Object.assign(form, { abierto: true, id: p.id, name: p.name, email: p.email, rol: p.rol, fin: finDe(p), activo: !!p.activo, password: "", error: "" });
+    const guardarPersona = async () => {
+      if (form.ocupado) return;
+      const fin = form.fin ? `${form.fin} 23:59:59.000Z` : "";
+      form.ocupado = true; form.error = "";
+      try {
+        if (form.id) {
+          await editarPersona(form.id, { name: form.name.trim(), rol: form.rol, fin, activo: form.activo });
+          toast("Cambios guardados");
+          form.abierto = false;
+        } else {
+          if (form.password.length < 10) throw new Error("La contraseña inicial debe tener al menos 10 caracteres.");
+          await crearPersona({ name: form.name.trim(), email: form.email.trim(), rol: form.rol, fin, activo: true, password: form.password });
+          Object.assign(entrega, { abierto: true, nombre: form.name.trim(), email: form.email.trim(), password: form.password });
+          form.abierto = false;
+        }
+        form.password = "";
+        await cargarEquipo();
+      } catch (e) { form.error = e.message; } finally { form.ocupado = false; }
+    };
+    // Tras crear una cuenta o poner una contraseña nueva, se enseña una sola vez para pasársela a la persona.
+    const entrega = reactive({ abierto: false, nombre: "", email: "", password: "" });
+    const nuevaClave = async (p) => {
+      if (!window.confirm(`¿Poner una contraseña nueva a ${p.name}? La actual dejará de valer.`)) return;
+      const password = claveAleatoria();
+      try { await ponerClave(p.id, password); Object.assign(entrega, { abierto: true, nombre: p.name, email: p.email, password }); }
+      catch (e) { toast(e.message, "error"); }
+    };
+    const copiar = async (t) => { try { await navigator.clipboard.writeText(t); toast("Copiado"); } catch { toast("No se pudo copiar; selecciónala a mano", "error"); } };
+    const cerrarEntrega = () => Object.assign(entrega, { abierto: false, password: "" });
+
+    // --- Registro de acciones sensibles ---
+    const REGISTRO_DEMO = [
+      [0, "09:12", "Admin", "Abrió el currículum de un candidato"], [0, "09:05", "Admin", "Inició sesión"],
       [-1, "17:40", "Vanesa", "Descargó un convenio de prácticas"], [-1, "13:02", "Belén", "Exportó el listado de candidatos a Excel"], [-2, "11:20", "Andrés", "Eliminó un documento duplicado"],
     ].map(([d, h, q, t]) => ({ f: fCompleta(dia(d)), h, q, t }));
+    const registro = ref([]);
+    const cargarRegistro = async () => {
+      if (!enServidor.value) { registro.value = REGISTRO_DEMO; return; }
+      if (!admin.value) { registro.value = []; return; }
+      try {
+        registro.value = (await listarAccesos()).map((a) => {
+          const d = new Date(String(a.created).replace(" ", "T"));
+          return { f: fCompleta(iso(d)), h: `${pad(d.getHours())}:${pad(d.getMinutes())}`, q: a.nombre || "—", t: a.detalle ? `${a.accion}: ${a.detalle}` : a.accion };
+        });
+      } catch { registro.value = []; }
+    };
+    watch(tab, (t) => { if (t === "equipo") cargarEquipo(); if (t === "datos") cargarRegistro(); }, { immediate: true });
+
+    // --- Datos de demostración (solo en el entorno de pruebas) ---
+    const puedeDemo = computed(() => enServidor.value && sesion.entorno === "pruebas" && admin.value);
+    const rellenarDemo = () => { cargarDemo(); toast("Datos de demostración cargados; se están guardando"); };
+    const vaciarTodo = () => {
+      if (!window.confirm("¿Borrar TODOS los datos de este entorno (candidatos, entrevistas, centros…)? No se puede deshacer.")) return;
+      vaciarDatos(); toast("Entorno vaciado");
+    };
+
     const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "retirada"].includes(c.estado)).length);
-    const demo = (m) => toast("Demo: " + m);
-    return { TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, registro, caducan, demo, COLORES, setTema };
+    const demo = (m) => toast((enServidor.value ? "Todavía no disponible: " : "Demo: ") + m);
+    return { TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+      sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
   <div class="page">
@@ -62,11 +132,47 @@ export default {
       </div>
 
       <div v-else-if="tab==='equipo'" class="card-pad stack">
-        <p class="sub">Mismos criterios que el CRM: acceso con contraseña y código por correo, y permisos comprobados en el servidor.</p>
-        <table class="tbl sin-hover"><thead><tr><th>Persona</th><th>Rol</th><th>Qué puede hacer</th><th>Verificación en dos pasos</th></tr></thead>
-          <tbody><tr v-for="p in equipo" :key="p.n"><td><div class="who"><Avatar :nombre="p.n" apellidos="" :s="28" /><b>{{ p.n }}</b></div></td><td><span class="tag" :class="{gold: p.r==='Administrador'}">{{ p.r }}</span></td>
-            <td class="sub">{{ p.r==='Administrador' ? 'Todo, incluido borrar, exportar y gestionar el equipo' : p.r==='Asesor' ? 'Ver y editar candidatos, entrevistas y documentos. No borra ni exporta todo' : 'Consultar agenda y cuadrante. Sin acceso a currículums ni notas internas' }}</td>
-            <td><span class="ico-ok row" style="gap:5px"><Ic n="check" :s="15" />Activa</span></td></tr></tbody></table>
+        <div class="equipo-cab">
+          <p class="sub">Cada persona entra con su correo y su contraseña, y los permisos se comprueban en el servidor. A quien se va no se le borra: se desactiva, y su nombre sigue en el historial.</p>
+          <button v-if="enServidor && admin" class="btn btn-primary" @click="nuevaPersona"><Ic n="plus" :s="15" />Añadir persona</button>
+        </div>
+        <div v-if="!enServidor" class="aviso"><Ic n="info" :s="16" /><span>Demostración: aquí no hay cuentas reales. En el portal con servidor, un administrador añade y desactiva personas desde esta pantalla.</span></div>
+        <div v-else-if="!admin" class="aviso"><Ic n="info" :s="16" /><span>Solo un administrador puede añadir personas o cambiar roles.</span></div>
+        <div v-if="errEquipo" class="aviso err"><Ic n="alert" :s="16" /><span>{{ errEquipo }}</span></div>
+        <table class="tbl sin-hover"><thead><tr><th>Persona</th><th>Rol</th><th>Qué puede hacer</th><th>Acceso</th><th v-if="enServidor && admin"></th></tr></thead>
+          <tbody><tr v-for="p in equipo" :key="p.id" :class="{inactiva: !p.activo || caducada(p)}">
+            <td><div class="who"><Avatar :nombre="p.name || p.email" apellidos="" :s="28" /><span><b>{{ p.name || '—' }}</b><small v-if="p.email" class="sub" style="display:block">{{ p.email }}</small></span></div></td>
+            <td><span class="tag" :class="{gold: p.rol==='admin'}">{{ ROLES[p.rol] || p.rol }}</span></td>
+            <td class="sub">{{ permisos(p.rol) }}</td>
+            <td><span v-if="p.activo && !caducada(p)" class="ico-ok row" style="gap:5px"><Ic n="check" :s="15" />{{ accesoDe(p) }}</span><span v-else class="tag off">{{ accesoDe(p) }}</span></td>
+            <td v-if="enServidor && admin" class="nowrap"><button class="btn btn-sm" @click="editar(p)"><Ic n="pencil" :s="14" />Editar</button> <button class="btn btn-sm" @click="nuevaClave(p)" :disabled="p.id===sesion.usuario?.id" :title="p.id===sesion.usuario?.id ? 'Tu contraseña se cambia desde tu menú, arriba a la derecha' : 'Poner una contraseña nueva'"><Ic n="lock" :s="14" />Contraseña</button></td>
+          </tr></tbody></table>
+        <p class="sub">Los roles Técnico, Asesor, Colaborador y Consulta tienen los mismos permisos; solo cambia el nombre. La verificación en dos pasos por correo se activará cuando se configure el buzón de envío.</p>
+
+        <Modal v-if="form.abierto" :titulo="form.id ? 'Editar persona' : 'Añadir persona'" :ancho="480" @cerrar="form.abierto=false">
+          <form class="stack" id="f-persona" @submit.prevent="guardarPersona">
+            <div class="fld"><label>Nombre</label><input class="inp" v-model="form.name" required maxlength="80" placeholder="Nombre y apellido" /></div>
+            <div class="fld"><label>Correo (será su usuario)</label><input class="inp" type="email" v-model="form.email" :disabled="!!form.id" required /></div>
+            <div class="grid2">
+              <div class="fld"><label>Rol</label><select class="inp" v-model="form.rol" :disabled="form.id===sesion.usuario?.id"><option v-for="(n,k) in ROLES" :key="k" :value="k">{{ n }}</option></select></div>
+              <div class="fld"><label>Acceso hasta (opcional)</label><input class="inp" type="date" v-model="form.fin" /></div>
+            </div>
+            <p class="sub">Para practicantes: pon la fecha en la que terminan y el acceso se cortará solo al día siguiente.</p>
+            <div v-if="!form.id" class="fld"><label>Contraseña inicial (mínimo 10 caracteres)</label><div class="clave-fila"><input class="inp" v-model="form.password" required minlength="10" autocomplete="off" /><button type="button" class="btn" @click="form.password=claveAleatoria()">Otra</button></div></div>
+            <label v-else-if="form.id!==sesion.usuario?.id" class="row" style="gap:10px"><span class="switch"><input type="checkbox" v-model="form.activo" /><i></i></span><span>Acceso activo</span></label>
+            <div v-if="form.error" class="aviso err"><Ic n="alert" :s="16" /><span>{{ form.error }}</span></div>
+          </form>
+          <template #pie><button class="btn" @click="form.abierto=false">Cancelar</button><button class="btn btn-primary" type="submit" form="f-persona" :disabled="form.ocupado">{{ form.id ? 'Guardar' : 'Crear cuenta' }}</button></template>
+        </Modal>
+
+        <Modal v-if="entrega.abierto" titulo="Contraseña para entregar" :ancho="460" @cerrar="cerrarEntrega">
+          <div class="stack">
+            <p>Pásale estos datos a <b>{{ entrega.nombre }}</b> por un canal seguro. Esta contraseña no se volverá a mostrar; podrá cambiarla desde su menú al entrar.</p>
+            <div class="fld"><label>Correo</label><input class="inp" :value="entrega.email" readonly /></div>
+            <div class="fld"><label>Contraseña</label><div class="clave-fila"><input class="inp" :value="entrega.password" readonly /><button class="btn" @click="copiar(entrega.password)">Copiar</button></div></div>
+          </div>
+          <template #pie><button class="btn btn-primary" @click="cerrarEntrega">Hecho</button></template>
+        </Modal>
       </div>
 
       <div v-else-if="tab==='datos'" class="card-pad stack">
@@ -76,12 +182,17 @@ export default {
             <div class="row"><input class="inp" type="number" min="1" max="60" v-model.number="store.retencionMeses" style="width:90px" /><span>meses desde el último contacto</span></div>
             <div class="aviso"><Ic n="info" :s="16" /><span>Ahora mismo hay <b>{{ caducan }}</b> candidaturas sujetas a este plazo. Plazo a confirmar con vuestro delegado de protección de datos.</span></div></div>
           <div class="caja"><div class="row"><Ic n="db" /><h3>Copias de seguridad y exportación</h3></div>
-            <p class="sub">Copia automática diaria a las 03:00 en vuestro servidor, guardando las 7 últimas (igual que el CRM).</p>
-            <div class="aviso ok"><Ic n="check" :s="16" /><span>Última copia: hoy a las 03:00 (simulado).</span></div>
+            <template v-if="!enServidor"><p class="sub">Copia automática diaria a las 03:00 en vuestro servidor, guardando las 7 últimas (igual que el CRM).</p>
+            <div class="aviso ok"><Ic n="check" :s="16" /><span>Última copia: hoy a las 03:00 (simulado).</span></div></template>
+            <div v-else class="aviso warn"><Ic n="alert" :s="16" /><span>Las copias de seguridad automáticas de este servidor todavía no están configuradas.</span></div>
             <div class="row wrap"><button class="btn btn-sm" @click="demo('se descargaría todo en Excel')"><Ic n="download" :s="14" />Exportar todo a Excel</button><button class="btn btn-sm" @click="demo('se descargaría un ZIP con datos y documentos')"><Ic n="download" :s="14" />Copia completa (ZIP)</button></div></div>
         </div>
-        <div><h3 style="margin-bottom:10px">Registro de acciones sensibles</h3>
-          <table class="tbl sin-hover"><thead><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Qué hizo</th></tr></thead><tbody><tr v-for="(r,i) in registro" :key="i"><td class="nowrap">{{ r.f }}</td><td>{{ r.h }}</td><td><b>{{ r.q }}</b></td><td>{{ r.t }}</td></tr></tbody></table></div>
+        <div v-if="puedeDemo" class="caja"><div class="row"><Ic n="sparkles" /><h3>Datos de demostración</h3></div>
+          <p class="sub">Solo en el entorno de pruebas: rellena el portal con candidatos, centros y entrevistas inventados para probar, o déjalo vacío.</p>
+          <div class="row wrap"><button class="btn btn-sm" @click="rellenarDemo" :disabled="store.candidatos.length>0" :title="store.candidatos.length>0 ? 'Vacía antes el entorno' : ''"><Ic n="plus" :s="14" />Cargar datos de demostración</button><button class="btn btn-sm btn-danger" @click="vaciarTodo"><Ic n="trash" :s="14" />Vaciar todos los datos</button></div></div>
+        <div v-if="!enServidor || admin"><h3 style="margin-bottom:10px">Registro de acciones sensibles</h3>
+          <p v-if="!registro.length" class="sub">Todavía no hay nada registrado.</p>
+          <table v-else class="tbl sin-hover"><thead><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Qué hizo</th></tr></thead><tbody><tr v-for="(r,i) in registro" :key="i"><td class="nowrap">{{ r.f }}</td><td>{{ r.h }}</td><td><b>{{ r.q }}</b></td><td>{{ r.t }}</td></tr></tbody></table></div>
       </div>
 
       <div v-else class="card-pad">
