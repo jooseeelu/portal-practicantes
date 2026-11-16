@@ -256,3 +256,16 @@ export const CampoClave = {
   template: `<div class="clave-campo"><input :id="id" class="inp" :type="ver ? 'text' : 'password'" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" :autocomplete="autocomplete" :required="required" spellcheck="false" autocapitalize="off" />
     <button type="button" class="clave-ojo" @click="ver = !ver" :aria-pressed="ver" :aria-label="ver ? 'Ocultar contraseña' : 'Mostrar contraseña'" :title="ver ? 'Ocultar contraseña' : 'Mostrar contraseña'"><Ic :n="ver ? 'ojoNo' : 'eye'" :s="18" /></button></div>`,
 };
+
+/** Opciones de un <select> con las personas de Ajustes → Personas, en dos grupos.
+ *  Si la ficha tiene un nombre que ya no está en la lista, se sigue mostrando para no perderlo.
+ *  prefijo: texto delante del nombre (p. ej. «Agenda de »). */
+export const OpcionesPersonas = {
+  props: { actual: { type: String, default: "" }, prefijo: { type: String, default: "" } },
+  setup(p) {
+    const grupos = computed(() => [["Equipo de la gestoría", store.personas?.equipo || []], ["Practicantes", store.personas?.practicantes || []]]);
+    const huerfano = computed(() => p.actual && p.actual !== "Sin asignar" && !grupos.value.some(([, l]) => l.includes(p.actual)) ? p.actual : "");
+    return { grupos, huerfano };
+  },
+  template: `<option v-if="huerfano" :value="huerfano">{{ prefijo }}{{ huerfano }}</option><optgroup v-for="[g, lista] in grupos" :key="g" :label="g"><option v-for="n in lista" :key="n" :value="n">{{ prefijo }}{{ n }}</option></optgroup>`,
+};
