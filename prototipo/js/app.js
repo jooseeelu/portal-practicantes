@@ -3,7 +3,7 @@ import { store, setTema, centroDe, nombreCompleto, cargarDemo, vaciarDatos, toas
 import { sesion, iniciar, entrar, cerrarSesion, cambiarMiClave, miNombre, miRol } from "./api.js";
 import { arrancarSync, pararSync, guardarAhora } from "./sync.js";
 import { ruta, go } from "./router.js";
-import { Ic, Toasts, Avatar, Chip, Modal } from "./ui.js";
+import { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, pedirConfirmacion } from "./ui.js";
 import { normal, HOY_ISO, dia, fLarga } from "./util.js";
 import Inicio from "./views/Inicio.js";
 import Candidatos from "./views/Candidatos.js";
@@ -17,7 +17,7 @@ import Ajustes from "./views/Ajustes.js";
 const VISTAS = { inicio: Inicio, candidatos: Candidatos, candidato: Ficha, entrevistas: Entrevistas, estudiantes: Estudiantes, centros: Centros, documentos: Documentos, ajustes: Ajustes };
 
 const App = {
-  components: { Ic, Toasts, Avatar, Chip, Modal },
+  components: { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave },
   setup() {
     // --- Sesión ---
     const acceso = reactive({ email: "", clave: "", error: "", ocupado: false });
@@ -35,7 +35,12 @@ const App = {
       finally { acceso.ocupado = false; }
     };
     const menuYo = ref(false);
-    const salir = async () => { menuYo.value = false; await guardarAhora(); pararSync(); vaciarDatos(); cerrarSesion(); };
+    const salir = async () => {
+      menuYo.value = false;
+      const pendiente = sesion.guardando || sesion.errorGuardado;
+      const si = await pedirConfirmacion({ titulo: "¿Cerrar sesión?", texto: pendiente ? "Hay cambios que aún se están guardando o que no se pudieron guardar. Si sales ahora podrías perderlos." : "Para volver a entrar tendrás que escribir tu correo y tu contraseña.", boton: "Cerrar sesión", peligro: !!pendiente });
+      if (!si) return;
+      await guardarAhora(); pararSync(); vaciarDatos(); cerrarSesion(); };
     // Al entrar se cargan los datos; si la sesión se pierde (caduca o la desactivan), se limpia la pantalla.
     watch(() => sesion.usuario?.id, (id, antes) => { if (id) cargarDatos(); else if (antes) { pararSync(); vaciarDatos(); } });
     onMounted(async () => { await iniciar(); if (sesion.modo === "demo") cargarDemo(); document.dispatchEvent(new Event("portal-listo")); });
@@ -110,7 +115,7 @@ const App = {
       <h1>Gestoría eMadrid</h1>
       <p class="acceso-sub">Portal de prácticas<span v-if="sesion.entorno==='pruebas'" class="tag">Entorno de pruebas</span></p>
       <div class="fld"><label for="acc-email">Correo</label><input id="acc-email" class="inp" type="email" v-model="acceso.email" autocomplete="username" required autofocus /></div>
-      <div class="fld"><label for="acc-clave">Contraseña</label><input id="acc-clave" class="inp" type="password" v-model="acceso.clave" autocomplete="current-password" required /></div>
+      <div class="fld"><label for="acc-clave">Contraseña</label><CampoClave id="acc-clave" v-model="acceso.clave" autocomplete="current-password" required /></div>
       <div v-if="acceso.error" class="aviso err"><Ic n="alert" :s="16" /><span>{{ acceso.error }}</span></div>
       <button class="btn btn-primary" type="submit" :disabled="acceso.ocupado"><Ic n="lock" :s="15" />{{ acceso.ocupado ? 'Entrando…' : 'Entrar' }}</button>
       <small class="sub">Acceso solo para el equipo. Si no recuerdas tu contraseña, pide a un administrador que te ponga una nueva.</small>
@@ -173,9 +178,9 @@ const App = {
     </div>
     <Modal v-if="clave.abierto" titulo="Cambiar mi contraseña" :ancho="420" @cerrar="clave.abierto=false">
       <form class="stack" @submit.prevent="guardarClave" id="f-clave">
-        <div class="fld"><label>Contraseña actual</label><input class="inp" type="password" v-model="clave.actual" autocomplete="current-password" required /></div>
-        <div class="fld"><label>Contraseña nueva (mínimo 10 caracteres)</label><input class="inp" type="password" v-model="clave.nueva" autocomplete="new-password" required /></div>
-        <div class="fld"><label>Repite la contraseña nueva</label><input class="inp" type="password" v-model="clave.repetir" autocomplete="new-password" required /></div>
+        <div class="fld"><label>Contraseña actual</label><CampoClave v-model="clave.actual" autocomplete="current-password" required /></div>
+        <div class="fld"><label>Contraseña nueva (mínimo 10 caracteres)</label><CampoClave v-model="clave.nueva" autocomplete="new-password" required /></div>
+        <div class="fld"><label>Repite la contraseña nueva</label><CampoClave v-model="clave.repetir" autocomplete="new-password" required /></div>
         <div v-if="clave.error" class="aviso err"><Ic n="alert" :s="16" /><span>{{ clave.error }}</span></div>
       </form>
       <template #pie><button class="btn" @click="clave.abierto=false">Cancelar</button><button class="btn btn-primary" type="submit" form="f-clave" :disabled="clave.ocupado">Guardar</button></template>
@@ -195,6 +200,7 @@ const App = {
       </div>
       <template #pie><button class="btn btn-primary" @click="ayudaInstalar=false">Entendido</button></template>
     </Modal>
+    <Confirmacion />
     <Toasts />
   </div>`,
 };
