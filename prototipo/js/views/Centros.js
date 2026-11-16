@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from "vue";
 import { store, centroDe, nombreCompleto, estadoPracticas, estudianteDe, toast } from "../store.js";
 import { ruta, go } from "../router.js";
+import { filtros } from "./Candidatos.js";
 import { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio } from "../ui.js";
 import { ASESORES } from "../data.js";
 import { normal, slug } from "../util.js";
@@ -27,6 +28,7 @@ export default {
     const selDatos = computed(() => (sel.value ? datos(sel.value) : null));
     const nuevoProg = ref("");
     const addProg = () => { const t = nuevoProg.value.trim(); if (t && !sel.value.programas.includes(t)) sel.value.programas.push(t); nuevoProg.value = ""; };
+    const verCandidatos = (id) => { Object.assign(filtros, { q: "", estado: "", centro: id, turno: "", notaMin: "", rapido: "" }); go("candidatos"); };
     const archivar = () => { sel.value.archivado = !sel.value.archivado; toast(sel.value.archivado ? "Centro archivado: deja de salir en los desplegables" : "Centro restaurado"); };
 
     const alta = reactive({ abierto: false, nombre: "", tipo: "Universidad", responsable: "Sin asignar", contacto: "", email: "", tel: "", horas: "", periodos: "" });
@@ -40,7 +42,7 @@ export default {
       alta.abierto = false; toast("Centro añadido"); go("centros/" + id);
     };
     const abrirAlta = () => Object.assign(alta, { abierto: true, nombre: "", contacto: "", email: "", tel: "", horas: "", periodos: "", responsable: "Sin asignar" });
-    return { store, s, TIPOS, ASESORES, lista, sinResp, sel, selDatos, nuevoProg, addProg, archivar, alta, repetido, crear, abrirAlta, go, nombreCompleto, estudianteDe, estadoPracticas };
+    return { store, s, TIPOS, ASESORES, lista, sinResp, sel, selDatos, nuevoProg, addProg, archivar, verCandidatos, alta, repetido, crear, abrirAlta, go, nombreCompleto, estudianteDe, estadoPracticas };
   },
   template: `
   <div class="page">
@@ -66,7 +68,7 @@ export default {
     <Vacio v-if="!lista.length" titulo="Ningún centro con estos filtros" texto="" />
 
     <Drawer v-if="sel" :titulo="sel.nombre" @cerrar="go('centros')">
-      <div class="row wrap"><span class="tag">{{ sel.tipo }}</span><span v-if="sel.archivado" class="tag gold">Archivado</span><button class="btn btn-sm right" @click="archivar"><Ic :n="sel.archivado ? 'restore' : 'archive'" :s="14" />{{ sel.archivado ? 'Restaurar' : 'Archivar' }}</button></div>
+      <div class="row wrap"><span class="tag">{{ sel.tipo }}</span><span v-if="sel.archivado" class="tag gold">Archivado</span><button class="btn btn-sm btn-accent right" :disabled="!selDatos.total" @click="verCandidatos(sel.id)"><Ic n="user" :s="14" />Ver candidatos ({{ selDatos.total }})</button><button class="btn btn-sm" @click="archivar"><Ic :n="sel.archivado ? 'restore' : 'archive'" :s="14" />{{ sel.archivado ? 'Restaurar' : 'Archivar' }}</button></div>
       <div class="centro-nums"><div><b>{{ selDatos.total }}</b><span>candidatos</span></div><div><b>{{ selDatos.proceso }}</b><span>en proceso</span></div><div><b style="color:var(--cyan-dark)">{{ selDatos.activos }}</b><span>en prácticas</span></div><div><b>{{ selDatos.hechos }}</b><span>finalizadas</span></div></div>
       <div class="grid2">
         <div class="fld"><label>Nombre del centro</label><input class="inp" v-model="sel.nombre" /></div>
