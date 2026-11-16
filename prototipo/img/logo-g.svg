@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Gestoría eMadrid">
+  <defs>
+    <linearGradient id="oro" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c79a2a"/>
+      <stop offset=".55" stop-color="#a67c16"/>
+      <stop offset="1" stop-color="#8a650d"/>
+    </linearGradient>
+    <clipPath id="corte"><path d="M0 0H65.25V44.75H100V100H0Z"/></clipPath>
+  </defs>
+  <path clip-path="url(#corte)" fill="url(#oro)" fill-rule="evenodd" d="M48 8a42 42 0 1 0 0 84a42 42 0 1 0 0-84Zm0 18.5a23.5 23.5 0 1 1 0 47a23.5 23.5 0 1 1 0-47Z"/>
+  <path fill="#7a590a" d="M48 22h17.25v22.75H48z"/>
+  <path fill="url(#oro)" d="M48 44.75h41.6a42 42 0 0 1 .1 12.75H48z"/>
+</svg>
