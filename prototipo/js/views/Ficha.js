@@ -1,7 +1,7 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
-import { miNombre } from "../api.js";
+import { miNombre, sesion, subirArchivo, borrarArchivo, abrirArchivo, urlArchivo, MAX_ARCHIVO_MB } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe } from "../util.js";
@@ -50,17 +50,39 @@ export default {
     const addPregunta = () => ent.value.preguntas.push({ q: "", a: "" });
 
     // --- Documentos ---
-    function subir(files, tipo = "Otro") {
-      files.forEach((f) => {
-        const repe = docs.value.find((d) => d.nombre === f.name);
-        if (repe) return toast(`«${f.name}» ya está en esta ficha: no se duplica.`, "error");
-        store.documentos.push({ id: nuevoId(), candId: c.value.id, nombre: f.name, tipo: /cv|curr/i.test(f.name) ? "Currículum" : tipo, fecha: HOY_ISO, tam: Math.max(1, Math.round(f.size / 1024)), ext: f.name.split(".").pop().toLowerCase() });
-        addHist(c.value.id, "documento", `Documento añadido: ${f.name}`);
-        if (/cv|curr/i.test(f.name) || tipo === "Currículum") c.value.cv = true;
-      });
-      toast(files.length > 1 ? `${files.length} archivos añadidos` : "Archivo añadido");
+    async function subir(files, tipo = "Otro") {
+      const cand = c.value; let n = 0;
+      for (const f of files) {
+        if (docsDe(cand.id).find((d) => d.nombre === f.name)) { toast(`«${f.name}» ya está en esta ficha: no se duplica.`, "error"); continue; }
+        const id = nuevoId();
+        const doc = { id, candId: cand.id, nombre: f.name, tipo: /cv|curr/i.test(f.name) ? "Currículum" : tipo, fecha: HOY_ISO, tam: Math.max(1, Math.round(f.size / 1024)), ext: f.name.split(".").pop().toLowerCase() };
+        if (sesion.modo === "servidor") {
+          if (f.size > MAX_ARCHIVO_MB * 1024 * 1024) { toast(`«${f.name}» pesa más de ${MAX_ARCHIVO_MB} MB.`, "error"); continue; }
+          try { const r = await subirArchivo(f, id, cand.id); doc.archivoId = r.id; doc.archivo = r.archivo; }
+          catch (e) { toast(`No se pudo subir «${f.name}»: ${e.message}`, "error"); continue; }
+        }
+        store.documentos.push(doc); n++;
+        addHist(cand.id, "documento", `Documento añadido: ${f.name}`);
+        if (doc.tipo === "Currículum") cand.cv = true;
+      }
+      if (n) toast(n > 1 ? `${n} archivos añadidos` : "Archivo añadido");
     }
-    const borrarDoc = (d) => { store.documentos = store.documentos.filter((x) => x.id !== d.id); addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`); toast("Documento eliminado"); };
+    const borrarDoc = (d) => {
+      if (d.archivoId) borrarArchivo(d.archivoId);
+      store.documentos = store.documentos.filter((x) => x.id !== d.id); addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`); toast("Documento eliminado");
+    };
+    const abrir = async (d, descargar = false) => {
+      if (!d.archivoId) return demo(descargar ? "se descargaría el archivo" : "se abriría la vista previa del documento");
+      try { await abrirArchivo(d, descargar); } catch (e) { toast(`No se pudo abrir el archivo: ${e.message}`, "error"); }
+    };
+    // Vista previa del currículum real (enlace temporal que se renueva al cambiar de archivo)
+    const vistaUrl = ref("");
+    watch(() => [tab.value, cvActual.value?.archivoId], async ([t, id]) => {
+      vistaUrl.value = "";
+      if (t !== "cv" || !id || sesion.modo !== "servidor") return;
+      try { vistaUrl.value = await urlArchivo(cvActual.value); } catch { /* se verá el aviso de abrir aparte */ }
+    }, { immediate: true });
+    const esImagen = (d) => ["jpg", "jpeg", "png"].includes(d?.ext);
     const tam = (kb) => (kb >= 1024 ? (kb / 1024).toFixed(1).replace(".", ",") + " MB" : kb + " KB");
 
     // --- Notas internas ---
@@ -116,7 +138,7 @@ export default {
     const quitarFoto = () => { c.value.foto = ""; toast("Foto eliminada"); };
 
     return { falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
-      subir, borrarDoc, tam, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
+      subir, borrarDoc, abrir, vistaUrl, esImagen, tam, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
   template: `
@@ -199,9 +221,14 @@ export default {
             <span v-if="cvActual.ext!=='pdf'" class="tag gold">Escaneado</span>
             <button class="icon-btn" @click="zoom=Math.max(.7, zoom-.15)" title="Alejar"><Ic n="minus" :s="16" /></button><span class="sub">{{ Math.round(zoom*100) }} %</span>
             <button class="icon-btn" @click="zoom=Math.min(1.6, zoom+.15)" title="Acercar"><Ic n="plus" :s="16" /></button>
-            <button class="icon-btn" @click="demo('se descargaría el archivo original')" title="Descargar"><Ic n="download" :s="16" /></button>
+            <button class="icon-btn" @click="abrir(cvActual)" title="Abrir en otra pestaña"><Ic n="eye" :s="16" /></button><button class="icon-btn" @click="abrir(cvActual, true)" title="Descargar"><Ic n="download" :s="16" /></button>
           </div>
-          <div class="visor-area">
+          <div v-if="cvActual.archivoId" class="visor-area visor-real">
+            <img v-if="vistaUrl && esImagen(cvActual)" :src="vistaUrl" :alt="cvActual.nombre" />
+            <iframe v-else-if="vistaUrl && cvActual.ext==='pdf'" :src="vistaUrl" title="Currículum"></iframe>
+            <div v-else class="vacio-box"><b>{{ cvActual.nombre }}</b><span v-if="vistaUrl">Este tipo de archivo no se puede ver aquí.</span><span v-else>Preparando la vista…</span><button class="btn btn-sm" @click="abrir(cvActual)">Abrir en otra pestaña</button></div>
+          </div>
+          <div v-else class="visor-area">
             <div class="papel" :class="{escaneado: cvActual.ext!=='pdf'}" :style="{transform: 'scale('+zoom+')'}">
               <div class="papel-head"><div><h2>{{ c.nombre }} {{ c.apellidos }}</h2><p>{{ c.titulacion }}</p></div><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="56" /></div>
               <div class="papel-cols">
@@ -210,7 +237,7 @@ export default {
                   <h4>Experiencia</h4><i class="l" style="width:45%;height:9px"></i><i class="l"></i><i class="l" style="width:92%"></i><i class="l" style="width:64%"></i><i class="l" style="width:40%;height:9px;margin-top:12px"></i><i class="l"></i><i class="l" style="width:78%"></i>
                   <h4>Sobre mí</h4><i class="l"></i><i class="l" style="width:88%"></i><i class="l" style="width:52%"></i></div>
               </div>
-              <span class="papel-pie">Documento de ejemplo · en la versión real aquí se ve el PDF original</span>
+              <span class="papel-pie">Documento de ejemplo: este archivo se subió antes de que el portal guardase los originales</span>
             </div>
           </div>
         </div>
@@ -297,9 +324,9 @@ export default {
             <td><div class="row"><span class="ext" :class="d.ext">{{ d.ext }}</span><input class="inp nombre-doc" v-model="d.nombre" title="Haz clic para renombrar" /></div></td>
             <td><select class="inp" v-model="d.tipo" style="width:150px"><option v-for="t in TIPOS_DOC" :key="t">{{ t }}</option></select></td>
             <td class="nowrap">{{ fCompleta(d.fecha) }}</td><td class="nowrap">{{ tam(d.tam) }}</td>
-            <td class="nowrap"><button class="icon-btn" title="Ver" @click="d.tipo==='Currículum' ? (cvSel=d.id, tab='cv') : demo('se abriría la vista previa del documento')"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click="demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button><button class="icon-btn" title="Eliminar" @click="borrarDoc(d)"><Ic n="trash" :s="16" /></button></td>
+            <td class="nowrap"><button class="icon-btn" title="Ver" @click="d.tipo==='Currículum' ? (cvSel=d.id, tab='cv') : abrir(d)"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click="abrir(d, true)"><Ic n="download" :s="16" /></button><button class="icon-btn" title="Eliminar" @click="borrarDoc(d)"><Ic n="trash" :s="16" /></button></td>
           </tr></tbody></table></div>
-        <p class="sub"><Ic n="lock" :s="13" /> Archivos privados: solo se abren con sesión iniciada y un enlace temporal, como en el CRM.</p>
+        <p class="sub"><Ic n="lock" :s="13" /> Archivos privados: solo se abren con sesión iniciada y un enlace temporal. Cada apertura y descarga queda en el registro de acciones. Máximo {{ 15 }} MB por archivo.</p>
       </div>
 
       <!-- HISTORIAL -->

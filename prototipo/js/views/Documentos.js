@@ -2,6 +2,7 @@ import { computed, reactive } from "vue";
 import { store, candDe, centroDe, nombreCompleto, toast } from "../store.js";
 import { go } from "../router.js";
 import { Ic, Avatar, Vacio } from "../ui.js";
+import { abrirArchivo } from "../api.js";
 import { normal, fCompleta } from "../util.js";
 
 const TIPOS = ["Currículum", "Convenio", "Anexo", "Justificante", "Otro"];
@@ -21,7 +22,11 @@ export default {
     const tam = (kb) => (kb >= 1024 ? (kb / 1024).toFixed(1).replace(".", ",") + " MB" : kb + " KB");
     const abrir = (d) => { store.fichaTab = d.tipo === "Currículum" ? "cv" : "docs"; go("candidato/" + d.candId); };
     const demo = (m) => toast("Demo: " + m);
-    return { store, s, TIPOS, lista, cuentas, pendientes, tam, abrir, demo, centroDe, nombreCompleto, fCompleta };
+    const bajar = async (d, descargar) => {
+      if (!d.archivoId) return demo(descargar ? "se descargaría el archivo" : "se abriría el archivo");
+      try { await abrirArchivo(d, descargar); } catch (e) { toast(`No se pudo abrir el archivo: ${e.message}`, "error"); }
+    };
+    return { store, s, TIPOS, lista, cuentas, pendientes, tam, abrir, bajar, demo, centroDe, nombreCompleto, fCompleta };
   },
   template: `
   <div class="page">
@@ -43,7 +48,7 @@ export default {
           <td><div class="who"><Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :s="26" />{{ nombreCompleto(x.c) }}</div></td>
           <td>{{ centroDe(x.c.centroId)?.nombre || 'Autopostulado' }}</td>
           <td class="nowrap">{{ fCompleta(x.d.fecha) }}</td><td class="nowrap">{{ tam(x.d.tam) }}</td>
-          <td class="nowrap"><button class="icon-btn" title="Ver"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click.stop="demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button></td>
+          <td class="nowrap"><button class="icon-btn" title="Ver" @click.stop="x.d.archivoId ? bajar(x.d) : abrir(x.d)"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click.stop="bajar(x.d, true)"><Ic n="download" :s="16" /></button></td>
         </tr></tbody></table>
         <Vacio v-if="!lista.length" titulo="Ningún documento con estos filtros" texto="" />
       </div>
