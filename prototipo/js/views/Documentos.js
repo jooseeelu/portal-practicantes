@@ -1,6 +1,7 @@
 import { computed, reactive } from "vue";
 import { store, candDe, centroDe, nombreCompleto, toast } from "../store.js";
 import { go } from "../router.js";
+import { sesion, urlArchivo } from "../api.js";
 import { Ic, Avatar, Vacio } from "../ui.js";
 import { normal, fCompleta } from "../util.js";
 
@@ -21,7 +22,8 @@ export default {
     const tam = (kb) => (kb >= 1024 ? (kb / 1024).toFixed(1).replace(".", ",") + " MB" : kb + " KB");
     const abrir = (d) => { store.fichaTab = d.tipo === "Currículum" ? "cv" : "docs"; go("candidato/" + d.candId); };
     const demo = (m) => toast("Demo: " + m);
-    return { store, s, TIPOS, lista, cuentas, pendientes, tam, abrir, demo, centroDe, nombreCompleto, fCompleta };
+    const descargar = async (d) => { try { window.open(await urlArchivo(d, { descargar: true }), "_blank", "noopener"); } catch (e) { toast(`No se pudo descargar: ${e.message}`, "error"); } };
+    return { store, s, TIPOS, lista, cuentas, pendientes, tam, abrir, demo, descargar, sesion, centroDe, nombreCompleto, fCompleta };
   },
   template: `
   <div class="page">
@@ -43,7 +45,7 @@ export default {
           <td><div class="who"><Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :s="26" />{{ nombreCompleto(x.c) }}</div></td>
           <td>{{ centroDe(x.c.centroId)?.nombre || 'Autopostulado' }}</td>
           <td class="nowrap">{{ fCompleta(x.d.fecha) }}</td><td class="nowrap">{{ tam(x.d.tam) }}</td>
-          <td class="nowrap"><button class="icon-btn" title="Ver"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click.stop="demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button></td>
+          <td class="nowrap"><button class="icon-btn" title="Ver"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click.stop="x.d.archivoId ? descargar(x.d) : demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button></td>
         </tr></tbody></table>
         <Vacio v-if="!lista.length" titulo="Ningún documento con estos filtros" texto="" />
       </div>

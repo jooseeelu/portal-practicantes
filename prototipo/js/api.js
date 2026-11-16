@@ -117,3 +117,33 @@ export function claveAleatoria(n = 14) {
   const v = new Uint32Array(n); crypto.getRandomValues(v);
   return Array.from(v, (x) => abc[x % abc.length]).join("");
 }
+
+// --- Archivos (currículums, convenios…): colección «archivos», con el fichero protegido ---
+/** Sube un archivo privado. Devuelve el registro creado ({ id, archivo, … }). */
+export async function subirArchivo(file, { candId, tipo = "", nombre = "" }) {
+  const fd = new FormData();
+  fd.append("candId", String(candId));
+  fd.append("tipo", tipo);
+  fd.append("nombre", nombre || file.name);
+  if (sesion.usuario) fd.append("subidoPor", sesion.usuario.id);
+  fd.append("archivo", file);
+  let r;
+  try { r = await fetch("api/collections/archivos/records", { method: "POST", headers: sesion.token ? { Authorization: sesion.token } : {}, body: fd }); }
+  catch { throw new ErrorApi(0, "No se pudo conectar con el servidor. Revisa tu conexión."); }
+  let datos = null;
+  try { datos = await r.json(); } catch { /* sin cuerpo */ }
+  if (!r.ok) throw new ErrorApi(r.status, mensajeDe(r.status, datos), datos);
+  return datos;
+}
+
+// El fichero protegido solo se abre con un token temporal (dura unos minutos; se reutiliza 1 minuto).
+let tokenArchivos = { valor: "", hasta: 0 };
+/** Enlace temporal para ver (o descargar) el archivo de un documento. */
+export async function urlArchivo(doc, { descargar = false } = {}) {
+  if (Date.now() > tokenArchivos.hasta) {
+    const d = await pedir("POST", "api/files/token");
+    tokenArchivos = { valor: d.token, hasta: Date.now() + 60000 };
+  }
+  return `api/files/archivos/${doc.archivoId}/${encodeURIComponent(doc.archivo)}?token=${tokenArchivos.valor}${descargar ? "&download=1" : ""}`;
+}
+export const borrarArchivo = (id) => pedir("DELETE", `api/collections/archivos/records/${id}`);
