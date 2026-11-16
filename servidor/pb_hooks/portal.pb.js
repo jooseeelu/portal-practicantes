@@ -12,7 +12,31 @@ routerUse((e) => {
 });
 
 // Configuración pública que necesita la web antes de iniciar sesión.
+// De paso, la primera vez crea el primer administrador del portal a partir de las
+// variables de entorno (se definen en Dokploy, nunca en el repositorio).
 routerAdd("GET", "/api/portal/config", (e) => {
+  const email = $os.getenv("PORTAL_ADMIN_EMAIL");
+  const clave = $os.getenv("PORTAL_ADMIN_PASSWORD");
+  if (email && clave) {
+    let hay = false;
+    try { $app.findFirstRecordByFilter("users", "rol = 'admin'"); hay = true; } catch (_) { /* aún no hay ninguno */ }
+    if (!hay) {
+      try {
+        const u = new Record($app.findCollectionByNameOrId("users"));
+        u.set("email", email);
+        u.set("emailVisibility", true);
+        u.set("verified", true);
+        u.set("password", clave);
+        u.set("name", $os.getenv("PORTAL_ADMIN_NOMBRE") || "Administrador");
+        u.set("rol", "admin");
+        u.set("activo", true);
+        $app.save(u);
+        console.log("Portal: creado el primer administrador");
+      } catch (err) {
+        console.log("Portal: no se pudo crear el primer administrador: " + err);
+      }
+    }
+  }
   return e.json(200, { entorno: $os.getenv("PORTAL_ENTORNO") || "produccion" });
 });
 
@@ -70,31 +94,3 @@ onRecordAuthWithPasswordRequest((e) => {
     $app.save(reg);
   } catch (_) { /* el registro no debe impedir el acceso */ }
 }, "users");
-
-// Primer arranque: crea el primer administrador del portal a partir de las variables
-// de entorno (se definen en Dokploy, nunca en el repositorio).
-onServe((e) => {
-  const email = $os.getenv("PORTAL_ADMIN_EMAIL");
-  const clave = $os.getenv("PORTAL_ADMIN_PASSWORD");
-  if (email && clave) {
-    let hay = false;
-    try { $app.findFirstRecordByFilter("users", "rol = 'admin'"); hay = true; } catch (_) { /* aún no hay ninguno */ }
-    if (!hay) {
-      try {
-        const u = new Record($app.findCollectionByNameOrId("users"));
-        u.set("email", email);
-        u.set("emailVisibility", true);
-        u.set("verified", true);
-        u.set("password", clave);
-        u.set("name", $os.getenv("PORTAL_ADMIN_NOMBRE") || "Administrador");
-        u.set("rol", "admin");
-        u.set("activo", true);
-        $app.save(u);
-        console.log("Portal: creado el primer administrador (" + email + ")");
-      } catch (err) {
-        console.log("Portal: no se pudo crear el primer administrador: " + err);
-      }
-    }
-  }
-  return e.next();
-});
