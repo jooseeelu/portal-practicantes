@@ -88,9 +88,10 @@ export default {
 
     // --- Datos de demostración (solo en el entorno de pruebas) ---
     const puedeDemo = computed(() => enServidor.value && sesion.entorno === "pruebas" && admin.value);
-    const rellenarDemo = () => { cargarDemo(); toast("Datos de demostración cargados; se están guardando"); };
+    const rellenarDemo = () => { try { localStorage.removeItem("emadrid-pruebas-vaciado"); } catch (_) {} cargarDemo(); toast("Datos de demostración cargados; se están guardando"); };
     const vaciarTodo = () => {
       if (!window.confirm("¿Borrar TODOS los datos de este entorno (candidatos, entrevistas, centros…)? No se puede deshacer.")) return;
+      try { localStorage.setItem("emadrid-pruebas-vaciado", "1"); } catch (_) {}
       vaciarDatos(); toast("Entorno vaciado");
     };
 

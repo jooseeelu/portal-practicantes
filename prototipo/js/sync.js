@@ -3,7 +3,7 @@
 // Las vistas siguen trabajando sobre el store como siempre; aquí se detecta qué ha
 // cambiado y se envía. Si dos personas editan la misma ficha, gana el último guardado.
 import { watch } from "vue";
-import { store, toast, vaciarDatos, ajustesPorDefecto } from "./store.js";
+import { store, toast, vaciarDatos, cargarDemo, ajustesPorDefecto } from "./store.js";
 import { sesion, pedir, esAdmin } from "./api.js";
 
 const COLECCIONES = {
@@ -135,6 +135,10 @@ export async function arrancarSync() {
   pararSync();
   vaciarDatos();
   await traer();
+  // Entorno de pruebas vacío: se siembra con los datos de demostración (salvo que un administrador lo haya vaciado a propósito).
+  let vaciado = false;
+  try { vaciado = !!localStorage.getItem("emadrid-pruebas-vaciado"); } catch (_) { /* sin almacenamiento */ }
+  if (sesion.entorno === "pruebas" && esAdmin() && !vaciado && !store.candidatos.length && !store.centros.length) cargarDemo();
   const fuentes = [...Object.keys(COLECCIONES), ...AJUSTES];
   paradas = fuentes.map((k) => watch(() => store[k], programar, { deep: true }));
   window.addEventListener("focus", refrescar);
