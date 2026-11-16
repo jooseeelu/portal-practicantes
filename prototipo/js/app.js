@@ -38,7 +38,18 @@ const App = {
     const salir = async () => { menuYo.value = false; await guardarAhora(); pararSync(); vaciarDatos(); cerrarSesion(); };
     // Al entrar se cargan los datos; si la sesión se pierde (caduca o la desactivan), se limpia la pantalla.
     watch(() => sesion.usuario?.id, (id, antes) => { if (id) cargarDatos(); else if (antes) { pararSync(); vaciarDatos(); } });
-    onMounted(async () => { await iniciar(); if (sesion.modo === "demo") cargarDemo(); });
+    onMounted(async () => { await iniciar(); if (sesion.modo === "demo") cargarDemo(); document.dispatchEvent(new Event("portal-listo")); });
+
+    // --- Instalar como app ---
+    const instalada = document.documentElement.classList.contains("pwa");
+    const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const ayudaInstalar = ref(false);
+    const instalar = async () => {
+      menuYo.value = false;
+      const aviso = window.__instalar;
+      if (aviso) { aviso.prompt(); try { await aviso.userChoice; } catch (_) { /* cancelado */ } window.__instalar = null; return; }
+      ayudaInstalar.value = true;
+    };
 
     const clave = reactive({ abierto: false, actual: "", nueva: "", repetir: "", error: "", ocupado: false });
     const abrirClave = () => { menuYo.value = false; Object.assign(clave, { abierto: true, actual: "", nueva: "", repetir: "", error: "" }); };
@@ -88,7 +99,7 @@ const App = {
     onUnmounted(() => { window.removeEventListener("keydown", tecla); document.removeEventListener("mousedown", fuera); });
 
     return { store, ruta, vista, activo, nav, menu, ir, q, abierto, inp, raiz, res, abrir, setTema, centroDe, nombreCompleto, hoy: fLarga(HOY_ISO),
-      sesion, dentro, acceso, login, cargando, errorCarga, cargarDatos, menuYo, yoRef, salir, clave, abrirClave, guardarClave, miNombre, miRol };
+      instalada, esIOS, ayudaInstalar, instalar, sesion, dentro, acceso, login, cargando, errorCarga, cargarDatos, menuYo, yoRef, salir, clave, abrirClave, guardarClave, miNombre, miRol };
   },
   template: `
   <div v-if="sesion.modo==='cargando'" class="acceso"><div class="acceso-espera"><img src="img/logo-g.svg" alt="" /><span>Cargando…</span></div></div>
@@ -151,6 +162,7 @@ const App = {
           <div class="yo-menu" v-if="menuYo && sesion.modo==='servidor'" role="menu">
             <small>{{ sesion.usuario?.email }}</small>
             <button role="menuitem" @click="abrirClave"><Ic n="lock" :s="15" />Cambiar mi contraseña</button>
+            <button v-if="!instalada" role="menuitem" @click="instalar"><Ic n="plus" :s="15" />Instalar la app en este dispositivo</button>
             <button role="menuitem" @click="salir"><Ic n="x" :s="15" />Cerrar sesión</button>
           </div>
         </div>
@@ -167,6 +179,21 @@ const App = {
         <div v-if="clave.error" class="aviso err"><Ic n="alert" :s="16" /><span>{{ clave.error }}</span></div>
       </form>
       <template #pie><button class="btn" @click="clave.abierto=false">Cancelar</button><button class="btn btn-primary" type="submit" form="f-clave" :disabled="clave.ocupado">Guardar</button></template>
+    </Modal>
+    <Modal v-if="ayudaInstalar" titulo="Instalar la app" :ancho="440" @cerrar="ayudaInstalar=false">
+      <div class="instalar-pasos">
+        <template v-if="esIOS">
+          <p><b>1.</b> Abre esta página en <b>Safari</b>.</p>
+          <p><b>2.</b> Pulsa el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).</p>
+          <p><b>3.</b> Elige <b>Añadir a pantalla de inicio</b> y pulsa <b>Añadir</b>.</p>
+        </template>
+        <template v-else>
+          <p><b>1.</b> Abre el menú del navegador (los tres puntos).</p>
+          <p><b>2.</b> Elige <b>Instalar aplicación</b> o <b>Añadir a pantalla de inicio</b>.</p>
+        </template>
+        <p class="sub">Se abrirá a pantalla completa, con su icono, como una app más del móvil o del ordenador.</p>
+      </div>
+      <template #pie><button class="btn btn-primary" @click="ayudaInstalar=false">Entendido</button></template>
     </Modal>
     <Toasts />
   </div>`,
