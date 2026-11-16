@@ -1,7 +1,7 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
-import { miNombre } from "../api.js";
+import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe } from "../util.js";
@@ -50,17 +50,50 @@ export default {
     const addPregunta = () => ent.value.preguntas.push({ q: "", a: "" });
 
     // --- Documentos ---
-    function subir(files, tipo = "Otro") {
-      files.forEach((f) => {
-        const repe = docs.value.find((d) => d.nombre === f.name);
-        if (repe) return toast(`«${f.name}» ya está en esta ficha: no se duplica.`, "error");
-        store.documentos.push({ id: nuevoId(), candId: c.value.id, nombre: f.name, tipo: /cv|curr/i.test(f.name) ? "Currículum" : tipo, fecha: HOY_ISO, tam: Math.max(1, Math.round(f.size / 1024)), ext: f.name.split(".").pop().toLowerCase() });
+    // Con servidor, el archivo se sube de verdad (colección «archivos», protegido); en la demo solo se anota.
+    const enServidor = () => sesion.modo === "servidor";
+    const EXT_OK = /\.(pdf|docx?|jpe?g|png|webp)$/i;
+    const subiendo = ref(0);
+    async function subir(files, tipo = "Otro") {
+      let hechos = 0;
+      for (const f of files) {
+        if (docs.value.find((d) => d.nombre === f.name)) { toast(`«${f.name}» ya está en esta ficha: no se duplica.`, "error"); continue; }
+        const tipoDoc = /cv|curr/i.test(f.name) || tipo === "Currículum" ? "Currículum" : tipo;
+        const doc = { id: nuevoId(), candId: c.value.id, nombre: f.name, tipo: tipoDoc, fecha: HOY_ISO, tam: Math.max(1, Math.round(f.size / 1024)), ext: f.name.split(".").pop().toLowerCase() };
+        if (enServidor()) {
+          if (!EXT_OK.test(f.name)) { toast(`«${f.name}»: solo se admiten PDF, Word o imágenes.`, "error"); continue; }
+          if (f.size > 20 * 1024 * 1024) { toast(`«${f.name}» pesa más de 20 MB.`, "error"); continue; }
+          subiendo.value++;
+          try { const r = await subirArchivo(f, { candId: c.value.id, tipo: tipoDoc, nombre: f.name }); doc.archivoId = r.id; doc.archivo = r.archivo; }
+          catch (e) { toast(`No se pudo subir «${f.name}»: ${e.message}`, "error"); continue; }
+          finally { subiendo.value--; }
+        }
+        store.documentos.push(doc);
         addHist(c.value.id, "documento", `Documento añadido: ${f.name}`);
-        if (/cv|curr/i.test(f.name) || tipo === "Currículum") c.value.cv = true;
-      });
-      toast(files.length > 1 ? `${files.length} archivos añadidos` : "Archivo añadido");
+        if (tipoDoc === "Currículum") { c.value.cv = true; cvSel.value = doc.id; }
+        hechos++;
+      }
+      if (hechos) toast(hechos > 1 ? `${hechos} archivos añadidos` : "Archivo añadido");
     }
-    const borrarDoc = async (d) => { if (!(await pedirConfirmacion({ titulo: "¿Eliminar este documento?", texto: `«${d.nombre}» dejará de estar en la ficha.`, boton: "Eliminar" }))) return; store.documentos = store.documentos.filter((x) => x.id !== d.id); addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`); toast("Documento eliminado"); };
+    // Visor del currículum y apertura/descarga de archivos reales (con enlace temporal)
+    const urlVisor = ref(""), errorVisor = ref("");
+    watch(() => cvActual.value && cvActual.value.archivoId, async () => {
+      urlVisor.value = ""; errorVisor.value = "";
+      const d = cvActual.value;
+      if (!d || !d.archivoId || !enServidor()) return;
+      try { urlVisor.value = await urlArchivo(d); } catch (e) { errorVisor.value = e.message; }
+    }, { immediate: true });
+    async function abrirArchivo(d, descargar = false) {
+      try { window.open(await urlArchivo(d, { descargar }), "_blank", "noopener"); }
+      catch (e) { toast(`No se pudo abrir el archivo: ${e.message}`, "error"); }
+    }
+    const borrarDoc = async (d) => {
+      if (!(await pedirConfirmacion({ titulo: "¿Eliminar este documento?", texto: `«${d.nombre}» dejará de estar en la ficha${d.archivoId ? " y se borrará el archivo del servidor" : ""}.`, boton: "Eliminar" }))) return;
+      if (d.archivoId && enServidor()) {
+        try { await borrarArchivo(d.archivoId); }
+        catch (e) { if (e.estado !== 404) { toast(`No se pudo borrar el archivo: ${e.message}`, "error"); return; } }
+      }
+      store.documentos = store.documentos.filter((x) => x.id !== d.id); addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`); toast("Documento eliminado"); };
     const tam = (kb) => (kb >= 1024 ? (kb / 1024).toFixed(1).replace(".", ",") + " MB" : kb + " KB");
 
     // --- Notas internas ---
@@ -116,7 +149,7 @@ export default {
     const quitarFoto = async () => { if (!(await pedirConfirmacion({ titulo: "¿Quitar la foto?", texto: "Se mostrarán las iniciales en su lugar. Podrás subir otra cuando quieras.", boton: "Quitar foto" }))) return; c.value.foto = ""; toast("Foto eliminada"); };
 
     return { falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
-      subir, borrarDoc, tam, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
+      subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
   template: `
@@ -196,12 +229,26 @@ export default {
         <div class="visor" v-if="cvActual">
           <div class="visor-bar">
             <Ic n="documentos" :s="16" /><b class="grow">{{ cvActual.nombre }}</b>
-            <span v-if="cvActual.ext!=='pdf'" class="tag gold">Escaneado</span>
-            <button class="icon-btn" @click="zoom=Math.max(.7, zoom-.15)" title="Alejar"><Ic n="minus" :s="16" /></button><span class="sub">{{ Math.round(zoom*100) }} %</span>
-            <button class="icon-btn" @click="zoom=Math.min(1.6, zoom+.15)" title="Acercar"><Ic n="plus" :s="16" /></button>
-            <button class="icon-btn" @click="demo('se descargaría el archivo original')" title="Descargar"><Ic n="download" :s="16" /></button>
+            <template v-if="cvActual.archivoId">
+              <button class="icon-btn" @click="abrirArchivo(cvActual)" title="Abrir en otra pestaña"><Ic n="link" :s="16" /></button>
+              <button class="icon-btn" @click="abrirArchivo(cvActual, true)" title="Descargar"><Ic n="download" :s="16" /></button>
+            </template>
+            <template v-else-if="!enServidor()">
+              <span v-if="cvActual.ext!=='pdf'" class="tag gold">Escaneado</span>
+              <button class="icon-btn" @click="zoom=Math.max(.7, zoom-.15)" title="Alejar"><Ic n="minus" :s="16" /></button><span class="sub">{{ Math.round(zoom*100) }} %</span>
+              <button class="icon-btn" @click="zoom=Math.min(1.6, zoom+.15)" title="Acercar"><Ic n="plus" :s="16" /></button>
+              <button class="icon-btn" @click="demo('se descargaría el archivo original')" title="Descargar"><Ic n="download" :s="16" /></button>
+            </template>
           </div>
-          <div class="visor-area">
+          <div v-if="cvActual.archivoId" class="visor-area visor-real">
+            <iframe v-if="urlVisor && cvActual.ext==='pdf'" :src="urlVisor" title="Currículum"></iframe>
+            <img v-else-if="urlVisor && /^(jpe?g|png|webp)$/.test(cvActual.ext)" :src="urlVisor" alt="Currículum escaneado" class="visor-img" />
+            <div v-else-if="urlVisor" class="vacio-box"><Ic n="documentos" :s="30" /><b>Documento de Word</b><span>El navegador no puede mostrarlo dentro de la ficha.</span><button class="btn btn-primary" @click="abrirArchivo(cvActual, true)"><Ic n="download" :s="15" />Descargar</button></div>
+            <div v-else-if="errorVisor" class="vacio-box"><Ic n="alert" :s="30" /><b>No se pudo abrir el documento</b><span>{{ errorVisor }}</span></div>
+            <div v-else class="vacio-box"><span>Cargando el documento…</span></div>
+          </div>
+          <div v-else-if="enServidor()" class="visor-area"><div class="vacio-box"><Ic n="upload" :s="30" /><b>Falta el archivo de este currículum</b><span>Arrástralo a la columna de la derecha para verlo aquí.</span></div></div>
+          <div v-else class="visor-area">
             <div class="papel" :class="{escaneado: cvActual.ext!=='pdf'}" :style="{transform: 'scale('+zoom+')'}">
               <div class="papel-head"><div><h2>{{ c.nombre }} {{ c.apellidos }}</h2><p>{{ c.titulacion }}</p></div><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="56" /></div>
               <div class="papel-cols">
@@ -214,10 +261,11 @@ export default {
             </div>
           </div>
         </div>
+        <div class="visor" v-else><div class="visor-area"><div class="vacio-box"><Ic n="documentos" :s="30" /><b>Sin currículum</b><span>Arrastra el PDF a la columna de la derecha (o haz clic allí para elegirlo).</span></div></div></div>
         <aside class="visor-lado">
           <h4>Currículums de esta ficha</h4>
           <button v-for="d in docs.filter(x => x.tipo==='Currículum')" :key="d.id" class="doc-fila" :class="{on: cvActual && cvActual.id===d.id}" @click="cvSel=d.id"><Ic n="documentos" :s="16" /><span class="grow"><b>{{ d.nombre }}</b><small>{{ fCorta(d.fecha) }} · {{ tam(d.tam) }}</small></span></button>
-          <Dropzone compacto texto="Soltar otro currículum" @archivos="subir($event, 'Currículum')" />
+          <Dropzone compacto :texto="subiendo ? 'Subiendo…' : 'Soltar o elegir el currículum'" @archivos="subir($event, 'Currículum')" />
           <div class="ia-box">
             <div class="row"><Ic n="sparkles" :s="16" /><b>Lectura con IA</b><span class="tag">Fase posterior</span></div>
             <p class="sub">Propondrá nombre, contacto, formación e idiomas a partir del PDF. Siempre los revisa una persona antes de guardarlos.</p>
@@ -290,14 +338,14 @@ export default {
 
       <!-- DOCUMENTACIÓN -->
       <div v-else-if="tab==='docs'" class="card-pad stack">
-        <Dropzone texto="Arrastra aquí convenios, anexos, justificantes o currículums" @archivos="subir($event)" />
+        <Dropzone :texto="subiendo ? 'Subiendo…' : 'Arrastra aquí convenios, anexos, justificantes o currículums'" @archivos="subir($event)" />
         <div class="tbl-wrap"><table class="tbl sin-hover">
           <thead><tr><th>Documento</th><th>Tipo</th><th>Fecha</th><th>Tamaño</th><th></th></tr></thead>
           <tbody><tr v-for="d in docs" :key="d.id">
             <td><div class="row"><span class="ext" :class="d.ext">{{ d.ext }}</span><input class="inp nombre-doc" v-model="d.nombre" title="Haz clic para renombrar" /></div></td>
             <td><select class="inp" v-model="d.tipo" style="width:150px"><option v-for="t in TIPOS_DOC" :key="t">{{ t }}</option></select></td>
             <td class="nowrap">{{ fCompleta(d.fecha) }}</td><td class="nowrap">{{ tam(d.tam) }}</td>
-            <td class="nowrap"><button class="icon-btn" title="Ver" @click="d.tipo==='Currículum' ? (cvSel=d.id, tab='cv') : demo('se abriría la vista previa del documento')"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click="demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button><button class="icon-btn" title="Eliminar" @click="borrarDoc(d)"><Ic n="trash" :s="16" /></button></td>
+            <td class="nowrap"><button class="icon-btn" title="Ver" @click="d.tipo==='Currículum' ? (cvSel=d.id, tab='cv') : (d.archivoId ? abrirArchivo(d) : demo('se abriría la vista previa del documento'))"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click="d.archivoId ? abrirArchivo(d, true) : demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button><button class="icon-btn" title="Eliminar" @click="borrarDoc(d)"><Ic n="trash" :s="16" /></button></td>
           </tr></tbody></table></div>
         <p class="sub"><Ic n="lock" :s="13" /> Archivos privados: solo se abren con sesión iniciada y un enlace temporal, como en el CRM.</p>
       </div>
