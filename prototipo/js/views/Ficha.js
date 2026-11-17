@@ -205,6 +205,13 @@ export default {
       addHist(c.value.id, "nota", (tipo === "pros" ? "Punto a favor: " : "Punto en contra: ") + t);
     };
     const quitarPC = (tipo, i) => c.value[tipo].splice(i, 1);
+    const editarPC = (tipo, i, ev) => {
+      const t = ev.target.value.trim(), antes = c.value[tipo][i];
+      if (!t) { ev.target.value = antes; return; }
+      if (t === antes) return;
+      c.value[tipo][i] = t;
+      addHist(c.value.id, "nota", (tipo === "pros" ? "Punto a favor cambiado: " : "Punto en contra cambiado: ") + antes + " → " + t);
+    };
     // Foto de la persona (se recorta en cuadrado al subirla)
     const ponerFoto = async (ev) => {
       const archivo = ev.target.files[0]; ev.target.value = "";
@@ -279,7 +286,7 @@ export default {
     };
     const deshacerHist = (h) => { if (deshacerCambio(h)) toast("Cambio deshecho"); };
     return { fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
-      subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
+      subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
   template: `
@@ -445,13 +452,13 @@ export default {
           <div class="pc-grid">
             <div class="pc-col pro">
               <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ (c.pros || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!(c.pros || []).length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
             <div class="pc-col con">
               <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ (c.contras || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!(c.contras || []).length" class="sub">Lo que te frena o hay que confirmar.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
@@ -476,13 +483,13 @@ export default {
           <div class="pc-grid">
             <div class="pc-col pro">
               <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ (c.pros || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!(c.pros || []).length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
             <div class="pc-col con">
               <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ (c.contras || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!(c.contras || []).length" class="sub">Lo que te frena o hay que confirmar.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
