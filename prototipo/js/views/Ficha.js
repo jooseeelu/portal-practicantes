@@ -240,6 +240,20 @@ export default {
       Object.assign(recorte, { abierto: true, caja: null, buscando: true });
       leerCurriculum(d.archivoId).then((r) => { if (recorte.abierto && r.foto) recorte.caja = r.foto; }).catch(() => {}).finally(() => { recorte.buscando = false; });
     }
+    // Encuadre automático: busca la cara en el currículum y recorta centrado (sin IA de pago)
+    const encuadrando = ref(false);
+    async function encuadrarSola() {
+      const d = cvActual.value;
+      if (!d || !d.archivoId || !/^(pdf|jpe?g|png|webp)$/.test(d.ext || "")) return toast("Sube primero el currículum en PDF o imagen.", "error");
+      encuadrando.value = true;
+      try {
+        const blob = await (await fetch(await urlArchivo(d))).blob();
+        const foto = await recortarFoto(new File([blob], d.nombre, { type: d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext }), null, { soloConCara: true });
+        if (!foto) return toast("No se ha encontrado la cara en el currículum. Recórtala a mano.", "error");
+        c.value.foto = foto; addHist(c.value.id, "documento", "Foto puesta desde el currículum (encuadre automático)"); toast("Foto encuadrada");
+      } catch (e) { toast("No se pudo abrir el currículum: " + e.message, "error"); }
+      finally { encuadrando.value = false; }
+    }
     const usarRecorte = (url) => { c.value.foto = url; recorte.abierto = false; addHist(c.value.id, "documento", "Foto recortada del currículum"); toast("Foto actualizada"); };
     const buscarFotoCv = abrirRecorte;
 
@@ -341,7 +355,7 @@ export default {
       addHist(c.value.id, "nota", "Observación interna borrada");
       toast("Observación borrada");
     };
-    return { docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -480,7 +494,7 @@ export default {
           <Dropzone compacto :texto="subiendo ? 'Subiendo…' : 'Soltar o elegir el currículum'" @archivos="subir($event, 'Currículum')" />
           <div v-if="auto.cargando" class="aviso"><Ic n="sparkles" :s="16" /><span class="grow"><b>Leyendo el currículum…</b> rellena solo lo que falte en la ficha.<div class="ia-barra" style="margin-top:6px"><i></i></div></span></div>
           <p v-else class="sub"><Ic n="sparkles" :s="13" /> Al subir un currículum se lee solo y rellena lo que falte en la ficha (también la foto).</p>
-          <button v-if="puedeLeerIA" class="btn btn-sm" @click="abrirRecorte"><Ic n="camara" :s="14" />Recortar la foto del currículum</button>
+          <div v-if="puedeLeerIA" class="foto-mas"><button class="btn btn-sm" :disabled="encuadrando" @click="encuadrarSola"><Ic n="search" :s="14" />{{ encuadrando ? 'Buscando…' : 'Foto: encuadrar sola' }}</button><button class="btn btn-sm" @click="abrirRecorte"><Ic n="camara" :s="14" />Recortar a mano</button></div>
         </aside>
         <Modal v-if="ia.abierto" titulo="Datos leídos del currículum" :ancho="620" @cerrar="ia.abierto=false">
           <div v-if="ia.cargando" class="vacio-box" style="padding:28px"><div class="ia-barra"><i></i></div><b>Leyendo «{{ ia.doc }}»…</b><span>Suele tardar entre 5 y 20 segundos.</span></div>
@@ -615,7 +629,7 @@ export default {
         <label class="btn btn-ink"><Ic n="camara" :s="16" />Cambiar foto<input type="file" accept="image/*" hidden @change="cambiarFoto" /></label>
         <button class="btn btn-peligro" @click="quitarFoto"><Ic n="trash" :s="16" />Eliminar foto</button>
       </div>
-      <button v-if="puedeLeerIA" class="btn-link foto-buscar" @click="buscarFotoCv">Recortar la foto del currículum</button>
+      <div v-if="puedeLeerIA" class="foto-mas"><button class="btn btn-sm" :disabled="encuadrando" @click="encuadrarSola"><Ic n="search" :s="14" />{{ encuadrando ? 'Buscando la cara…' : 'Encuadrar sola' }}</button><button class="btn btn-sm" @click="buscarFotoCv"><Ic n="camara" :s="14" />Recortar a mano</button></div>
     </Modal>
 
     <Modal v-if="prog.abierto" :titulo="prog.otra ? 'Programar ' + (ents.filter(e => e.estado !== 'Cancelada').length + 1) + '.ª entrevista' : 'Programar entrevista'" @cerrar="prog.abierto=false; prog.otra=false">
