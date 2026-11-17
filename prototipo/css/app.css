@@ -447,3 +447,8 @@ button.foto-edit { border: 0; padding: 0; background: transparent; }
 .foto-buscar { align-self: center; color: var(--gold-700); }
 @media (max-width: 700px) { .foto-acciones { grid-template-columns: 1fr; } .foto-acciones .btn { height: 52px; } }
 .confirmar-bg { z-index: 160; }
+.pc-txt { border: 1px solid transparent; background: transparent; font: inherit; color: inherit; padding: 4px 6px; margin: -4px 0; border-radius: 8px; min-width: 0; width: 100%; }
+.pc-txt:hover { border-color: var(--border); }
+.pc-txt:focus { outline: none; border-color: var(--gold-400); background: var(--surface); }
+/* Estados de Candidatos: en escritorio se ven todos (sin deslizar) */
+@media (min-width: 701px) { .estado-pills { flex-wrap: wrap; overflow: visible; } }
