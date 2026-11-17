@@ -387,3 +387,20 @@ html, body { max-width: 100%; overflow-x: clip; }
 .tbl-scroll { max-height: calc(100vh - 260px); overflow: auto; }
 .tbl-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
 @media (max-width: 700px) { .tbl-scroll { max-height: calc(100dvh - 200px); } }
+
+/* --- Guardar / descartar / deshacer --- */
+.toast.con { padding: 8px 8px 8px 18px; border-radius: 16px; }
+.toast-accion { margin-left: 6px; height: 34px; padding: 0 14px; border: 0; border-radius: 10px; background: var(--gold-400); color: var(--on-gold); font: inherit; font-weight: 800; cursor: pointer; }
+.toast-accion:hover { filter: brightness(1.05); }
+.barra-guardar { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); width: min(780px, calc(100vw - 16px)); box-sizing: border-box; z-index: 150; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 10px 10px 18px; border-radius: 18px; background: var(--ink); color: #fff; box-shadow: 0 18px 40px rgba(18,28,56,.3); }
+.barra-guardar svg { color: #ffcf87; }
+.btn-borde-claro { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+.btn-borde-claro:hover { background: rgba(255,255,255,.08); }
+.crit.cambiado { border-radius: 14px; outline: 1px solid #f5c46b; background: #fffaf0; padding: 10px 12px; margin: -2px -4px; }
+:root[data-theme="dark"] .crit.cambiado { background: #2a2210; }
+.timeline li .btn-sm { flex: none; align-self: center; }
+@media (max-width: 700px) {
+  .barra-guardar { left: 8px; right: 8px; width: auto; transform: none; bottom: max(8px, env(safe-area-inset-bottom)); border-radius: 16px; }
+  .barra-guardar .btn { flex: 1; justify-content: center; height: 46px; }
+  .barra-guardar .grow { flex-basis: 100%; }
+}

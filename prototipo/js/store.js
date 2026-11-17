@@ -75,23 +75,48 @@ export function estadoPracticas(e) {
 }
 export const turnoEstudiante = (e) => turnoDe(e.horaIni);
 
-export function toast(msg, tipo = "ok") {
+/** Aviso abajo. Con «accion» ({ t: "Deshacer", f }) lleva un botón y dura más. */
+export function toast(msg, tipo = "ok", accion = null) {
   const id = nuevoId();
-  store.toasts.push({ id, msg, tipo });
-  setTimeout(() => { store.toasts = store.toasts.filter((t) => t.id !== id); }, tipo === "error" ? 6000 : 3200);
+  store.toasts.push({ id, msg, tipo, accion });
+  setTimeout(() => { store.toasts = store.toasts.filter((t) => t.id !== id); }, accion ? 8000 : tipo === "error" ? 6000 : 3200);
+  return id;
 }
+export const quitarToast = (id) => { store.toasts = store.toasts.filter((t) => t.id !== id); };
 
-export function addHist(candId, tipo, texto, autor = miNombre()) {
+export function addHist(candId, tipo, texto, autor = miNombre(), extra = null) {
   const ahora = new Date();
-  store.historial.push({ id: nuevoId(), candId, fecha: HOY_ISO, hora: `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`, tipo, texto, autor });
+  store.historial.push({ id: nuevoId(), candId, fecha: HOY_ISO, hora: `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`, tipo, texto, autor, ...(extra || {}) });
 }
 
 export function cambiarEstado(c, k, { silencioso = false } = {}) {
   if (!c || c.estado === k) return;
-  const antes = estadoDe(c.estado).n;
+  const previo = c.estado, antes = estadoDe(previo).n;
   c.estado = k;
-  addHist(c.id, "estado", `Estado: ${antes} → ${estadoDe(k).n}`);
-  if (!silencioso) toast(`${nombreCompleto(c)} pasa a «${estadoDe(k).n}»`);
+  addHist(c.id, "estado", `Estado: ${antes} → ${estadoDe(k).n}`, miNombre(), { cambio: { campo: "estado", antes: previo, despues: k } });
+  if (!silencioso) toast(`${nombreCompleto(c)} pasa a «${estadoDe(k).n}»`, "ok", { t: "Deshacer", f: () => cambiarEstado(c, previo, { silencioso: true }) });
+}
+
+/** ¿Se puede deshacer ese cambio del historial? (solo si la ficha sigue como la dejó) */
+export function sePuedeDeshacer(h) {
+  const c = h?.cambio && candDe(h.candId);
+  if (!c) return false;
+  // solo el último cambio de ese dato (deshacer uno antiguo pisaría los posteriores)
+  const ultimo = store.historial.filter((x) => x.candId === h.candId && x.cambio?.campo === h.cambio.campo).reduce((a, x) => (!a || x.id > a.id ? x : a), null);
+  if (ultimo !== h) return false;
+  return JSON.stringify(c[h.cambio.campo] ?? null) === JSON.stringify(h.cambio.despues ?? null);
+}
+/** Vuelve la ficha a como estaba antes de ese cambio del historial. */
+export function deshacerCambio(h) {
+  const c = candDe(h.candId);
+  if (!c || !sePuedeDeshacer(h)) return false;
+  const { campo, antes } = h.cambio;
+  if (campo === "estado") cambiarEstado(c, antes, { silencioso: true });
+  else {
+    c[campo] = antes;
+    addHist(c.id, h.tipo, `Deshecho: ${h.texto}`, miNombre(), { cambio: { campo, antes: h.cambio.despues, despues: antes } });
+  }
+  return true;
 }
 
 /** Convierte un candidato en estudiante en prácticas SIN duplicar la ficha. */
