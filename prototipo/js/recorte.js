@@ -2,7 +2,7 @@
 // Se ve la página con un recuadro cuadrado: se arrastra para moverlo y desde la esquina para cambiar el tamaño.
 import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { Modal, Ic } from "./ui.js";
-import { paginaEnCanvas } from "./cv.js";
+import { paginaEnCanvas, recuadroFoto } from "./cv.js";
 
 export const RecorteFoto = {
   components: { Modal, Ic },
@@ -28,9 +28,12 @@ export const RecorteFoto = {
         nat.w = pagina.width; nat.h = pagina.height;
         url.value = pagina.toDataURL("image/jpeg", 0.9);
         colocar(p.caja);
+        afinar(p.caja);
       } catch (e) { error.value = "No se pudo abrir el currículum para recortar."; }
     });
-    watch(() => p.caja, (c) => colocar(c));
+    // Coloca el recuadro sobre la cara si el detector la encuentra
+    async function afinar(c) { try { const r = await recuadroFoto(pagina, c); if (r) Object.assign(sel, { x: r.x, y: r.y, l: r.l }); } catch (_) { /* se queda el de la IA */ } }
+    watch(() => p.caja, (c) => { colocar(c); if (pagina) afinar(c); });
     // arrastrar y redimensionar (ratón y dedo)
     let modo = "", ini = null;
     const escala = () => (img.value ? nat.w / img.value.getBoundingClientRect().width : 1);
