@@ -114,7 +114,7 @@ export default {
       vaciarDatos(); toast("Entorno vaciado");
     };
 
-    const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "retirada"].includes(c.estado)).length);
+    const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "no-seleccionado-comunicado", "retirada"].includes(c.estado)).length);
     const demo = (m) => toast((enServidor.value ? "Todavía no disponible: " : "Demo: ") + m);
     const restaurarPlantillas = async () => { if (!(await pedirConfirmacion({ titulo: "¿Restaurar los textos originales?", texto: "Se perderán los cambios que hayas hecho en las plantillas.", boton: "Sí, restaurar" }))) return; store.plantillas = plantillasIniciales(); store.firma = FIRMA_INICIAL; toast("Plantillas restauradas"); };
     const nuevaPlantilla = () => store.plantillas.push({ id: "p" + Date.now().toString(36), nombre: "Nueva plantilla", uso: "general", asunto: "", texto: "Hola {nombre}, \n\n{firma}" });

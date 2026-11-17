@@ -231,8 +231,9 @@ export default {
           <div class="fld"><label>Cómo ha llegado</label><select class="inp" v-model="c.origen"><option v-for="o in ORIGENES" :key="o">{{ o }}</option></select></div>
           <div class="fld"><label>Correo electrónico</label><input class="inp" v-model="c.email" /></div>
           <div class="fld"><label>Teléfono</label><input class="inp" v-model="c.tel" /></div>
-          <div class="fld"><label>Área de interés</label><select class="inp" v-model="c.area"><option v-for="a in AREAS" :key="a">{{ a }}</option></select></div>
+          <div class="fld"><label>Área de interés</label><input class="inp" list="lista-areas" v-model="c.area" placeholder="Elige una o escribe otra…" /><datalist id="lista-areas"><option v-for="a in AREAS" :key="a" :value="a"></option></datalist></div>
           <div class="fld"><label>Turno disponible</label><select class="inp" v-model="c.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
+        <div v-if="c.turno==='Horario personalizado'" class="fld" style="grid-column:1/-1"><label>Horario personalizado</label><input class="inp" v-model="c.horarioLibre" placeholder="Ej.: lunes y miércoles de 9 a 13, resto de la semana por la tarde" /></div>
           <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" v-model="c.horas" /></div>
           <div class="fld"><label>Registrado el</label><input class="inp" :value="fCompleta(c.creado)" disabled /></div>
         </div>
@@ -255,7 +256,7 @@ export default {
           <div class="fld"><label>Centro educativo</label><SelectBuscable v-model="centroSel" :opciones="opCentros" etiqueta-todos="Sin centro (autopostulado)" /></div>
           <div class="fld"><label>Titulación</label><input class="inp" v-model="c.titulacion" list="dl-prog" /><datalist id="dl-prog"><option v-for="p in (centroDe(c.centroId)?.programas || [])" :key="p" :value="p" /></datalist></div>
           <div class="fld"><label>Curso</label><input class="inp" v-model="c.curso" placeholder="2.º" /></div>
-          <div class="fld"><label>Especialidad / área</label><select class="inp" v-model="c.area"><option v-for="a in AREAS" :key="a">{{ a }}</option></select></div>
+          <div class="fld"><label>Especialidad / área</label><input class="inp" list="lista-areas" v-model="c.area" placeholder="Elige una o escribe otra…" /><datalist id="lista-areas"><option v-for="a in AREAS" :key="a" :value="a"></option></datalist></div>
           <div class="fld"><label>Idiomas</label><input class="inp" v-model="c.idiomas" placeholder="Inglés (B2), francés (básico)…" /></div>
           <div class="fld"><label>Herramientas</label><input class="inp" v-model="c.herramientas" placeholder="Excel, Word, Canva…" /></div>
           <div class="fld" style="grid-column:1/-1"><label>Experiencia previa</label><textarea class="inp" v-model="c.experiencia" rows="2" placeholder="Prácticas o trabajos anteriores"></textarea></div>

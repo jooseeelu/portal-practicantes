@@ -63,7 +63,7 @@ export default {
 
     // Alta rápida
     const alta = ref(ruta.value.id === "nuevo");
-    const vacio = () => ({ nombre: "", apellidos: "", email: "", tel: "", centroId: "", titulacion: "", area: "", turno: "Por confirmar", horas: "", origen: "Centro educativo", obs: "", archivo: null, foto: "", situacion: "nuevo", inicio: "", fin: "", horaIni: "", horaFin: "", tutor: "" });
+    const vacio = () => ({ nombre: "", apellidos: "", email: "", tel: "", centroId: "", titulacion: "", area: "", turno: "Por confirmar", horarioLibre: "", horas: "", origen: "Centro educativo", obs: "", archivo: null, foto: "", situacion: "nuevo", inicio: "", fin: "", horaIni: "", horaFin: "", tutor: "" });
     const fotoAlta = async (ev) => { const a = ev.target.files[0]; ev.target.value = ""; try { n.foto = await leerFoto(a); } catch (e) { toast(e.message, "error"); } };
     const n = reactive(vacio());
     const soloDigitos = (s) => String(s || "").replace(/\D/g, "");
@@ -77,7 +77,7 @@ export default {
       if (yaHizo && (!n.inicio || !n.fin)) return toast("Indica desde cuándo y hasta cuándo hizo las prácticas.", "error");
       if (yaHizo && n.fin < n.inicio) return toast("La fecha de fin no puede ser anterior a la de inicio.", "error");
       const id = nuevoId();
-      store.candidatos.push({ id, nombre: n.nombre.trim(), apellidos: n.apellidos.trim(), email: n.email.trim(), tel: n.tel.trim(), centroId: n.centroId || null, titulacion: n.titulacion, area: n.area, turno: n.turno, disponibilidad: n.turno, horas: Number(n.horas) || "", curso: "", origen: n.origen, obs: n.obs, estado: "pendiente-revision", nota: null, pros: [], contras: [], creado: HOY_ISO, cv: !!n.archivo, foto: n.foto });
+      store.candidatos.push({ id, nombre: n.nombre.trim(), apellidos: n.apellidos.trim(), email: n.email.trim(), tel: n.tel.trim(), centroId: n.centroId || null, titulacion: n.titulacion, area: n.area, turno: n.turno, horarioLibre: n.horarioLibre, disponibilidad: n.turno, horas: Number(n.horas) || "", curso: "", origen: n.origen, obs: n.obs, estado: "pendiente-revision", nota: null, pros: [], contras: [], creado: HOY_ISO, cv: !!n.archivo, foto: n.foto });
       if (n.archivo) store.documentos.push({ id: nuevoId(), candId: id, nombre: n.archivo.name, tipo: "Currículum", fecha: HOY_ISO, tam: Math.max(1, Math.round(n.archivo.size / 1024)), ext: n.archivo.name.split(".").pop().toLowerCase() });
       addHist(id, "alta", `Candidatura registrada (${n.origen.toLowerCase()})${n.archivo ? " con currículum adjunto" : ""}`);
       if (yaHizo) {
@@ -200,8 +200,9 @@ export default {
         <div class="fld"><label>Teléfono</label><input class="inp" v-model="n.tel" placeholder="600 000 000" /></div>
         <div class="fld"><label>Centro educativo</label><SelectBuscable v-model="n.centroId" :opciones="opCentros" etiqueta-todos="Sin centro (autopostulado)" /></div>
         <div class="fld"><label>Titulación o especialidad</label><input class="inp" v-model="n.titulacion" list="dl-tit" placeholder="Elige o escribe" /><datalist id="dl-tit"><option v-for="t in titulaciones" :key="t" :value="t" /></datalist></div>
-        <div class="fld"><label>Área de interés</label><select class="inp" v-model="n.area"><option value="">Sin indicar</option><option v-for="a in AREAS" :key="a">{{ a }}</option></select></div>
+        <div class="fld"><label>Área de interés</label><input class="inp" list="lista-areas" v-model="n.area" placeholder="Elige una o escribe otra…" /><datalist id="lista-areas"><option v-for="a in AREAS" :key="a" :value="a"></option></datalist></div>
         <div class="fld"><label>Turno disponible</label><select class="inp" v-model="n.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
+        <div v-if="n.turno==='Horario personalizado'" class="fld" style="grid-column:1/-1"><label>Horario personalizado</label><input class="inp" v-model="n.horarioLibre" placeholder="Ej.: lunes y miércoles de 9 a 13, resto de la semana por la tarde" /></div>
         <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" min="0" v-model="n.horas" placeholder="340" /></div>
         <div class="fld"><label>Cómo ha llegado</label><select class="inp" v-model="n.origen"><option v-for="o in ORIGENES" :key="o">{{ o }}</option></select></div>
       </div>

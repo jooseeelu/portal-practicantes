@@ -5,6 +5,7 @@
 import { watch } from "vue";
 import { store, toast, vaciarDatos, cargarDemo, ajustesPorDefecto } from "./store.js";
 import { sesion, pedir, esAdmin } from "./api.js";
+import { ESTADOS_INICIALES } from "./data.js";
 
 const COLECCIONES = {
   candidatos: (x) => x.id, centros: (x) => x.id, entrevistas: (x) => x.id, estudiantes: (x) => x.candId,
@@ -118,6 +119,14 @@ async function traer() {
     const json = JSON.stringify({ ...ajustesPorDefecto(), ...aj.datos });
     if (JSON.stringify(leerAjustes()) !== json) Object.assign(store, JSON.parse(json));
     remoto.set(K_AJUSTES, { id: aj.id, json: JSON.stringify(leerAjustes()) });
+  }
+  // Estados nuevos del proceso: se añaden a los ajustes guardados (solo si quien entra es administrador, que es quien puede guardarlos)
+  if (esAdmin()) {
+    ESTADOS_INICIALES.forEach((e, i) => {
+      if (store.estados.some((x) => x.k === e.k)) return;
+      const prev = ESTADOS_INICIALES[i - 1], j = prev ? store.estados.findIndex((x) => x.k === prev.k) : -1;
+      store.estados.splice(j >= 0 ? j + 1 : store.estados.length, 0, { ...e });
+    });
   }
 }
 
