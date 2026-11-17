@@ -3,6 +3,7 @@ import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos } from "
 import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria } from "../api.js";
 import { Ic, Chip, Avatar, Modal, pedirConfirmacion } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
+import { plantillasIniciales, FIRMA_INICIAL, VARIABLES } from "../mensajes.js";
 import { slug, fCompleta, dia, HOY_ISO, iso, pad } from "../util.js";
 
 const tabActual = ref("estados");
@@ -11,7 +12,7 @@ export default {
   components: { Ic, Chip, Avatar, Modal },
   setup() {
     const tab = tabActual;
-    const tabs = [["estados", "Estados del proceso", "kanban"], ["turnos", "Turnos y aforo", "clock"], ["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["datos", "Protección de datos", "shield"], ["integraciones", "Integraciones", "link"]];
+    const tabs = [["estados", "Estados del proceso", "kanban"], ["turnos", "Turnos y aforo", "clock"], ["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["mensajes", "Mensajes", "mail"], ["datos", "Protección de datos", "shield"], ["integraciones", "Integraciones", "link"]];
     const usados = (k) => store.candidatos.filter((c) => c.estado === k).length;
     const mover = (i, d) => { const j = i + d; if (j < 0 || j >= store.estados.length) return; const a = store.estados; [a[i], a[j]] = [a[j], a[i]]; };
     const color = (e, col) => Object.assign(e, { col, c: COLORES[col].c, cd: COLORES[col].cd });
@@ -115,7 +116,10 @@ export default {
 
     const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "retirada"].includes(c.estado)).length);
     const demo = (m) => toast((enServidor.value ? "Todavía no disponible: " : "Demo: ") + m);
-    return { GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    const restaurarPlantillas = async () => { if (!(await pedirConfirmacion({ titulo: "¿Restaurar los textos originales?", texto: "Se perderán los cambios que hayas hecho en las plantillas.", boton: "Sí, restaurar" }))) return; store.plantillas = plantillasIniciales(); store.firma = FIRMA_INICIAL; toast("Plantillas restauradas"); };
+    const nuevaPlantilla = () => store.plantillas.push({ id: "p" + Date.now().toString(36), nombre: "Nueva plantilla", uso: "general", asunto: "", texto: "Hola {nombre}, \n\n{firma}" });
+    const quitarPlantilla = async (i) => { if (await pedirConfirmacion({ titulo: "¿Quitar esta plantilla?", texto: store.plantillas[i].nombre, boton: "Sí, quitar" })) store.plantillas.splice(i, 1); };
+    return { VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
@@ -211,6 +215,19 @@ export default {
             <div v-if="admin" class="row"><input class="inp" v-model="nuevaP[g.k]" :placeholder="'Nombre…'" @keydown.enter="addPersona(g.k)" /><button class="btn" @click="addPersona(g.k)"><Ic n="plus" :s="15" />Añadir</button></div>
           </div>
         </div>
+      </div>
+
+      <div v-else-if="tab==='mensajes'" class="card-pad stack">
+        <div class="caja"><div class="row"><Ic n="whatsapp" /><h3>Plantillas de WhatsApp y correo</h3></div>
+          <p class="sub">Al pulsar WhatsApp o Correo en una ficha se abre tu WhatsApp o tu correo con el mensaje ya escrito; tú lo revisas y lo envías. Salen desde la cuenta que tengas abierta en ese aparato. Variables disponibles: <b v-for="v in VARIABLES" :key="v" style="margin-right:6px">{{ '{' + v + '}' }}</b></p>
+          <div class="fld"><label>Firma ({firma})</label><input class="inp" v-model="store.firma" /></div></div>
+        <div v-for="(p, i) in store.plantillas" :key="p.id" class="caja">
+          <div class="row"><input class="inp grow" v-model="p.nombre" style="font-weight:700" /><button class="icon-btn" @click="quitarPlantilla(i)" title="Quitar plantilla"><Ic n="trash" :s="16" /></button></div>
+          <div class="fld"><label>Asunto del correo</label><input class="inp" v-model="p.asunto" /></div>
+          <div class="fld"><label>Texto</label><textarea class="inp" v-model="p.texto" rows="5"></textarea></div>
+          <div class="fld"><label>Se puede usar</label><select class="inp" v-model="p.uso"><option value="general">Con cualquier persona</option><option value="entrevista">Solo si tiene entrevista</option><option value="estudiante">Solo si está en prácticas</option></select></div>
+        </div>
+        <div class="row wrap"><button class="btn btn-sm" @click="nuevaPlantilla"><Ic n="plus" :s="14" />Nueva plantilla</button><button class="btn btn-sm" @click="restaurarPlantillas">Restaurar textos originales</button></div>
       </div>
 
       <div v-else-if="tab==='datos'" class="card-pad stack">

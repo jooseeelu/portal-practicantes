@@ -3,6 +3,7 @@ import { store, candDe, centroDe, nombreCompleto, estadoPracticas, turnoEstudian
 import { ruta, go } from "../router.js";
 import { Ic, Chip, Avatar, Vacio } from "../ui.js";
 import { registrar } from "../api.js";
+import { elegirMensaje } from "../mensajes.js";
 import { toast } from "../store.js";
 import { urlWhatsApp, HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
 
@@ -34,8 +35,8 @@ export default {
 
     const menuCand = (c) => ({ titulo: nombreCompleto(c), items: [
       { t: "Abrir la ficha", i: "user", f: () => go("candidato/" + c.id) },
-      { t: "Escribir por WhatsApp", i: "whatsapp", f: () => { const u = urlWhatsApp(c.tel, ""); if (!u) return toast("Esta persona no tiene un teléfono válido en su ficha.", "error"); window.open(u, "_blank", "noopener"); registrar("Abrió WhatsApp", nombreCompleto(c)); } },
-      { t: "Enviar un correo", i: "mail", f: () => { if (!c.email) return toast("Esta persona no tiene correo en su ficha.", "error"); window.location.href = "mailto:" + c.email; registrar("Abrió el correo", nombreCompleto(c)); } },
+      { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
+      { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
     return { menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
   },
