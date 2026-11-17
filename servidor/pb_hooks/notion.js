@@ -30,7 +30,7 @@ function cuerpoDe(app, d) {
 const huellaDe = (app, d) => JSON.stringify(cuerpoDe(app, d));
 
 /** Sincroniza una entrevista. borrada = la entrevista se ha borrado en el portal. Devuelve un texto con lo que pasó. */
-function sincronizar(app, rec, borrada) {
+function sincronizar(app, rec, borrada, opciones) {
   if (!rec || rec.getString("tipo") !== "entrevistas") return "no es entrevista";
   const cfg = leerConfig();
   if (!cfg || !cfg.url || !cfg.secreto) return "sin configurar";
@@ -48,6 +48,7 @@ function sincronizar(app, rec, borrada) {
   }
   const huella = JSON.stringify(Object.assign({}, cuerpo, { pageId: "" }));
   if (prev.huella === huella) return "sin cambios";
+  if (opciones && opciones.soloVincular) cuerpo.soloVincular = true;
   const r = $http.send({ url: cfg.url, method: "POST", body: JSON.stringify(cuerpo), headers: { "content-type": "application/json", "x-portal-secreto": cfg.secreto }, timeout: 30 });
   if (r.statusCode !== 200 || !r.json || !r.json.pageId) { console.log("Notion: no se pudo sincronizar la entrevista " + clave + " (" + r.statusCode + ")"); return "error " + r.statusCode; }
   const m = mapa || new Record(app.findCollectionByNameOrId("registros"));

@@ -174,7 +174,7 @@ routerAdd("POST", "/api/portal/notion/sincronizar", (e) => {
     try { fecha = JSON.parse(r.getString("datos") || "{}").fecha || ""; } catch (_) {}
     if (fecha < hoy) continue;
     if (lim && hechas >= lim) break;
-    const res = n.sincronizar($app, r, false);
+    const res = n.sincronizar($app, r, false, { soloVincular: true });
     cuenta[res] = (cuenta[res] || 0) + 1;
     hechas++;
   }
