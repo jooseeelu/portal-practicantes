@@ -366,3 +366,5 @@ html, body { max-width: 100%; overflow-x: clip; }
 .semana-g .libre b { color: var(--text-400); }
 .cambios-g { display: flex; flex-direction: column; gap: 6px; }
 .gentrivo-estado { display: inline-flex; align-items: center; gap: 6px; }
+.vincular-g .inp { max-width: 420px; }
+.gentrivo-box .btn-link.right { margin-left: auto; }
