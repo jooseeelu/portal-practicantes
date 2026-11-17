@@ -8,6 +8,8 @@ routerUse((e) => {
   h.set("X-Content-Type-Options", "nosniff");
   h.set("Referrer-Policy", "same-origin");
   h.set("X-Frame-Options", "SAMEORIGIN");
+  // La web (html, js, css) se revalida siempre: así nadie se queda con una versión vieja tras desplegar.
+  if (!e.request.url.path.startsWith("/api/")) h.set("Cache-Control", "no-cache");
   return e.next();
 });
 
