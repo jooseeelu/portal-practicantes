@@ -1,7 +1,7 @@
 import { computed, reactive, ref } from "vue";
 import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
-import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir } from "../api.js";
+import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir, miNombre } from "../api.js";
 import { recortarFoto } from "../cv.js";
 import { elegirMensaje } from "../mensajes.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas } from "../ui.js";
@@ -126,7 +126,7 @@ export default {
       const id = nuevoId();
       store.candidatos.push({ id, nombre: n.nombre.trim(), apellidos: n.apellidos.trim(), email: n.email.trim(), tel: n.tel.trim(), centroId: n.centroId || null, titulacion: n.titulacion, area: n.area, turno: n.turno, horarioLibre: n.horarioLibre, disponibilidad: n.turno, horas: Number(n.horas) || "", curso: "", idiomas: n.idiomas, herramientas: n.herramientas, experiencia: n.experiencia, origen: n.origen, obs: n.obs, estado: "pendiente-revision", nota: null, pros: [], contras: [], creado: HOY_ISO, cv: !!n.archivo, foto: n.foto });
       if (n.archivo) {
-        store.documentos.push({ id: nuevoId(), candId: id, nombre: n.archivo.name, tipo: "Currículum", fecha: HOY_ISO, tam: Math.max(1, Math.round(n.archivo.size / 1024)), ext: n.archivo.name.split(".").pop().toLowerCase(), ...(n.archivoId ? { archivoId: n.archivoId, archivo: n.archivoSrv } : {}) });
+        store.documentos.push({ id: nuevoId(), candId: id, nombre: n.archivo.name, tipo: "Currículum", fecha: HOY_ISO, hora: new Date().toTimeString().slice(0, 5), por: miNombre(), tam: Math.max(1, Math.round(n.archivo.size / 1024)), ext: n.archivo.name.split(".").pop().toLowerCase(), ...(n.archivoId ? { archivoId: n.archivoId, archivo: n.archivoSrv } : {}) });
         if (n.archivoId) pedir("PATCH", `api/collections/archivos/records/${n.archivoId}`, { candId: String(id) }).catch(() => {});
       }
       addHist(id, "alta", `Candidatura registrada (${n.origen.toLowerCase()})${n.archivo ? " con currículum adjunto" : ""}`);

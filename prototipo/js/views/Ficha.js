@@ -1,9 +1,10 @@
 import { computed, reactive, ref, watch } from "vue";
-import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
+import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
-import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar } from "../api.js";
+import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar, esAdmin } from "../api.js";
+import { recortarFoto } from "../cv.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe, normal, esFinde, urlWhatsApp } from "../util.js";
@@ -17,7 +18,10 @@ export default {
   setup() {
     const c = computed(() => candDe(ruta.value.id));
     const tab = ref(store.fichaTab || "personal"); store.fichaTab = "personal";
-    const ent = computed(() => (c.value ? entrevistaDe(c.value.id) : null));
+    // Entrevistas de la persona (1.ª, 2.ª…): se ve la elegida o, si no, la más reciente
+    const entSel = ref(null);
+    const ents = computed(() => (c.value ? entrevistasDe(c.value.id).slice().reverse() : []));
+    const ent = computed(() => (c.value ? ents.value.find((e) => e.id === entSel.value) || entrevistaDe(c.value.id) : null));
     const est = computed(() => (c.value ? estudianteDe(c.value.id) : null));
     cargarGentrivo();
     const g = computed(() => (est.value ? enGentrivo(c.value) : null));
@@ -48,8 +52,18 @@ export default {
     const zoom = ref(1);
 
     // --- Entrevista: programar y valorar ---
-    const prog = reactive({ abierto: false, fecha: dia(3), hora: "10:30", modalidad: "Presencial", entrevistador: "" });
-    const guardarProg = () => { if (esFinde(prog.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c.value, prog); prog.abierto = false; tab.value = "entrevista"; };
+    const prog = reactive({ abierto: false, otra: false, fecha: dia(3), hora: "10:30", modalidad: "Presencial", entrevistador: "" });
+    const guardarProg = () => { if (esFinde(prog.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); const e = programarEntrevista(c.value, prog); entSel.value = e?.id || null; prog.abierto = false; prog.otra = false; tab.value = "entrevista"; };
+    const otraEntrevista = () => Object.assign(prog, { abierto: true, otra: true, fecha: dia(3), entrevistador: "" });
+    // Valoración: quitar un criterio o borrarla entera
+    const quitarCriterio = (k) => { ent.value.criterios[k].n = null; ent.value.criterios[k].t = ""; };
+    const borrarValoracion = async () => {
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar la valoración?", texto: "Se quitan las notas y comentarios de los criterios de esta entrevista y la nota final de la ficha.", boton: "Borrar valoración" }))) return;
+      for (const [k] of CRITERIOS) quitarCriterio(k);
+      notaFinal.value = null;
+      if (c.value.nota != null) { c.value.nota = null; addHist(c.value.id, "valoracion", "Valoración borrada"); }
+      toast("Valoración borrada");
+    };
     const media = computed(() => { const v = CRITERIOS.map(([k]) => ent.value?.criterios[k].n).filter((x) => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 2) / 2 : null; });
     const notaFinal = ref(c.value?.nota ?? null);
     const guardarValoracion = () => {
@@ -73,7 +87,8 @@ export default {
       for (const f of files) {
         if (docs.value.find((d) => d.nombre === f.name)) { toast(`«${f.name}» ya está en esta ficha: no se duplica.`, "error"); continue; }
         const tipoDoc = /cv|curr/i.test(f.name) || tipo === "Currículum" ? "Currículum" : tipo;
-        const doc = { id: nuevoId(), candId: c.value.id, nombre: f.name, tipo: tipoDoc, fecha: HOY_ISO, tam: Math.max(1, Math.round(f.size / 1024)), ext: f.name.split(".").pop().toLowerCase() };
+        const ahora = new Date();
+        const doc = { id: nuevoId(), candId: c.value.id, nombre: f.name, tipo: tipoDoc, fecha: HOY_ISO, hora: ahora.toTimeString().slice(0, 5), por: miNombre(), tam: Math.max(1, Math.round(f.size / 1024)), ext: f.name.split(".").pop().toLowerCase() };
         if (enServidor()) {
           if (!EXT_OK.test(f.name)) { toast(`«${f.name}»: solo se admiten PDF, Word o imágenes.`, "error"); continue; }
           if (f.size > 20 * 1024 * 1024) { toast(`«${f.name}» pesa más de 20 MB.`, "error"); continue; }
@@ -88,6 +103,8 @@ export default {
         hechos++;
       }
       if (hechos) toast(hechos > 1 ? `${hechos} archivos añadidos` : "Archivo añadido");
+      // Currículum nuevo: se lee solo (datos y foto) y se proponen los cambios
+      if (hechos && cvActual.value?.archivoId && files.some((f) => f.name === cvActual.value.nombre) && puedeLeerIA.value) leerConIA();
     }
     // Visor del currículum y apertura/descarga de archivos reales (con enlace temporal)
     const urlVisor = ref(""), errorVisor = ref("");
@@ -164,11 +181,11 @@ export default {
 
     // --- Lectura del currículum con IA: propone datos y una persona decide cuáles aplicar ---
     const CAMPOS_IA = [["nombre", "Nombre"], ["apellidos", "Apellidos"], ["email", "Correo electrónico"], ["tel", "Teléfono"], ["titulacion", "Titulación"], ["curso", "Curso"], ["idiomas", "Idiomas"], ["herramientas", "Herramientas"], ["experiencia", "Experiencia previa"]];
-    const ia = reactive({ abierto: false, cargando: false, error: "", campos: [], avisos: [], centro: "", centroId: "", usarCentro: false, otros: [], doc: "" });
+    const ia = reactive({ abierto: false, cargando: false, error: "", campos: [], avisos: [], centro: "", centroId: "", usarCentro: false, otros: [], doc: "", foto: "", usarFoto: false });
     const puedeLeerIA = computed(() => enServidor() && !!cvActual.value?.archivoId && /^(pdf|jpe?g|png|webp)$/.test(cvActual.value.ext || ""));
     async function leerConIA() {
       const d = cvActual.value; if (!d || ia.cargando) return;
-      Object.assign(ia, { abierto: true, cargando: true, error: "", campos: [], avisos: [], centro: "", centroId: "", usarCentro: false, otros: [], doc: d.nombre });
+      Object.assign(ia, { abierto: true, cargando: true, error: "", campos: [], avisos: [], centro: "", centroId: "", usarCentro: false, otros: [], doc: d.nombre, foto: "", usarFoto: false });
       try {
         const r = await leerCurriculum(d.archivoId);
         const x = r.datos || {};
@@ -181,6 +198,14 @@ export default {
         }
         ia.otros = [["Localidad", x.localidad], ["Disponibilidad", x.disponibilidad]].filter(([, v]) => v);
         ia.avisos = r.avisos || [];
+        if (r.foto) {
+          try {
+            const blob = await (await fetch(await urlArchivo(d))).blob();
+            const tipo = d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext;
+            ia.foto = await recortarFoto(new File([blob], d.nombre, { type: tipo }), r.foto);
+            ia.usarFoto = !!ia.foto && !c.value.foto;
+          } catch (_) { /* sin foto: no impide aplicar el resto */ }
+        }
         registrar("Leyó un currículum con IA", d.nombre);
       } catch (e) { ia.error = e.message; } finally { ia.cargando = false; }
     }
@@ -189,9 +214,11 @@ export default {
       usados.forEach((f) => { c.value[f.k] = f.nuevo; });
       const conCentro = ia.usarCentro && ia.centroId;
       if (conCentro) c.value.centroId = ia.centroId;
-      const n = usados.length + (conCentro ? 1 : 0);
+      const conFoto = ia.usarFoto && ia.foto;
+      if (conFoto) c.value.foto = ia.foto;
+      const n = usados.length + (conCentro ? 1 : 0) + (conFoto ? 1 : 0);
       if (n) {
-        addHist(c.value.id, "documento", "Datos rellenados desde el currículum con IA: " + [...usados.map((f) => f.etq.toLowerCase()), ...(conCentro ? ["centro"] : [])].join(", "));
+        addHist(c.value.id, "documento", "Datos rellenados desde el currículum con IA: " + [...usados.map((f) => f.etq.toLowerCase()), ...(conCentro ? ["centro"] : []), ...(conFoto ? ["foto"] : [])].join(", "));
         toast(n > 1 ? n + " datos aplicados a la ficha" : "Dato aplicado a la ficha");
       }
       ia.abierto = false;
@@ -199,7 +226,16 @@ export default {
     // --- Contacto directo desde la ficha ---
     const abrirWhatsApp = (ev) => elegirMensaje("whatsapp", c.value, ev);
     const abrirCorreo = (ev) => elegirMensaje("correo", c.value, ev);
-    return { eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    const borrarFicha = async () => {
+      const nom = nombreCompleto(c.value);
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar a " + nom + "?", texto: "Se borra su ficha con sus entrevistas, valoraciones, documentos (también los archivos), historial y notas. No se puede deshacer. Si solo no sigue en el proceso, mejor cambia su estado a «Cancelado» o «Candidatura retirada».", boton: "Borrar para siempre" }))) return;
+      const archivos = borrarCandidato(c.value);
+      if (enServidor()) archivos.forEach((a) => borrarArchivo(a).catch(() => {}));
+      registrar("Borró la ficha de un candidato", nom);
+      toast("Ficha de " + nom + " borrada");
+      go("candidatos");
+    };
+    return { esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -276,6 +312,7 @@ export default {
           </div>
         </div>
         <p class="sub"><Ic n="check" :s="13" /> Los cambios se guardan solos al escribir.</p>
+        <div v-if="esAdmin()" class="zona-peligro"><div><b>Borrar esta ficha</b><span class="sub">Solo administración. Borra a la persona y todo lo suyo; no se puede deshacer.</span></div><button class="btn btn-peligro" @click="borrarFicha"><Ic n="trash" :s="15" />Borrar candidato</button></div>
       </div>
 
       <!-- FORMACIÓN -->
@@ -348,13 +385,14 @@ export default {
           <template v-else>
             <p class="sub">Marca lo que quieras pasar a la ficha. Lo que ya estaba escrito no se cambia si no lo marcas.</p>
             <div v-for="a in ia.avisos" :key="a" class="aviso warn"><Ic n="alert" :s="16" /><span>{{ a }}</span></div>
-            <p v-if="!ia.campos.length && !ia.centro" class="sub"><b>No hay nada nuevo:</b> la ficha ya tiene todo lo que se lee en el currículum.</p>
+            <label v-if="ia.foto" class="ia-fila ia-foto"><input type="checkbox" v-model="ia.usarFoto" /><img :src="ia.foto" alt="Foto recortada del currículum" /><span class="grow"><small>Foto</small><b>Foto del currículum</b><small v-if="c.foto" class="ia-antes">Ya tiene foto: se cambia solo si lo marcas.</small></span></label>
+            <p v-if="!ia.campos.length && !ia.centro && !ia.foto" class="sub"><b>No hay nada nuevo:</b> la ficha ya tiene todo lo que se lee en el currículum.</p>
             <label v-for="f in ia.campos" :key="f.k" class="ia-fila"><input type="checkbox" v-model="f.usar" /><span class="grow"><small>{{ f.etq }}</small><b>{{ f.nuevo }}</b><small v-if="f.actual" class="ia-antes">Ahora en la ficha: {{ f.actual }}</small></span></label>
             <label v-if="ia.centro && ia.centroId" class="ia-fila"><input type="checkbox" v-model="ia.usarCentro" /><span class="grow"><small>Centro educativo</small><b>{{ centroDe(ia.centroId)?.nombre }}</b><small class="ia-antes">En el currículum: {{ ia.centro }}<template v-if="c.centroId"> · Ahora en la ficha: {{ centroDe(c.centroId)?.nombre }}</template></small></span></label>
             <div v-else-if="ia.centro && !c.centroId" class="aviso"><Ic n="info" :s="16" /><span>El currículum menciona <b>{{ ia.centro }}</b>, que no está en la lista de centros. Si procede, elígelo o créalo a mano.</span></div>
             <p v-for="o in ia.otros" :key="o[0]" class="sub"><b>{{ o[0] }}:</b> {{ o[1] }}</p>
           </template>
-          <template #pie><button class="btn" @click="ia.abierto=false">{{ ia.error || ia.cargando ? 'Cerrar' : 'No aplicar nada' }}</button><button v-if="!ia.cargando && !ia.error" class="btn btn-primary" :disabled="!ia.campos.some(f => f.usar) && !(ia.usarCentro && ia.centroId)" @click="aplicarIA"><Ic n="check" :s="15" />Aplicar a la ficha</button></template>
+          <template #pie><button class="btn" @click="ia.abierto=false">{{ ia.error || ia.cargando ? 'Cerrar' : 'No aplicar nada' }}</button><button v-if="!ia.cargando && !ia.error" class="btn btn-primary" :disabled="!ia.campos.some(f => f.usar) && !(ia.usarCentro && ia.centroId) && !(ia.usarFoto && ia.foto)" @click="aplicarIA"><Ic n="check" :s="15" />Aplicar a la ficha</button></template>
         </Modal>
       </div>
 
@@ -362,6 +400,10 @@ export default {
       <div v-else-if="tab==='entrevista'" class="card-pad stack">
         <Vacio v-if="!ent" icono="calendario" titulo="Sin entrevista programada" texto="Programa la entrevista para poder valorarla después."><button class="btn btn-primary" style="margin-top:8px" @click="prog.abierto=true"><Ic n="calendario" :s="16" />Programar entrevista</button></Vacio>
         <template v-else>
+          <div class="rondas">
+            <button v-for="(e, i) in ents" :key="e.id" class="pill" :class="{on: ent.id === e.id}" @click="entSel = e.id">{{ i + 1 }}.ª entrevista · {{ fCorta(e.fecha) }}<template v-if="e.entrevistador"> · {{ e.entrevistador }}</template><template v-if="e.estado === 'Cancelada'"> · cancelada</template></button>
+            <button class="btn btn-sm right" @click="otraEntrevista"><Ic n="plus" :s="14" />Programar otra entrevista</button>
+          </div>
           <div class="ent-cab">
             <div class="fecha-b grande"><small>{{ fLarga(ent.fecha).split(' ')[0] }}</small><b>{{ fCorta(ent.fecha) }}</b></div>
             <div class="grid3 grow">
@@ -377,7 +419,7 @@ export default {
             <div class="val-crit">
               <h3>Valoración por criterios</h3>
               <div v-for="[k, t] in CRITERIOS" :key="k" class="crit">
-                <div class="row"><b class="grow">{{ t }}</b><Nota :v="ent.criterios[k].n" /></div>
+                <div class="row"><b class="grow">{{ t }}</b><Nota :v="ent.criterios[k].n" /><button v-if="ent.criterios[k].n != null || ent.criterios[k].t" class="icon-btn icon-btn-sm" title="Quitar la nota de este criterio" aria-label="Quitar la nota de este criterio" @click="quitarCriterio(k)"><Ic n="x" :s="14" /></button></div>
                 <input type="range" min="0" max="10" step="0.5" :value="ent.criterios[k].n ?? 5" @input="ent.criterios[k].n = Number($event.target.value)" :class="{sin: ent.criterios[k].n==null}" />
                 <input class="inp" v-model="ent.criterios[k].t" :placeholder="'Comentario sobre ' + t.toLowerCase()" />
               </div>
@@ -388,7 +430,7 @@ export default {
               <div class="fld"><label>Nota (0–10, admite medios puntos)</label><input class="inp" type="number" min="0" max="10" step="0.5" v-model.number="notaFinal" :placeholder="media!=null ? 'Media: ' + media : '—'" /></div>
               <button class="btn btn-sm" v-if="media!=null" @click="notaFinal=media">Usar la media de criterios ({{ String(media).replace('.', ',') }})</button>
               <div class="fld"><label>Observaciones de la entrevista</label><textarea class="inp" rows="4" v-model="ent.obs" placeholder="Impresión general, puntos fuertes, dudas…"></textarea></div>
-              <button class="btn btn-primary" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button>
+              <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button><button v-if="c.nota != null || media != null || notaFinal != null" class="btn btn-ghost" @click="borrarValoracion"><Ic n="x" :s="15" />Borrar valoración</button></div>
             </div>
           </div>
 
@@ -423,11 +465,11 @@ export default {
       <div v-else-if="tab==='docs'" class="card-pad stack">
         <Dropzone :texto="subiendo ? 'Subiendo…' : 'Arrastra aquí convenios, anexos, justificantes o currículums'" @archivos="subir($event)" />
         <div class="tbl-wrap"><table class="tbl sin-hover">
-          <thead><tr><th>Documento</th><th>Tipo</th><th>Fecha</th><th>Tamaño</th><th></th></tr></thead>
+          <thead><tr><th>Documento</th><th>Tipo</th><th>Subido</th><th>Tamaño</th><th></th></tr></thead>
           <tbody><tr v-for="d in docs" :key="d.id">
             <td><div class="row"><span class="ext" :class="d.ext">{{ d.ext }}</span><input class="inp nombre-doc" v-model="d.nombre" title="Haz clic para renombrar" /></div></td>
             <td><select class="inp" v-model="d.tipo" style="width:150px"><option v-for="t in TIPOS_DOC" :key="t">{{ t }}</option></select></td>
-            <td class="nowrap">{{ fCompleta(d.fecha) }}</td><td class="nowrap">{{ tam(d.tam) }}</td>
+            <td class="nowrap">{{ fCompleta(d.fecha) }}<template v-if="d.hora">, {{ d.hora }}</template><small v-if="d.por" class="sub" style="display:block">{{ d.por }}</small></td><td class="nowrap">{{ tam(d.tam) }}</td>
             <td class="nowrap"><button class="icon-btn" title="Ver" @click="d.tipo==='Currículum' ? (cvSel=d.id, tab='cv') : (d.archivoId ? abrirArchivo(d) : demo('se abriría la vista previa del documento'))"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click="d.archivoId ? abrirArchivo(d, true) : demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button><button class="icon-btn" title="Eliminar" @click="borrarDoc(d)"><Ic n="trash" :s="16" /></button></td>
           </tr></tbody></table></div>
         <p class="sub"><Ic n="lock" :s="13" /> Archivos privados: solo se abren con sesión iniciada y un enlace temporal, como en el CRM.</p>
@@ -449,7 +491,8 @@ export default {
       </div>
     </div>
 
-    <Modal v-if="prog.abierto" titulo="Programar entrevista" @cerrar="prog.abierto=false">
+    <Modal v-if="prog.abierto" :titulo="prog.otra ? 'Programar ' + (ents.filter(e => e.estado !== 'Cancelada').length + 1) + '.ª entrevista' : 'Programar entrevista'" @cerrar="prog.abierto=false; prog.otra=false">
+      <p v-if="prog.otra" class="sub">La entrevista anterior y su valoración se conservan. Elige quién hace esta (por ejemplo, dirección).</p>
       <div class="grid2">
         <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="prog.fecha" /></div>
         <div class="fld"><label>Hora</label><select class="inp" v-model="prog.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>

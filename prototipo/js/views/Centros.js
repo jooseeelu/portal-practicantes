@@ -16,7 +16,7 @@ export default {
     const datos = (c) => {
       const cands = store.candidatos.filter((x) => x.centroId === c.id);
       const est = store.estudiantes.filter((e) => e.centroId === c.id);
-      return { cands, total: cands.length, activos: est.filter((e) => estadoPracticas(e) === "En curso").length, hechos: est.filter((e) => estadoPracticas(e) === "Finalizada").length, proceso: cands.filter((x) => !["incorporado", "finalizado", "no-seleccionado", "retirada"].includes(x.estado)).length };
+      return { cands, total: cands.length, activos: est.filter((e) => estadoPracticas(e) === "En curso").length, hechos: est.filter((e) => estadoPracticas(e) === "Finalizada").length, proceso: cands.filter((x) => !["incorporado", "finalizado", "no-seleccionado", "no-seleccionado-comunicado", "retirada", "cancelado"].includes(x.estado)).length };
     };
     const lista = computed(() => {
       const n = normal(s.q);
