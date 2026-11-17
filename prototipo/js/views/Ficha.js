@@ -70,6 +70,7 @@ export default {
       return n;
     });
     const ponerNota = (n) => { bor.nota = bor.nota === n ? n - 0.5 : n; };
+    const notaEscrita = (ev) => { const v = ev.target.value === "" ? null : Number(String(ev.target.value).replace(",", ".")); if (v === null) bor.nota = null; else if (!isNaN(v) && v >= 0 && v <= 10) bor.nota = v; };
     const etiquetaNota = (v) => (v >= 9 ? "Excelente" : v >= 8 ? "Muy buena" : v >= 7 ? "Buena" : v >= 6 ? "Correcta" : v >= 5 ? "Justa" : "Floja");
     const descartarValoracion = () => { cargarBorrador(); toast("Cambios descartados"); };
     const elegirRonda = async (id) => {
@@ -285,7 +286,7 @@ export default {
       go("candidatos");
     };
     const deshacerHist = (h) => { if (deshacerCambio(h)) toast("Cambio deshecho"); };
-    return { fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -499,7 +500,7 @@ export default {
             <div class="nf-num"><b>{{ bor.nota == null ? '—' : String(bor.nota).replace('.', ',') }}</b><span>/ 10</span></div>
             <div class="nf-barra"><i :style="{width: (bor.nota || 0) * 10 + '%'}"></i></div>
             <div class="nf-botones" role="group" aria-label="Nota del 1 al 10"><button v-for="n in 10" :key="n" :class="{on: bor.nota === n, medio: bor.nota === n - 0.5}" :aria-pressed="bor.nota === n || bor.nota === n - 0.5" @click="ponerNota(n)">{{ n }}</button></div>
-            <small class="nf-ayuda">Pulsa otra vez el mismo número para medio punto menos</small>
+            <div class="nf-exacta"><label for="nota-exacta">O escríbela:</label><input id="nota-exacta" class="inp" type="number" min="0" max="10" step="0.25" inputmode="decimal" :value="bor.nota ?? ''" placeholder="9,5" @input="notaEscrita($event)" /><small class="nf-ayuda">Medio punto: pulsa dos veces el número (dos veces el 10 = 9,5)</small></div>
             <div class="fld"><label>Observaciones</label><textarea class="inp" rows="4" v-model="bor.obs" placeholder="Impresión general de la entrevista…"></textarea></div>
             <button class="btn btn-ink nf-guardar" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button>
             <div class="row nf-mas"><button v-if="cambiosVal" class="btn-link" @click="descartarValoracion">Descartar cambios</button><button v-if="c.nota != null || bor.nota != null" class="btn-link peligro" @click="borrarValoracion">Borrar valoración</button></div>
