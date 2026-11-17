@@ -157,4 +157,14 @@ export async function leerCurriculum(archivoId) {
   if (!r.ok || !d?.ok) throw new ErrorApi(r.status, d?.mensaje || "No se pudo leer el currículum. Rellena los datos a mano o prueba de nuevo.", d);
   return d; // { datos, avisos }
 }
+/** Envía un correo desde info@gestoriaemadrid.com (n8n + SMTP). */
+const URL_CORREO = "https://n8n.gestoriainnova.com/webhook/practicas-enviar-correo";
+export async function enviarCorreo({ para, asunto, texto }) {
+  let r;
+  try { r = await fetch(URL_CORREO, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ para, asunto, texto, token: sesion.token, entorno: sesion.entorno }) }); }
+  catch { throw new ErrorApi(0, "No se pudo conectar con el servicio de correo. Prueba de nuevo en un momento."); }
+  let d = null; try { d = await r.json(); } catch { /* sin cuerpo */ }
+  if (!r.ok || !d?.ok) throw new ErrorApi(r.status, d?.mensaje || "No se pudo enviar el correo.", d);
+  return d;
+}
 export const borrarArchivo = (id) => pedir("DELETE", `api/collections/archivos/records/${id}`);

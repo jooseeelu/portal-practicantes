@@ -156,7 +156,10 @@ export default {
     const restaurarPlantillas = async () => { if (!(await pedirConfirmacion({ titulo: "¿Restaurar los textos originales?", texto: "Se perderán los cambios que hayas hecho en las plantillas.", boton: "Sí, restaurar" }))) return; store.plantillas = plantillasIniciales(); store.firma = FIRMA_INICIAL; toast("Plantillas restauradas"); };
     const nuevaPlantilla = () => store.plantillas.push({ id: "p" + Date.now().toString(36), nombre: "Nueva plantilla", uso: "general", asunto: "", texto: "Hola {nombre}, \n\n{firma}" });
     const quitarPlantilla = async (i) => { if (await pedirConfirmacion({ titulo: "¿Quitar esta plantilla?", texto: store.plantillas[i].nombre, boton: "Sí, quitar" })) store.plantillas.splice(i, 1); };
-    return { pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    // Vista previa de una plantilla con datos de ejemplo
+    const EJEMPLO = { nombre: "Laura", apellidos: "García", centro: "Universidad", fecha: "lunes 24 de noviembre", hora: "10:30", donde: "Presencial · Calle General Álvarez de Castro 41", lugar: " en nuestra oficina", lugar_oficina: "Calle General Álvarez de Castro 41", entrevistador: "Vanesa", inicio: "lunes 1 de diciembre", horario: "10:00–15:00" };
+    const vistaPrevia = (t) => String(t || "").replace(/{(w+)}/g, (m, k) => (k === "firma" ? store.firma || "" : EJEMPLO[k] ?? m));
+    return { vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
@@ -261,7 +264,7 @@ export default {
         <div v-for="(p, i) in store.plantillas" :key="p.id" class="caja">
           <div class="row"><input class="inp grow" v-model="p.nombre" style="font-weight:700" /><button class="icon-btn" @click="quitarPlantilla(i)" title="Quitar plantilla"><Ic n="trash" :s="16" /></button></div>
           <div class="fld"><label>Asunto del correo</label><input class="inp" v-model="p.asunto" /></div>
-          <div class="fld"><label>Texto</label><textarea class="inp" v-model="p.texto" rows="5"></textarea></div>
+          <div class="plantilla-edicion"><div class="fld"><label>Texto</label><textarea class="inp plantilla-texto" v-model="p.texto" rows="12"></textarea></div><div class="fld"><label>Así se verá</label><div class="plantilla-vista">{{ vistaPrevia(p.texto) }}</div></div></div>
           <div class="fld"><label>Se puede usar</label><select class="inp" v-model="p.uso"><option value="general">Con cualquier persona</option><option value="entrevista">Solo si tiene entrevista</option><option value="estudiante">Solo si está en prácticas</option></select></div>
         </div>
         <div class="row wrap"><button class="btn btn-sm" @click="nuevaPlantilla"><Ic n="plus" :s="14" />Nueva plantilla</button><button class="btn btn-sm" @click="restaurarPlantillas">Restaurar textos originales</button></div>

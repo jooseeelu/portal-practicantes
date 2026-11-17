@@ -16,6 +16,19 @@ function hoyMadrid() {
   return d.toISOString().slice(0, 10);
 }
 
+/** Lo que se manda a Notion de una entrevista (sin el id de la página). */
+function cuerpoDe(app, d) {
+  const cr = buscar(app, "candidatos", d.candId);
+  const c = cr ? datosDe(cr) : {};
+  return {
+    accion: "guardar", pageId: "",
+    nombre: [c.nombre, c.apellidos].filter(Boolean).join(" ").trim(), email: c.email || "", tel: c.tel || "",
+    fecha: d.fecha || "", hora: d.hora || "", modalidad: d.modalidad || "", entrevistador: d.entrevistador || "",
+    estado: ESTADOS_OK.indexOf(d.estado) >= 0 ? d.estado : "Pendiente",
+  };
+}
+const huellaDe = (app, d) => JSON.stringify(cuerpoDe(app, d));
+
 /** Sincroniza una entrevista. borrada = la entrevista se ha borrado en el portal. Devuelve un texto con lo que pasó. */
 function sincronizar(app, rec, borrada) {
   if (!rec || rec.getString("tipo") !== "entrevistas") return "no es entrevista";
@@ -31,14 +44,7 @@ function sincronizar(app, rec, borrada) {
     cuerpo = { accion: "cancelar", pageId: prev.pageId };
   } else {
     if (!prev.pageId && String(d.fecha || "") < hoyMadrid()) return "pasada";
-    const cr = buscar(app, "candidatos", d.candId);
-    const c = cr ? datosDe(cr) : {};
-    cuerpo = {
-      accion: "guardar", pageId: prev.pageId || "",
-      nombre: [c.nombre, c.apellidos].filter(Boolean).join(" ").trim(), email: c.email || "", tel: c.tel || "",
-      fecha: d.fecha || "", hora: d.hora || "", modalidad: d.modalidad || "", entrevistador: d.entrevistador || "",
-      estado: ESTADOS_OK.indexOf(d.estado) >= 0 ? d.estado : "Pendiente",
-    };
+    cuerpo = Object.assign(cuerpoDe(app, d), { pageId: prev.pageId || "" });
   }
   const huella = JSON.stringify(Object.assign({}, cuerpo, { pageId: "" }));
   if (prev.huella === huella) return "sin cambios";
@@ -51,4 +57,4 @@ function sincronizar(app, rec, borrada) {
   return borrada ? "cancelada" : prev.pageId ? "actualizada" : r.json.vinculada ? "vinculada" : "creada";
 }
 
-module.exports = { sincronizar };
+module.exports = { sincronizar, huellaDe, leerConfig, datosDe, buscar };

@@ -299,6 +299,18 @@ export const vAlto = {
   unmounted(el) { window.removeEventListener("resize", el._alto); },
 };
 
+/** Área de interés: las de la gestoría en un desplegable y «Otra…» para escribir una distinta. */
+export const SelectArea = {
+  props: { modelValue: { type: String, default: "" }, areas: { type: Array, default: () => [] } },
+  emits: ["update:modelValue"],
+  setup(p, { emit }) {
+    const otra = ref(!!p.modelValue && !p.areas.includes(p.modelValue));
+    const elegir = (v) => { if (v === "__otra") { otra.value = true; emit("update:modelValue", ""); } else { otra.value = false; emit("update:modelValue", v); } };
+    return { otra, elegir };
+  },
+  template: `<div class="select-area"><select class="inp" :value="otra ? '__otra' : modelValue" @change="elegir($event.target.value)"><option value="">Sin indicar</option><option v-for="a in areas" :key="a" :value="a">{{ a }}</option><option value="__otra">Otra…</option></select><input v-if="otra" class="inp" :value="modelValue" placeholder="Escribe el área" @input="$emit('update:modelValue', $event.target.value)" /></div>`,
+};
+
 export const vCtx = {
   mounted(el, b) {
     el._ctx = b.value; el.setAttribute("data-ctx", "");

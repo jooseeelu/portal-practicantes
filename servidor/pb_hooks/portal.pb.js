@@ -180,3 +180,70 @@ routerAdd("POST", "/api/portal/notion/sincronizar", (e) => {
   }
   return e.json(200, { revisadas: hechas, resultado: cuenta });
 }, $apis.requireSuperuserAuth());
+
+// Gentrivo: alta automática de quien pasa a estudiante en prácticas (ver gentrivo.js)
+onRecordAfterCreateSuccess((e) => {
+  e.next();
+  if (e.record.getString("tipo") !== "estudiantes") return;
+  try { const r = require(`${__hooks}/gentrivo.js`).altaEstudiante(e.app, e.record); e.app.store().remove("gentrivo_cache"); console.log("Gentrivo: " + r); } catch (err) { console.log("Gentrivo: " + err); }
+}, "registros");
+onRecordAfterUpdateSuccess((e) => {
+  e.next();
+  if (e.record.getString("tipo") !== "estudiantes") return;
+  try { require(`${__hooks}/gentrivo.js`).altaEstudiante(e.app, e.record); } catch (err) { console.log("Gentrivo: " + err); }
+}, "registros");
+
+// Notion (y el Excel, que se sincroniza con Notion) → portal. n8n manda las citas de entrevista que han cambiado.
+// Con cita vinculada: se actualizan fecha, hora, estado y entrevistador. Sin vincular: se crea la entrevista solo si
+// el candidato existe (por correo o nombre exacto) y no tiene ya una entrevista ese día; si no, se omite.
+routerAdd("POST", "/api/portal/notion/entrada", (e) => {
+  const N = require(`${__hooks}/notion.js`);
+  const cfg = N.leerConfig();
+  if (!cfg || !cfg.secreto || e.request.header.get("x-portal-secreto") !== cfg.secreto) throw new ForbiddenError("Sin permiso.");
+  const cuerpo = new DynamicModel({ citas: [] });
+  e.bindBody(cuerpo);
+  const citas = Array.isArray(cuerpo.citas) ? cuerpo.citas : [];
+  const ESTADO = { "🟡 Pendiente": "Pendiente", "Confirmada": "Confirmada", "✅ Completada": "Realizada", "❌ Cancelada": "Cancelada", "Reprogramada": "Reprogramada" };
+  const ASESOR = { DANI: "Daniel", JOAQUIN: "Joaquín" };
+  const sinTildes = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z ]/g, " ").split(" ").filter((t) => t.length > 1).sort().join(" ");
+  const todas = $app.findRecordsByFilter("registros", "tipo = 'candidatos'", "", 0, 0).map((r) => N.datosDe(r));
+  const mapas = $app.findRecordsByFilter("registros", "tipo = 'notion'", "", 0, 0);
+  const cuenta = { actualizada: 0, igual: 0, creada: 0, omitida: 0 };
+  for (const x of citas) {
+    const fecha = String(x.fecha || "").slice(0, 10), hora = String(x.hora || "").slice(0, 5);
+    const cambios = {};
+    if (fecha) cambios.fecha = fecha;
+    if (/^[0-9]{2}:[0-9]{2}$/.test(hora)) cambios.hora = hora;
+    if (ESTADO[x.estado]) cambios.estado = ESTADO[x.estado];
+    if (x.asesor) cambios.entrevistador = ASESOR[x.asesor] || x.asesor;
+    if (x.modalidad) cambios.modalidad = /video|online|llamada/i.test(x.modalidad) ? "Online" : "Presencial";
+    const mapa = mapas.find((m) => N.datosDe(m).pageId === x.pageId);
+    let ent = mapa ? N.buscar($app, "entrevistas", mapa.getString("clave")) : null;
+    if (ent) {
+      const d = N.datosDe(ent);
+      const nuevo = Object.assign({}, d, cambios);
+      if (JSON.stringify(nuevo) === JSON.stringify(d)) { cuenta.igual++; continue; }
+      const md = N.datosDe(mapa); md.huella = N.huellaDe($app, nuevo); mapa.set("datos", md); $app.save(mapa);
+      ent.set("datos", nuevo); $app.save(ent);
+      cuenta.actualizada++;
+      continue;
+    }
+    // Sin vincular: buscar al candidato
+    const email = String(x.email || "").trim().toLowerCase();
+    const cand = (email && todas.find((c) => String(c.email || "").trim().toLowerCase() === email)) || (x.nombre && todas.find((c) => sinTildes(c.nombre + " " + c.apellidos) === sinTildes(x.nombre)));
+    if (!cand || !fecha) { cuenta.omitida++; continue; }
+    const yaHay = $app.findRecordsByFilter("registros", "tipo = 'entrevistas'", "", 0, 0).some((r) => { const d = N.datosDe(r); return String(d.candId) === String(cand.id) && d.fecha === fecha; });
+    if (yaHay) { cuenta.omitida++; continue; }
+    const id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    const datos = Object.assign({ id, candId: cand.id, fecha, hora: "10:00", modalidad: "Presencial", entrevistador: "", estado: "Pendiente", notion: true, obs: "", preguntas: [],
+      criterios: { conocimientos: { n: null, t: "" }, comunicacion: { n: null, t: "" }, disponibilidad: { n: null, t: "" }, adecuacion: { n: null, t: "" } } }, cambios);
+    const m = new Record($app.findCollectionByNameOrId("registros"));
+    m.set("tipo", "notion"); m.set("clave", String(id)); m.set("datos", { pageId: x.pageId, huella: N.huellaDe($app, datos), cuando: new Date().toISOString() });
+    $app.save(m);
+    const r = new Record($app.findCollectionByNameOrId("registros"));
+    r.set("tipo", "entrevistas"); r.set("clave", String(id)); r.set("datos", datos);
+    $app.save(r);
+    cuenta.creada++;
+  }
+  return e.json(200, cuenta);
+});

@@ -235,13 +235,15 @@ export const DIRECCION = "Calle General Álvarez de Castro 41, Escalera Izquierd
 export const FIRMA_INICIAL = "Equipo de prácticas · Gestoría eMadrid";
 
 export const plantillasIniciales = () => [
-  { id: "recordatorio", nombre: "Recordatorio de entrevista", uso: "entrevista", asunto: "Recordatorio de tu entrevista · Gestoría eMadrid",
-    texto: "Hola {nombre}, te escribimos de Gestoría eMadrid para recordarte tu entrevista de prácticas el {fecha} a las {hora}{lugar}. ¿Nos confirmas que puedes asistir? Gracias.\n\n{firma}" },
-  { id: "confirmacion", nombre: "Confirmación de entrevista", uso: "entrevista", asunto: "Confirmación de tu entrevista · Gestoría eMadrid",
-    texto: "Hola {nombre}, te confirmamos tu entrevista de prácticas en Gestoría eMadrid el {fecha} a las {hora}{lugar}. Si no puedes asistir, avísanos con tiempo, por favor.\n\n{firma}" },
+  { id: "recordatorio", nombre: "Recordatorio de entrevista", uso: "entrevista", asunto: "Recordatorio: tu entrevista de prácticas · Gestoría eMadrid",
+    texto: "Hola, {nombre}:\n\nTe recordamos tu entrevista de prácticas en Gestoría eMadrid.\n\n📅 {fecha}\n🕒 {hora}\n📍 {donde}\n\n¿Nos confirmas que puedes asistir? Si te surge cualquier imprevisto, avísanos y buscamos otro hueco.\n\nUn saludo,\n{firma}" },
+  { id: "confirmacion", nombre: "Confirmación de entrevista", uso: "entrevista", asunto: "Confirmación: tu entrevista de prácticas · Gestoría eMadrid",
+    texto: "Hola, {nombre}:\n\nTe confirmamos tu entrevista de prácticas en Gestoría eMadrid.\n\n📅 {fecha}\n🕒 {hora}\n📍 {donde}\n\nTrae, si puedes, tu currículum actualizado. Si no puedes asistir, avísanos con tiempo, por favor.\n\nUn saludo,\n{firma}" },
   { id: "documentacion", nombre: "Pedir documentación", uso: "general", asunto: "Documentación para tus prácticas · Gestoría eMadrid",
-    texto: "Hola {nombre}, para seguir con tu proceso de prácticas en Gestoría eMadrid necesitamos que nos envíes tu currículum actualizado y los datos de tu centro educativo. Gracias.\n\n{firma}" },
+    texto: "Hola, {nombre}:\n\nPara seguir con tu proceso de prácticas en Gestoría eMadrid necesitamos que nos envíes:\n\n• Tu currículum actualizado\n• Los datos de tu centro educativo y de tu tutor/a de prácticas\n\nPuedes responder a este mensaje con los documentos adjuntos.\n\nGracias y un saludo,\n{firma}" },
   { id: "bienvenida", nombre: "Bienvenida a las prácticas", uso: "estudiante", asunto: "Bienvenida a tus prácticas · Gestoría eMadrid",
-    texto: "Hola {nombre}, ¡te damos la bienvenida a las prácticas en Gestoría eMadrid! Empiezas el {inicio} con horario {horario}. Te esperamos en {lugar_oficina}.\n\n{firma}" },
+    texto: "Hola, {nombre}:\n\n¡Te damos la bienvenida a las prácticas en Gestoría eMadrid! 🎉\n\n📅 Empiezas el {inicio}\n🕒 Horario: {horario}\n📍 {lugar_oficina}\n\nEl primer día pregunta por el equipo de prácticas en recepción. Cualquier duda, escríbenos.\n\nUn saludo,\n{firma}" },
 ];
+/** Textos de las primeras versiones: si una plantilla guardada sigue igual, se cambia por la nueva. */
+export const PLANTILLAS_ANTIGUAS = {"recordatorio":"Hola {nombre}, te escribimos de Gestoría eMadrid para recordarte tu entrevista de prácticas el {fecha} a las {hora}{lugar}. ¿Nos confirmas que puedes asistir? Gracias.\n\n{firma}","confirmacion":"Hola {nombre}, te confirmamos tu entrevista de prácticas en Gestoría eMadrid el {fecha} a las {hora}{lugar}. Si no puedes asistir, avísanos con tiempo, por favor.\n\n{firma}","documentacion":"Hola {nombre}, para seguir con tu proceso de prácticas en Gestoría eMadrid necesitamos que nos envíes tu currículum actualizado y los datos de tu centro educativo. Gracias.\n\n{firma}","bienvenida":"Hola {nombre}, ¡te damos la bienvenida a las prácticas en Gestoría eMadrid! Empiezas el {inicio} con horario {horario}. Te esperamos en {lugar_oficina}.\n\n{firma}"};
 

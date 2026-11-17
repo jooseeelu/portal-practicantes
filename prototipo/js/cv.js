@@ -19,7 +19,7 @@ function cargarPdfJs() {
 }
 
 /** Pinta la primera página (o la imagen) en un canvas. */
-async function paginaEnCanvas(archivo) {
+export async function paginaEnCanvas(archivo) {
   if (/^image\//.test(archivo.type)) {
     const img = await new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => mal(new Error("imagen")); i.src = URL.createObjectURL(archivo); });
     const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;

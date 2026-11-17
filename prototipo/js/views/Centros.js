@@ -1,8 +1,9 @@
 import { computed, reactive, ref } from "vue";
-import { store, centroDe, nombreCompleto, estadoPracticas, estudianteDe, toast } from "../store.js";
+import { store, centroDe, nombreCompleto, estadoPracticas, estudianteDe, toast, nuevoId } from "../store.js";
+import { sesion, subirArchivo, urlArchivo, borrarArchivo, miNombre } from "../api.js";
 import { ruta, go } from "../router.js";
 import { filtros } from "./Candidatos.js";
-import { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
+import { Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio, pedirConfirmacion, OpcionesPersonas, Dropzone } from "../ui.js";
 import { ASESORES } from "../data.js";
 import { normal, slug } from "../util.js";
 
@@ -10,7 +11,7 @@ const estado = reactive({ q: "", tipo: "", resp: "", archivados: false });
 const TIPOS = ["Universidad", "FP / Instituto"];
 
 export default {
-  components: { OpcionesPersonas, Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio },
+  components: { OpcionesPersonas, Ic, Chip, Avatar, Modal, Drawer, Nota, Vacio, Dropzone },
   setup() {
     const s = estado;
     const datos = (c) => {
@@ -25,6 +26,30 @@ export default {
     });
     const sinResp = computed(() => store.centros.filter((c) => !c.archivado && c.responsable === "Sin asignar").length);
     const sel = computed(() => (ruta.value.id ? centroDe(ruta.value.id) : null));
+    // Convenio (y otros documentos) del centro: uno para todos sus alumnos
+    const docsCentro = computed(() => (sel.value ? store.documentos.filter((d) => !d.candId && String(d.centroId) === String(sel.value.id)) : []));
+    const subiendoC = ref(0);
+    async function subirConvenio(files) {
+      if (sesion.modo !== "servidor") return toast("En la demostración no se suben archivos.", "error");
+      for (const f of files) {
+        if (!/.(pdf|docx?|jpe?g|png|webp)$/i.test(f.name)) { toast("«" + f.name + "»: solo PDF, Word o imágenes.", "error"); continue; }
+        if (f.size > 20 * 1024 * 1024) { toast("«" + f.name + "» pesa más de 20 MB.", "error"); continue; }
+        subiendoC.value++;
+        try {
+          const r = await subirArchivo(f, { candId: "centro-" + sel.value.id, tipo: "Convenio", nombre: f.name });
+          const ahora = new Date();
+          store.documentos.push({ id: nuevoId(), centroId: sel.value.id, nombre: f.name, tipo: "Convenio", fecha: ahora.toISOString().slice(0, 10), hora: ahora.toTimeString().slice(0, 5), por: miNombre(), tam: Math.max(1, Math.round(f.size / 1024)), ext: f.name.split(".").pop().toLowerCase(), archivoId: r.id, archivo: r.archivo });
+          toast("Convenio subido");
+        } catch (e) { toast("No se pudo subir «" + f.name + "»: " + e.message, "error"); }
+        finally { subiendoC.value--; }
+      }
+    }
+    const abrirDocC = async (d) => { try { window.open(await urlArchivo(d), "_blank", "noopener"); } catch (e) { toast(e.message, "error"); } };
+    const borrarDocC = async (d) => {
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar este documento del centro?", texto: "«" + d.nombre + "» dejará de verse en las fichas de sus alumnos.", boton: "Borrar" }))) return;
+      store.documentos = store.documentos.filter((x) => x.id !== d.id);
+      if (d.archivoId) borrarArchivo(d.archivoId).catch(() => {});
+    };
     const selDatos = computed(() => (sel.value ? datos(sel.value) : null));
     const nuevoProg = ref("");
     const addProg = () => { const t = nuevoProg.value.trim(); if (t && !sel.value.programas.includes(t)) sel.value.programas.push(t); nuevoProg.value = ""; };
@@ -42,7 +67,7 @@ export default {
       alta.abierto = false; toast("Centro añadido"); go("centros/" + id);
     };
     const abrirAlta = () => Object.assign(alta, { abierto: true, nombre: "", contacto: "", email: "", tel: "", horas: "", periodos: "", responsable: "Sin asignar" });
-    return { store, s, TIPOS, ASESORES, lista, sinResp, sel, selDatos, nuevoProg, addProg, archivar, verCandidatos, alta, repetido, crear, abrirAlta, go, nombreCompleto, estudianteDe, estadoPracticas };
+    return { docsCentro, subiendoC, subirConvenio, abrirDocC, borrarDocC, store, s, TIPOS, ASESORES, lista, sinResp, sel, selDatos, nuevoProg, addProg, archivar, verCandidatos, alta, repetido, crear, abrirAlta, go, nombreCompleto, estudianteDe, estadoPracticas };
   },
   template: `
   <div class="page">
@@ -83,6 +108,12 @@ export default {
       <div class="fld"><label>Programas formativos</label>
         <div class="row wrap" style="gap:6px"><span v-for="(p,i) in sel.programas" :key="p" class="tag">{{ p }}<button class="x-mini" @click="sel.programas.splice(i,1)" aria-label="Quitar"><Ic n="x" :s="11" /></button></span></div>
         <div class="row"><input class="inp" v-model="nuevoProg" placeholder="Añadir titulación o curso…" @keydown.enter="addProg" /><button class="btn" @click="addProg">Añadir</button></div>
+      </div>
+      <div class="convenio-centro">
+        <h4>Convenio con el centro</h4>
+        <p class="sub">Se sube una vez aquí y aparece en la ficha de cada alumno de este centro. Los anexos de cada alumno se suben en su ficha.</p>
+        <div v-for="d in docsCentro" :key="d.id" class="doc-centro"><span class="ext" :class="d.ext">{{ d.ext }}</span><span class="grow"><b>{{ d.nombre }}</b><small class="sub" style="display:block">{{ d.fecha }}<template v-if="d.por"> · {{ d.por }}</template></small></span><button class="btn btn-sm" @click="abrirDocC(d)">Abrir</button><button class="icon-btn icon-btn-sm" title="Borrar" aria-label="Borrar" @click="borrarDocC(d)"><Ic n="trash" :s="14" /></button></div>
+        <Dropzone compacto :texto="subiendoC ? 'Subiendo…' : 'Soltar o elegir el convenio'" @archivos="subirConvenio" />
       </div>
       <div class="fld"><label>Notas sobre la colaboración</label><textarea class="inp" v-model="sel.notas" rows="2" placeholder="Convenio marco, condiciones, historial de la relación…"></textarea></div>
       <div>
