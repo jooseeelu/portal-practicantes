@@ -135,7 +135,7 @@ export default {
         <button class="pill" :class="{on: !s.fEstado}" @click="s.fEstado=''">Todas</button>
         <button v-for="c in cuentas" :key="c.k" class="pill" :class="{on: s.fEstado===c.k}" @click="s.fEstado = s.fEstado===c.k ? '' : c.k"><i class="punto" :style="{background: c.c}"></i>{{ c.k }} <b>{{ c.n }}</b></button>
       </div>
-      <div class="tbl-wrap tbl-scroll"><table class="tbl">
+      <div class="tbl-wrap tbl-scroll" v-alto><table class="tbl">
         <thead><tr><th v-for="h in [['fecha','Fecha y hora'],['cand','Candidato'],['centro','Centro'],[null,'Modalidad'],['resp','Responsable'],['estado','Estado de la cita'],['nota','Valoración'],[null,'Observaciones']]" :key="h[1]" :class="h[0] ? {ordenable: true, activa: s.orden.col===h[0]} : ''" @click="h[0] && ordenar(h[0])" :title="h[0] ? 'Ordenar por ' + h[1].toLowerCase() : ''">{{ h[1] }}<span v-if="h[0]" class="flecha">{{ flecha(h[0]) }}</span></th></tr></thead>
         <tbody><tr v-for="e in lista" :key="e.id" @click="sel=e" v-ctx="() => menuDe(e)">
           <td class="nowrap"><b>{{ fCorta(e.fecha) }}</b> <span class="sub">{{ e.hora }}</span></td>

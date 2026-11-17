@@ -384,9 +384,9 @@ html, body { max-width: 100%; overflow-x: clip; }
 .btn-peligro { background: var(--surface); color: var(--err-dark); border-color: color-mix(in srgb, var(--danger) 50%, var(--border)); }
 .btn-peligro:hover { background: var(--danger-bg); }
 /* Entrevistas en lista: la tabla tiene su propio desplazamiento, así la barra horizontal está siempre a la vista */
-.tbl-scroll { max-height: calc(100vh - 260px); overflow: auto; }
+.tbl-scroll { max-height: calc(100vh - 260px); overflow: auto; overscroll-behavior: contain; }
 .tbl-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
-@media (max-width: 700px) { .tbl-scroll { max-height: calc(100dvh - 200px); } }
+
 
 /* --- Guardar / descartar / deshacer --- */
 .toast.con { padding: 8px 8px 8px 18px; border-radius: 16px; }
@@ -407,3 +407,43 @@ html, body { max-width: 100%; overflow-x: clip; }
 .lote-fotos { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .ia-barra-fija { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
 .ia-barra-fija i { display: block; height: 100%; background: var(--gold-500); transition: width .3s; }
+@media (max-width: 700px) { .tbl-scroll { max-height: none; overflow-y: visible; } }
+
+/* --- Entrevista: a favor / en contra + nota final --- */
+.ent-valor { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
+.ent-valor .pc-grid, .card-pad > .pc-grid { align-items: start; }
+.pc-col.con { --t: #c27400; }
+.pc-nuevo { gap: 8px; margin-top: 2px; }
+.pc-nuevo .inp { flex: 1; min-width: 0; }
+.nota-final { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 22px; background: var(--gold-bg); border: 1px solid var(--gold-border); }
+.nf-cab { display: flex; align-items: center; gap: 10px; }
+.nf-cab h3 { font-size: 19px; color: var(--gold-700); }
+.nf-ico { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 10px; background: var(--gold-500); color: var(--on-gold); }
+.nf-tag { margin-left: auto; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 10px; background: var(--surface); color: var(--gold-700); }
+.nf-num { display: flex; align-items: baseline; gap: 6px; }
+.nf-num b { font-family: var(--font-head); font-size: 56px; line-height: 1; color: var(--gold-700); font-variant-numeric: tabular-nums; }
+.nf-num span { color: var(--text-600); font-size: 16px; }
+.nf-barra { height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
+.nf-barra i { display: block; height: 100%; border-radius: 4px; background: var(--gold-500); transition: width .3s cubic-bezier(.2,.9,.3,1); }
+.nf-botones { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.nf-botones button { height: 40px; border-radius: 10px; border: 1px solid var(--gold-border); background: var(--surface); color: var(--gold-700); font: inherit; font-weight: 800; cursor: pointer; transition: transform .15s, background .15s; }
+.nf-botones button:hover { transform: translateY(-1px); }
+.nf-botones button.on { background: var(--gold-500); border-color: var(--gold-500); color: var(--on-gold); }
+.nf-botones button.medio { background: linear-gradient(90deg, var(--gold-500) 50%, var(--surface) 50%); border-color: var(--gold-500); color: var(--on-gold); }
+.nf-ayuda { color: var(--text-600); font-size: 12px; }
+.nota-final .fld label { color: var(--gold-700); }
+.nota-final .inp { border-color: var(--gold-border); }
+.nf-guardar { justify-content: center; height: 46px; }
+.nf-mas { gap: 12px; justify-content: center; }
+.btn-link.peligro { color: var(--err-dark); }
+@media (max-width: 1000px) { .ent-valor { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .nf-botones button { height: 44px; } }
+
+/* --- Foto en grande --- */
+button.foto-edit { border: 0; padding: 0; background: transparent; }
+.foto-grande { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 22px; border: 4px solid var(--gold-bg); box-shadow: 0 0 0 2px var(--gold-400); }
+.foto-acciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.foto-acciones .btn { justify-content: center; height: 48px; cursor: pointer; }
+.foto-buscar { align-self: center; color: var(--gold-700); }
+@media (max-width: 700px) { .foto-acciones { grid-template-columns: 1fr; } .foto-acciones .btn { height: 52px; } }
+.confirmar-bg { z-index: 160; }

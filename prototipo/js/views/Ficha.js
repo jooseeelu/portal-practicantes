@@ -17,7 +17,7 @@ export default {
   components: { OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
   setup() {
     const c = computed(() => candDe(ruta.value.id));
-    const tab = ref(store.fichaTab || "personal"); store.fichaTab = "personal";
+    const tab = ref(store.fichaTab === "pc" ? "entrevista" : store.fichaTab || "personal"); store.fichaTab = "personal";
     // Entrevistas de la persona (1.ª, 2.ª…): se ve la elegida o, si no, la más reciente
     const entSel = ref(null);
     const ents = computed(() => (c.value ? entrevistasDe(c.value.id).slice().reverse() : []));
@@ -45,7 +45,7 @@ export default {
     const centroSel = computed({ get: () => c.value.centroId || "", set: (v) => { c.value.centroId = v || null; } });
     const tabs = computed(() => [
       { k: "personal", t: "Información personal", i: "user" }, { k: "formacion", t: "Formación", i: "estudiantes" }, { k: "cv", t: "Currículum", i: "documentos" },
-      { k: "entrevista", t: "Entrevista", i: "entrevistas" }, { k: "pc", t: "A favor y en contra", i: "star", n: (c.value.pros?.length || 0) + (c.value.contras?.length || 0) }, { k: "docs", t: "Documentación", i: "archive", n: docs.value.length },
+      { k: "entrevista", t: "Entrevista", i: "entrevistas", n: (c.value.pros?.length || 0) + (c.value.contras?.length || 0) || null }, { k: "docs", t: "Documentación", i: "archive", n: docs.value.length },
       { k: "historial", t: "Historial", i: "history", n: hist.value.length }, { k: "notas", t: "Observaciones internas", i: "lock", n: notas.value.length },
     ]);
     const estadoSel = computed({ get: () => c.value.estado, set: (k) => cambiarEstado(c.value, k) });
@@ -69,6 +69,8 @@ export default {
       if ((bor.nota ?? null) !== (o.nota ?? null)) n++;
       return n;
     });
+    const ponerNota = (n) => { bor.nota = bor.nota === n ? n - 0.5 : n; };
+    const etiquetaNota = (v) => (v >= 9 ? "Excelente" : v >= 8 ? "Muy buena" : v >= 7 ? "Buena" : v >= 6 ? "Correcta" : v >= 5 ? "Justa" : "Floja");
     const descartarValoracion = () => { cargarBorrador(); toast("Cambios descartados"); };
     const elegirRonda = async (id) => {
       if (cambiosVal.value && !(await pedirConfirmacion({ titulo: "Hay cambios sin guardar", texto: "La valoración de esta entrevista tiene cambios sin guardar. Si cambias de entrevista se descartan.", boton: "Descartar y cambiar" }))) return;
@@ -90,7 +92,7 @@ export default {
     const notaFinal = computed({ get: () => bor.nota, set: (v) => { bor.nota = v === "" || v == null ? null : Number(v); } });
     const guardarValoracion = () => {
       const v = bor.nota ?? media.value;
-      if (v == null) return toast("Puntúa al menos un criterio o escribe la nota final.", "error");
+      if (v == null) return toast("Elige una nota del 1 al 10.", "error");
       const antes = c.value.nota ?? null;
       ent.value.criterios = JSON.parse(JSON.stringify(bor.criterios));
       ent.value.obs = bor.obs;
@@ -208,7 +210,16 @@ export default {
       const archivo = ev.target.files[0]; ev.target.value = "";
       try { c.value.foto = await leerFoto(archivo); addHist(c.value.id, "documento", "Foto de perfil actualizada"); toast("Foto actualizada"); } catch (e) { toast(e.message, "error"); }
     };
-    const quitarFoto = () => { const antes = c.value.foto, cc = c.value; cc.foto = ""; toast("Foto quitada", "ok", { t: "Deshacer", f: () => { cc.foto = antes; } }); };
+    // Foto en grande: cambiar o eliminar (con confirmación)
+    const fotoAbierta = ref(false);
+    const quitarFoto = async () => {
+      if (!(await pedirConfirmacion({ titulo: "¿Eliminar la foto?", texto: "En su lugar se verán las iniciales. Podrás poner otra cuando quieras o volver a buscarla en su currículum.", boton: "Sí, eliminar" }))) return;
+      c.value.foto = ""; fotoAbierta.value = false;
+      addHist(c.value.id, "documento", "Foto eliminada");
+      toast("Foto eliminada");
+    };
+    const cambiarFoto = async (ev) => { await ponerFoto(ev); fotoAbierta.value = false; };
+    const buscarFotoCv = () => { fotoAbierta.value = false; leerConIA(); };
 
     // --- Lectura del currículum con IA: propone datos y una persona decide cuáles aplicar ---
     const CAMPOS_IA = [["nombre", "Nombre"], ["apellidos", "Apellidos"], ["email", "Correo electrónico"], ["tel", "Teléfono"], ["titulacion", "Titulación"], ["curso", "Curso"], ["idiomas", "Idiomas"], ["herramientas", "Herramientas"], ["experiencia", "Experiencia previa"]];
@@ -267,7 +278,7 @@ export default {
       go("candidatos");
     };
     const deshacerHist = (h) => { if (deshacerCambio(h)) toast("Cambio deshecho"); };
-    return { bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -277,8 +288,8 @@ export default {
 
     <div class="card ficha-head">
       <div class="foto-col">
-        <label class="foto-edit" title="Cambiar la foto"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><button v-if="c.foto" type="button" class="foto-x" title="Quitar la foto" aria-label="Quitar la foto" @click.prevent.stop="quitarFoto">×</button><span class="camara"><Ic n="camara" :s="15" /></span><input type="file" accept="image/*" hidden @change="ponerFoto" /></label>
-        <button v-if="c.foto" class="foto-quitar" @click="quitarFoto">Quitar foto</button>
+        <button v-if="c.foto" type="button" class="foto-edit" title="Ver la foto" aria-label="Ver la foto en grande" @click="fotoAbierta = true"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><span class="camara"><Ic n="search" :s="14" /></span></button>
+        <label v-else class="foto-edit" title="Poner una foto"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><span class="camara"><Ic n="camara" :s="15" /></span><input type="file" accept="image/*" hidden @change="ponerFoto" /></label>
       </div>
       <div class="grow">
         <div class="row wrap"><h1>{{ c.nombre }} {{ c.apellidos }}</h1><Chip :k="c.estado" /><span v-if="est" class="tag gold"><Ic n="estudiantes" :s="13" />Prácticas: {{ estadoPracticas(est).toLowerCase() }}</span></div>
@@ -430,7 +441,21 @@ export default {
 
       <!-- ENTREVISTA -->
       <div v-else-if="tab==='entrevista'" class="card-pad stack">
-        <Vacio v-if="!ent" icono="calendario" titulo="Sin entrevista programada" texto="Programa la entrevista para poder valorarla después."><button class="btn btn-primary" style="margin-top:8px" @click="prog.abierto=true"><Ic n="calendario" :s="16" />Programar entrevista</button></Vacio>
+        <template v-if="!ent"><Vacio icono="calendario" titulo="Sin entrevista programada" texto="Programa la entrevista para poder ponerle nota después."><button class="btn btn-primary" style="margin-top:8px" @click="prog.abierto=true"><Ic n="calendario" :s="16" />Programar entrevista</button></Vacio>
+          <div class="pc-grid">
+            <div class="pc-col pro">
+              <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ (c.pros || []).length }}</span></div>
+              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!(c.pros || []).length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
+              <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
+            </div>
+            <div class="pc-col con">
+              <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ (c.contras || []).length }}</span></div>
+              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!(c.contras || []).length" class="sub">Lo que te frena o hay que confirmar.</p>
+              <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
+            </div>
+          </div></template>
         <template v-else>
           <div class="rondas">
             <button v-for="(e, i) in ents" :key="e.id" class="pill" :class="{on: ent.id === e.id}" @click="elegirRonda(e.id)">{{ i + 1 }}.ª entrevista · {{ fCorta(e.fecha) }}<template v-if="e.entrevistador"> · {{ e.entrevistador }}</template><template v-if="e.estado === 'Cancelada'"> · cancelada</template></button>
@@ -447,23 +472,31 @@ export default {
             </div>
           </div>
 
-          <div class="valoracion">
-            <div class="val-crit">
-              <h3>Valoración por criterios</h3>
-              <div v-for="[k, t] in CRITERIOS" :key="k" class="crit" :class="{cambiado: (bor.criterios[k].n ?? null) !== (ent.criterios[k]?.n ?? null) || (bor.criterios[k].t || '') !== (ent.criterios[k]?.t || '')}">
-                <div class="row"><b class="grow">{{ t }}</b><Nota :v="bor.criterios[k].n" /><button v-if="bor.criterios[k].n != null || bor.criterios[k].t" class="icon-btn icon-btn-sm" title="Quitar la nota de este criterio" aria-label="Quitar la nota de este criterio" @click="quitarCriterio(k)"><Ic n="x" :s="14" /></button></div>
-                <input type="range" min="0" max="10" step="0.5" :value="bor.criterios[k].n ?? 5" @input="bor.criterios[k].n = Number($event.target.value)" :class="{sin: bor.criterios[k].n==null}" />
-                <input class="inp" v-model="bor.criterios[k].t" :placeholder="'Comentario sobre ' + t.toLowerCase()" />
-              </div>
+          <div class="ent-valor">
+          <div class="pc-grid">
+            <div class="pc-col pro">
+              <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ (c.pros || []).length }}</span></div>
+              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!(c.pros || []).length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
+              <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
-            <div class="val-final">
-              <h3>Valoración final</h3>
-              <Nota :v="notaFinal ?? media" grande />
-              <div class="fld"><label>Nota (0–10, admite medios puntos)</label><input class="inp" type="number" min="0" max="10" step="0.5" v-model.number="notaFinal" :placeholder="media!=null ? 'Media: ' + media : '—'" /></div>
-              <button class="btn btn-sm" v-if="media!=null" @click="notaFinal=media">Usar la media de criterios ({{ String(media).replace('.', ',') }})</button>
-              <div class="fld"><label>Observaciones de la entrevista</label><textarea class="inp" rows="4" v-model="bor.obs" placeholder="Impresión general, puntos fuertes, dudas…"></textarea></div>
-              <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button><button v-if="cambiosVal" class="btn" @click="descartarValoracion">Descartar cambios</button><button v-if="c.nota != null || media != null || notaFinal != null" class="btn btn-ghost" @click="borrarValoracion"><Ic n="x" :s="15" />Borrar valoración</button></div>
+            <div class="pc-col con">
+              <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ (c.contras || []).length }}</span></div>
+              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!(c.contras || []).length" class="sub">Lo que te frena o hay que confirmar.</p>
+              <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
+          </div>
+          <div class="nota-final">
+            <div class="nf-cab"><span class="nf-ico"><Ic n="star" :s="16" /></span><h3>Nota final</h3><span v-if="bor.nota != null" class="nf-tag">{{ etiquetaNota(bor.nota) }}</span></div>
+            <div class="nf-num"><b>{{ bor.nota == null ? '—' : String(bor.nota).replace('.', ',') }}</b><span>/ 10</span></div>
+            <div class="nf-barra"><i :style="{width: (bor.nota || 0) * 10 + '%'}"></i></div>
+            <div class="nf-botones" role="group" aria-label="Nota del 1 al 10"><button v-for="n in 10" :key="n" :class="{on: bor.nota === n, medio: bor.nota === n - 0.5}" :aria-pressed="bor.nota === n || bor.nota === n - 0.5" @click="ponerNota(n)">{{ n }}</button></div>
+            <small class="nf-ayuda">Pulsa otra vez el mismo número para medio punto menos</small>
+            <div class="fld"><label>Observaciones</label><textarea class="inp" rows="4" v-model="bor.obs" placeholder="Impresión general de la entrevista…"></textarea></div>
+            <button class="btn btn-ink nf-guardar" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button>
+            <div class="row nf-mas"><button v-if="cambiosVal" class="btn-link" @click="descartarValoracion">Descartar cambios</button><button v-if="c.nota != null || bor.nota != null" class="btn-link peligro" @click="borrarValoracion">Borrar valoración</button></div>
+          </div>
           </div>
 
           <Teleport to="body"><div v-if="cambiosVal && tab==='entrevista'" class="barra-guardar" role="status">
@@ -480,24 +513,6 @@ export default {
       </div>
 
       <!-- A FAVOR Y EN CONTRA -->
-      <div v-else-if="tab==='pc'" class="card-pad stack">
-        <p class="sub">Apunta aquí lo que te ha gustado y lo que te frena de esta persona, tanto de la entrevista como del currículum. Sirve para decidir con calma y para recordarlo cuando haya una nueva oportunidad.</p>
-        <div class="pc-grid">
-          <div class="pc-col pro">
-            <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ (c.pros || []).length }}</span></div>
-            <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar"><Ic n="x" :s="14" /></button></li></ul>
-            <p v-if="!(c.pros || []).length" class="sub">Todavía no hay puntos a favor.</p>
-            <div class="row"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
-          </div>
-          <div class="pc-col con">
-            <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ (c.contras || []).length }}</span></div>
-            <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><span class="grow">{{ p }}</span><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar"><Ic n="x" :s="14" /></button></li></ul>
-            <p v-if="!(c.contras || []).length" class="sub">Todavía no hay puntos en contra.</p>
-            <div class="row"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
-          </div>
-        </div>
-      </div>
-
       <!-- DOCUMENTACIÓN -->
       <div v-else-if="tab==='docs'" class="card-pad stack">
         <Dropzone :texto="subiendo ? 'Subiendo…' : 'Arrastra aquí convenios, anexos, justificantes o currículums'" @archivos="subir($event)" />
@@ -527,6 +542,15 @@ export default {
         <p v-if="!notas.length" class="sub">Todavía no hay observaciones internas.</p>
       </div>
     </div>
+
+    <Modal v-if="fotoAbierta && c.foto" :titulo="nombreCompleto(c)" :ancho="460" @cerrar="fotoAbierta = false">
+      <img :src="c.foto" class="foto-grande" :alt="'Foto de ' + nombreCompleto(c)" />
+      <div class="foto-acciones">
+        <label class="btn btn-ink"><Ic n="camara" :s="16" />Cambiar foto<input type="file" accept="image/*" hidden @change="cambiarFoto" /></label>
+        <button class="btn btn-peligro" @click="quitarFoto"><Ic n="trash" :s="16" />Eliminar foto</button>
+      </div>
+      <button v-if="puedeLeerIA" class="btn-link foto-buscar" @click="buscarFotoCv">Buscar otra vez la foto en su currículum</button>
+    </Modal>
 
     <Modal v-if="prog.abierto" :titulo="prog.otra ? 'Programar ' + (ents.filter(e => e.estado !== 'Cancelada').length + 1) + '.ª entrevista' : 'Programar entrevista'" @cerrar="prog.abierto=false; prog.otra=false">
       <p v-if="prog.otra" class="sub">La entrevista anterior y su valoración se conservan. Elige quién hace esta (por ejemplo, dirección).</p>

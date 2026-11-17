@@ -205,7 +205,7 @@ export default {
       </Modal>
 
       <!-- TABLA -->
-      <div v-if="f.vista==='tabla'" class="tbl-wrap">
+      <div v-if="f.vista==='tabla'" class="tbl-wrap tbl-scroll" v-alto>
         <table class="tbl">
           <thead><tr>
             <th v-for="c in COLS" :key="c.k" class="ord" @click="ordenar(c.k)">{{ c.t }}<span class="arr" v-if="f.orden===c.k">{{ f.desc ? '↓' : '↑' }}</span></th>
