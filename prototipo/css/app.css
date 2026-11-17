@@ -312,3 +312,46 @@ th.ordenable.activa .flecha { opacity: 1; color: var(--gold-500); }
 html, body { max-width: 100%; overflow-x: clip; }
 .shell > *, .main > *, .card, .page { min-width: 0; }
 .tabs { max-width: 100%; }
+
+/* --- Filtros de Candidatos (rediseño) --- */
+.estado-pills { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; margin-bottom: 12px; scrollbar-width: none; }
+.estado-pills::-webkit-scrollbar { display: none; }
+.estado-pills .pill { flex: none; height: 36px; padding: 0 14px; font-size: 13px; background: var(--surface); border-color: var(--border); }
+.estado-pills .pill .punto { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.estado-pills .pill.on .punto { box-shadow: 0 0 0 2px #fff; }
+.estado-pills .pill.cero { color: var(--text-400); }
+.barra-filtros .buscar { max-width: none; flex: 1 1 260px; }
+.fsel { width: auto; min-width: 118px; max-width: 220px; font-weight: 700; }
+.fsel.on, .fsel-centro.on .inp, .fsel-centro.on button { background-color: var(--gold-bg); border-color: var(--gold-border); color: var(--gold-700); }
+.fsel-centro { width: 190px; }
+.seg-iconos button { width: 40px; padding: 0; justify-content: center; }
+.btn-ink { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn-ink:hover { background: var(--navy-700); }
+.btn-filtros .badge { margin-left: 2px; }
+.pill-rapida { border-style: dashed; }
+.pill-rapida.on { border-style: solid; }
+.filtros-activos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.filtros-activos .lbl { font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-600); margin-right: 2px; }
+.chip-filtro { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px 0 12px; border-radius: 999px; border: 1px solid var(--gold-border); background: var(--gold-bg); color: var(--gold-700); font-size: 13px; font-weight: 700; cursor: pointer; }
+.chip-filtro:hover { filter: brightness(.97); }
+.btn-link { border: 0; background: transparent; color: var(--text-700); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 6px 4px; }
+.hoja-grupo { display: flex; flex-direction: column; gap: 10px; }
+.hoja-grupo .lbl { font-size: 12px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-600); }
+.hoja-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.hoja-chips .pill { height: 40px; font-size: 14px; }
+.seg-lleno { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-radius: 14px; }
+.seg-lleno button { justify-content: center; height: 40px; border-radius: 10px; }
+.solo-movil { display: none !important; }
+@media (max-width: 700px) {
+  .solo-esc { display: none !important; }
+  .solo-movil { display: inline-flex !important; }
+  .barra-filtros { gap: 8px; }
+  .barra-filtros .buscar { flex: 1 1 100%; order: -1; }
+  .barra-filtros .btn-filtros { flex: 1; justify-content: center; height: 44px; }
+  .barra-filtros .seg-iconos { margin-left: 0; }
+  .seg-iconos button { height: 36px; }
+}
+.barra-filtros .fsel { width: 150px; }
+.barra-rapidos .orden-final { order: 9; }
+.barra-filtros .buscar { flex-basis: 220px; }
+.fsel-centro { width: 165px; }

@@ -58,6 +58,19 @@ export default {
     const hayFiltros = computed(() => f.q || f.estado || f.centro || f.turno || f.area || f.notaMin || f.rapido);
     const limpiar = () => Object.assign(f, { q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", rapido: "" });
     const rapido = (k) => { f.rapido = f.rapido === k ? "" : k; };
+    // Filtros: hoja en móvil y etiquetas de los filtros puestos (cada una con su x)
+    const hoja = ref(false);
+    const NOTAS = ["9", "8", "7", "5"];
+    const RAPIDOS = [{ k: "sinvalorar", t: "Entrevistados sin valorar", i: "star" }, { k: "semana", t: "Entrevista en 7 días", i: "calendario" }, { k: "reserva", t: "En reserva", i: "archive" }];
+    const chips = computed(() => {
+      const out = [];
+      if (f.area) out.push({ k: "area", t: "Área: " + (f.area === "__otras" ? "Otra" : f.area), quitar: () => (f.area = "") });
+      if (f.turno) out.push({ k: "turno", t: "Turno: " + etiquetaTurno(f.turno), quitar: () => (f.turno = "") });
+      if (f.centro) out.push({ k: "centro", t: "Centro: " + (centroDe(f.centro)?.nombre || "—"), quitar: () => (f.centro = "") });
+      if (f.notaMin) out.push({ k: "nota", t: "Nota " + f.notaMin + " o más", quitar: () => (f.notaMin = "") });
+      if (f.rapido) out.push({ k: "rapido", t: RAPIDOS.find((r) => r.k === f.rapido)?.t || f.rapido, quitar: () => (f.rapido = "") });
+      return out;
+    });
 
     // Kanban: arrastrar una tarjeta a otra columna cambia su estado
     const arrastrando = ref(null), sobre = ref("");
@@ -133,7 +146,7 @@ export default {
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
     return { menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
-      alta, n, lee, adjuntar, quitarArchivo, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
+      hoja, NOTAS, RAPIDOS, chips, alta, n, lee, adjuntar, quitarArchivo, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
   <div class="page">
@@ -145,31 +158,51 @@ export default {
       </div>
     </div>
 
-    <div class="fases">
-      <button class="fase" :class="{on: !f.estado}" @click="f.estado=''"><b>{{ base.length }}</b><span>Todos</span></button>
-      <button v-for="e in fases" :key="e.k" class="fase" :class="{on: f.estado===e.k, cero: !e.cnt}" :style="{'--c': e.c}" @click="f.estado = f.estado===e.k ? '' : e.k"><b>{{ e.cnt }}</b><span>{{ e.n }}</span></button>
+    <div class="estado-pills" role="group" aria-label="Filtrar por estado">
+      <button class="pill" :class="{on: !f.estado}" @click="f.estado=''">Todos <b>{{ base.length }}</b></button>
+      <button v-for="e in fases" :key="e.k" class="pill" :class="{on: f.estado===e.k, cero: !e.cnt}" @click="f.estado = f.estado===e.k ? '' : e.k"><i class="punto" :style="{background: e.c}"></i>{{ e.n }} <b>{{ e.cnt }}</b></button>
     </div>
 
     <div class="card">
       <div class="barra-filtros">
-        <div class="buscar"><Ic n="search" :s="16" /><input class="inp" v-model="f.q" placeholder="Buscar por nombre, correo, teléfono, titulación u observaciones…" /></div>
-        <SelectBuscable v-model="f.centro" :opciones="opCentros" etiqueta-todos="Todos los centros" style="width:210px" />
-        <select class="inp" v-model="f.turno" style="width:170px"><option value="">Cualquier turno</option><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select>
-        <select class="inp" v-model="f.area" style="width:190px"><option value="">Cualquier área</option><option v-for="a in areasFiltro" :key="a" :value="a">{{ a }}</option><option value="__otras">Otra (texto libre)</option></select>
-        <select class="inp" v-model="f.notaMin" style="width:150px"><option value="">Cualquier nota</option><option value="9">Nota 9 o más</option><option value="8">Nota 8 o más</option><option value="7">Nota 7 o más</option><option value="5">Nota 5 o más</option></select>
-        <div class="seg right">
-          <button :class="{on: f.vista==='tabla'}" @click="f.vista='tabla'"><Ic n="tabla" :s="15" />Tabla</button>
-          <button :class="{on: f.vista==='tarjetas'}" @click="f.vista='tarjetas'"><Ic n="tarjetas" :s="15" />Tarjetas</button>
-          <button :class="{on: f.vista==='kanban'}" @click="f.vista='kanban'"><Ic n="kanban" :s="15" />Kanban</button>
+        <div class="buscar"><Ic n="search" :s="16" /><input class="inp" type="search" v-model="f.q" placeholder="Buscar por nombre, correo, teléfono, titulación…" aria-label="Buscar candidatos" /></div>
+        <select class="inp fsel solo-esc" :class="{on: f.area}" v-model="f.area" aria-label="Área de interés"><option value="">Área</option><option v-for="a in areasFiltro" :key="a" :value="a">{{ a }}</option><option value="__otras">Otra (texto libre)</option></select>
+        <select class="inp fsel solo-esc" :class="{on: f.turno}" v-model="f.turno" aria-label="Turno"><option value="">Turno</option><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select>
+        <div class="fsel-centro solo-esc" :class="{on: f.centro}"><SelectBuscable v-model="f.centro" :opciones="opCentros" etiqueta-todos="Centro" /></div>
+        <select class="inp fsel solo-esc" :class="{on: f.notaMin}" v-model="f.notaMin" aria-label="Valoración mínima"><option value="">Valoración</option><option v-for="v in NOTAS" :key="v" :value="v">Nota {{ v }} o más</option></select>
+        <button class="btn btn-ink btn-filtros solo-movil" @click="hoja = true"><Ic n="filtros" :s="17" />Filtros<span v-if="chips.length" class="badge">{{ chips.length }}</span></button>
+        <div class="seg seg-iconos right solo-movil" role="group" aria-label="Vista">
+          <button :class="{on: f.vista==='tabla'}" @click="f.vista='tabla'" title="Tabla" aria-label="Vista en tabla"><Ic n="tabla" :s="16" /></button>
+          <button :class="{on: f.vista==='tarjetas'}" @click="f.vista='tarjetas'" title="Tarjetas" aria-label="Vista en tarjetas"><Ic n="tarjetas" :s="16" /></button>
+          <button :class="{on: f.vista==='kanban'}" @click="f.vista='kanban'" title="Kanban" aria-label="Vista kanban"><Ic n="kanban" :s="16" /></button>
         </div>
       </div>
-      <div class="barra-rapidos">
-        <span class="lbl">Vistas rápidas</span>
-        <button class="pill" :class="{on: f.rapido==='sinvalorar'}" @click="rapido('sinvalorar')"><Ic n="star" :s="13" />Entrevistados sin valorar</button>
-        <button class="pill" :class="{on: f.rapido==='semana'}" @click="rapido('semana')"><Ic n="calendario" :s="13" />Entrevista en los próximos 7 días</button>
-        <button class="pill" :class="{on: f.rapido==='reserva'}" @click="rapido('reserva')"><Ic n="archive" :s="13" />En reserva para recuperar</button>
-        <button v-if="hayFiltros" class="btn btn-ghost btn-sm right" @click="limpiar"><Ic n="x" :s="14" />Quitar filtros</button>
+      <div class="barra-rapidos solo-esc">
+        <div class="seg seg-iconos right orden-final" role="group" aria-label="Vista">
+          <button :class="{on: f.vista==='tabla'}" @click="f.vista='tabla'" title="Tabla" aria-label="Vista en tabla"><Ic n="tabla" :s="16" /></button>
+          <button :class="{on: f.vista==='tarjetas'}" @click="f.vista='tarjetas'" title="Tarjetas" aria-label="Vista en tarjetas"><Ic n="tarjetas" :s="16" /></button>
+          <button :class="{on: f.vista==='kanban'}" @click="f.vista='kanban'" title="Kanban" aria-label="Vista kanban"><Ic n="kanban" :s="16" /></button>
+        </div>
+        <button v-for="r in RAPIDOS" :key="r.k" class="pill pill-rapida" :class="{on: f.rapido===r.k}" @click="rapido(r.k)"><Ic :n="r.i" :s="13" />{{ r.t }}</button>
       </div>
+      <div v-if="chips.length" class="filtros-activos">
+        <span class="lbl">Filtrando por</span>
+        <button v-for="c in chips" :key="c.k" class="chip-filtro" @click="c.quitar()" :aria-label="'Quitar filtro ' + c.t">{{ c.t }}<Ic n="x" :s="14" /></button>
+        <button class="btn-link" @click="limpiar">Limpiar filtros</button>
+      </div>
+
+      <Modal v-if="hoja" titulo="Filtros" :ancho="520" @cerrar="hoja = false">
+        <div class="hoja-grupo"><span class="lbl">Área de interés</span>
+          <div class="hoja-chips"><button v-for="a in [...areasFiltro, '__otras']" :key="a" class="pill" :class="{on: f.area===a}" @click="f.area = f.area===a ? '' : a">{{ a === '__otras' ? 'Otra' : a }}</button></div></div>
+        <div class="hoja-grupo"><span class="lbl">Turno disponible</span>
+          <div class="hoja-chips"><button v-for="t in TURNOS" :key="t" class="pill" :class="{on: f.turno===t}" @click="f.turno = f.turno===t ? '' : t">{{ etiquetaTurno(t) }}</button></div></div>
+        <div class="hoja-grupo"><span class="lbl">Valoración mínima</span>
+          <div class="seg seg-lleno"><button :class="{on: !f.notaMin}" @click="f.notaMin=''">Todas</button><button v-for="v in [...NOTAS].reverse()" :key="v" :class="{on: f.notaMin===v}" @click="f.notaMin=v">{{ v }}+</button></div></div>
+        <div class="hoja-grupo"><span class="lbl">Centro educativo</span><SelectBuscable v-model="f.centro" :opciones="opCentros" etiqueta-todos="Todos los centros" /></div>
+        <div class="hoja-grupo"><span class="lbl">Vistas rápidas</span>
+          <div class="hoja-chips"><button v-for="r in RAPIDOS" :key="r.k" class="pill" :class="{on: f.rapido===r.k}" @click="rapido(r.k)"><Ic :n="r.i" :s="13" />{{ r.t }}</button></div></div>
+        <template #pie><button class="btn btn-ghost" @click="limpiar">Limpiar todo</button><button class="btn btn-ink" @click="hoja = false">Ver {{ lista.length }} candidato{{ lista.length === 1 ? '' : 's' }}</button></template>
+      </Modal>
 
       <!-- TABLA -->
       <div v-if="f.vista==='tabla'" class="tbl-wrap">
