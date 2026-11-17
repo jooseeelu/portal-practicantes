@@ -452,3 +452,7 @@ button.foto-edit { border: 0; padding: 0; background: transparent; }
 .pc-txt:focus { outline: none; border-color: var(--gold-400); background: var(--surface); }
 /* Estados de Candidatos: en escritorio se ven todos (sin deslizar) */
 @media (min-width: 701px) { .estado-pills { flex-wrap: wrap; overflow: visible; } }
+.nf-exacta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nf-exacta label { font-size: 13px; font-weight: 700; color: var(--gold-700); }
+.nf-exacta .inp { width: 90px; border-color: var(--gold-border); font-weight: 800; }
+.nf-exacta .nf-ayuda { flex-basis: 100%; }
