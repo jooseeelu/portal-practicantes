@@ -12,10 +12,11 @@ export default {
   components: { Ic, Chip, Avatar, Num },
   setup() {
     // Filtro por área de interés: afecta a todo lo que se ve en Inicio
-    const cands = computed(() => (fArea.value ? store.candidatos.filter((c) => (c.area || "") === fArea.value) : store.candidatos));
-    const ests = computed(() => (fArea.value ? store.estudiantes.filter((e) => (candDe(e.candId)?.area || "") === fArea.value) : store.estudiantes));
-    const ents = computed(() => (fArea.value ? store.entrevistas.filter((e) => (candDe(e.candId)?.area || "") === fArea.value) : store.entrevistas));
-    const areas = computed(() => [...new Set([...AREAS, ...store.candidatos.map((c) => c.area).filter(Boolean)])]);
+    const cands = computed(() => (fArea.value ? store.candidatos.filter((c) => delArea(c.area)) : store.candidatos));
+    const ests = computed(() => (fArea.value ? store.estudiantes.filter((e) => delArea(candDe(e.candId)?.area)) : store.estudiantes));
+    const ents = computed(() => (fArea.value ? store.entrevistas.filter((e) => delArea(candDe(e.candId)?.area)) : store.entrevistas));
+    const areas = AREAS;
+    const delArea = (a) => (fArea.value === "__otras" ? !!a && !AREAS.includes(a) : (a || "") === fArea.value);
     const enCurso = computed(() => ests.value.filter((e) => estadoPracticas(e) === "En curso"));
     const previstas = computed(() => ests.value.filter((e) => estadoPracticas(e) === "Prevista").sort((a, b) => a.inicio.localeCompare(b.inicio)));
     const finalizan = computed(() => enCurso.value.filter((e) => difDias(e.fin, HOY_ISO) <= 14).sort((a, b) => a.fin.localeCompare(b.fin)));
@@ -76,7 +77,7 @@ export default {
     <div class="page-head">
       <div><h1>Buenos días</h1><p>Así está hoy el proceso de prácticas de la gestoría.</p></div>
       <div class="acciones">
-        <select class="inp" v-model="fArea" style="width:auto;min-width:190px" title="Filtrar todo Inicio por área de interés"><option value="">Todas las áreas</option><option v-for="a in areas" :key="a" :value="a">{{ a }}</option></select>
+        <select class="inp" v-model="fArea" style="width:auto;min-width:190px" title="Filtrar todo Inicio por área de interés"><option value="">Todas las áreas</option><option v-for="a in areas" :key="a" :value="a">{{ a }}</option><option value="__otras">Otra (texto libre)</option></select>
         <button class="btn" @click="go('entrevistas')"><Ic n="calendario" :s="16" />Programar entrevista</button>
         <button class="btn btn-accent" @click="go('candidatos/nuevo')"><Ic n="plus" :s="16" />Nuevo candidato</button>
       </div>
