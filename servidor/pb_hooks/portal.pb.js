@@ -146,3 +146,37 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
   almacen.set("gentrivo_cache", { cuando: Date.now(), datos: datos });
   return e.json(200, datos);
 }, $apis.requireAuth("users"));
+
+// Entrevistas → Notion (y de ahí al Excel). Cada cambio de una entrevista se manda a n8n (ver notion.js).
+onRecordAfterCreateSuccess((e) => {
+  e.next();
+  try { require(`${__hooks}/notion.js`).sincronizar(e.app, e.record, false); } catch (err) { console.log("Notion: " + err); }
+}, "registros");
+onRecordAfterUpdateSuccess((e) => {
+  e.next();
+  try { require(`${__hooks}/notion.js`).sincronizar(e.app, e.record, false); } catch (err) { console.log("Notion: " + err); }
+}, "registros");
+onRecordAfterDeleteSuccess((e) => {
+  e.next();
+  try { require(`${__hooks}/notion.js`).sincronizar(e.app, e.record, true); } catch (err) { console.log("Notion: " + err); }
+}, "registros");
+
+// Puesta al día (solo superusuario): manda a Notion las entrevistas de hoy en adelante. ?limite=N para probar con pocas.
+routerAdd("POST", "/api/portal/notion/sincronizar", (e) => {
+  const lim = Number(e.request.url.query().get("limite") || 0);
+  const hoy = new Date(Date.now() + 3600000).toISOString().slice(0, 10);
+  const recs = $app.findRecordsByFilter("registros", "tipo = 'entrevistas'", "", 0, 0);
+  const n = require(`${__hooks}/notion.js`);
+  const cuenta = {};
+  let hechas = 0;
+  for (const r of recs) {
+    let fecha = "";
+    try { fecha = JSON.parse(r.getString("datos") || "{}").fecha || ""; } catch (_) {}
+    if (fecha < hoy) continue;
+    if (lim && hechas >= lim) break;
+    const res = n.sincronizar($app, r, false);
+    cuenta[res] = (cuenta[res] || 0) + 1;
+    hechas++;
+  }
+  return e.json(200, { revisadas: hechas, resultado: cuenta });
+}, $apis.requireSuperuserAuth());
