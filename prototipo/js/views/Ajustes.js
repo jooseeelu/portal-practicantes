@@ -118,7 +118,12 @@ export default {
 
     // --- Poner a cada candidato sin foto la foto de su currículum (lee cada currículum con la IA) ---
     const LEGIBLE = /^(pdf|jpe?g|png|webp)$/;
-    const pendientesFoto = computed(() => store.candidatos.filter((c) => !c.foto).map((c) => {
+    // Fotos que se pueden rehacer: sin foto o con la que se puso sola desde el currículum (no las subidas o recortadas a mano)
+    const fotoManual = (c) => {
+      const h = store.historial.filter((x) => x.candId === c.id && /foto/i.test(x.texto || "")).sort((a, b) => (b.fecha + (b.hora || "")).localeCompare(a.fecha + (a.hora || "")) || b.id - a.id)[0];
+      return !!h && /Foto de perfil actualizada|Foto recortada del currículum|Foto eliminada|Foto quitada/.test(h.texto);
+    };
+    const pendientesFoto = computed(() => store.candidatos.filter((c) => !c.foto || !fotoManual(c)).map((c) => {
       const cv = store.documentos.filter((d) => d.candId === c.id && d.tipo === "Currículum" && d.archivoId && LEGIBLE.test(d.ext || "")).sort((a, b) => (b.fecha + (b.hora || "")).localeCompare(a.fecha + (a.hora || "")) || b.id - a.id)[0];
       return cv ? { c, cv } : null;
     }).filter(Boolean));
@@ -126,21 +131,16 @@ export default {
     async function fotosDesdeCurriculums() {
       const lista = [...pendientesFoto.value];
       if (!lista.length) return toast("No hay candidatos sin foto con currículum en PDF o imagen.");
-      if (!(await pedirConfirmacion({ titulo: "¿Buscar fotos en " + lista.length + " currículums?", texto: "Se lee cada currículum con la IA (como el botón «Extraer datos») y, si tiene foto, se pone en la ficha. Solo se toca la foto. Tarda unos segundos por persona; puedes pararlo cuando quieras.", boton: "Empezar" }))) return;
+      if (!(await pedirConfirmacion({ titulo: "¿Rehacer las fotos de " + lista.length + " candidatos?", texto: "Se abre cada currículum, se busca la cara de la foto y se recorta centrada. No se tocan las fotos subidas o recortadas a mano, ni se quita ninguna si no se encuentra la cara. Tarda un par de segundos por persona; puedes pararlo cuando quieras.", boton: "Empezar" }))) return;
       Object.assign(lote, { activo: true, parar: false, hechos: 0, total: lista.length, conFoto: 0, sinFoto: 0, errores: 0, actual: "", terminado: false });
       for (const { c, cv } of lista) {
         if (lote.parar) break;
         lote.actual = nombreCompleto(c);
         try {
-          if (!c.foto) {
-            const r = await leerCurriculum(cv.archivoId);
-            if (r.foto) {
-              const blob = await (await fetch(await urlArchivo(cv))).blob();
-              const tipo = cv.ext === "pdf" ? "application/pdf" : blob.type || "image/" + cv.ext;
-              const foto = await recortarFoto(new File([blob], cv.nombre, { type: tipo }), r.foto);
-              if (foto && !c.foto) { c.foto = foto; addHist(c.id, "documento", "Foto puesta desde el currículum (" + cv.nombre + ")"); lote.conFoto++; } else lote.sinFoto++;
-            } else lote.sinFoto++;
-          }
+          const blob = await (await fetch(await urlArchivo(cv))).blob();
+          const tipo = cv.ext === "pdf" ? "application/pdf" : blob.type || "image/" + cv.ext;
+          const foto = await recortarFoto(new File([blob], cv.nombre, { type: tipo }), null, { soloConCara: true });
+          if (foto) { c.foto = foto; addHist(c.id, "documento", "Foto puesta desde el currículum (" + cv.nombre + ")"); lote.conFoto++; } else lote.sinFoto++;
         } catch (e) {
           lote.errores++;
           if (e.estado === 429) { toast("La IA pide una pausa: vuelve a pulsar el botón dentro de un rato para seguir.", "error"); break; }
@@ -293,8 +293,8 @@ export default {
       <div v-else class="card-pad">
         <div class="integ">
           <div class="caja"><div class="row"><Ic n="sparkles" /><h3>Lectura de currículums con IA</h3><span class="tag right" style="background:var(--success-bg);color:var(--ok-dark)">Activa</span></div><p class="sub">Al dar de alta un candidato y en la pestaña Currículum de la ficha: rellena los datos y recorta la foto a partir del PDF o la imagen. El archivo se envía a OpenAI solo para leerlo.</p><div v-if="enServidor && admin" class="lote-fotos">
-              <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn btn-sm" :disabled="lote.activo || !pendientesFoto.length" @click="fotosDesdeCurriculums"><Ic n="user" :s="14" />Poner fotos desde los currículums</button><span class="sub">{{ pendientesFoto.length }} candidatos sin foto con currículum en PDF o imagen</span><button v-if="lote.activo" class="btn btn-sm btn-ghost" @click="lote.parar = true">Parar</button></div>
-              <div v-if="lote.activo || lote.terminado" class="lote-prog"><div class="ia-barra-fija"><i :style="{width: (lote.total ? Math.round(lote.hechos / lote.total * 100) : 0) + '%'}"></i></div><span class="sub">{{ lote.hechos }} de {{ lote.total }} · {{ lote.conFoto }} con foto · {{ lote.sinFoto }} sin foto en el currículum<template v-if="lote.errores"> · {{ lote.errores }} no se pudieron leer</template><template v-if="lote.actual"> · leyendo {{ lote.actual }}…</template></span></div>
+              <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn btn-sm" :disabled="lote.activo || !pendientesFoto.length" @click="fotosDesdeCurriculums"><Ic n="user" :s="14" />Arreglar las fotos de los currículums</button><span class="sub">{{ pendientesFoto.length }} candidatos con currículum en PDF o imagen (sin foto o con foto automática)</span><button v-if="lote.activo" class="btn btn-sm btn-ghost" @click="lote.parar = true">Parar</button></div>
+              <div v-if="lote.activo || lote.terminado" class="lote-prog"><div class="ia-barra-fija"><i :style="{width: (lote.total ? Math.round(lote.hechos / lote.total * 100) : 0) + '%'}"></i></div><span class="sub">{{ lote.hechos }} de {{ lote.total }} · {{ lote.conFoto }} con foto · {{ lote.sinFoto }} sin cara en el currículum<template v-if="lote.errores"> · {{ lote.errores }} no se pudieron leer</template><template v-if="lote.actual"> · leyendo {{ lote.actual }}…</template></span></div>
             </div></div>
           <div class="caja"><div class="row"><Ic n="whatsapp" /><h3>WhatsApp y correo</h3><span class="tag right" style="background:var(--success-bg);color:var(--ok-dark)">Activo</span></div><p class="sub">Desde la ficha, las entrevistas y el menú de cada persona: abre WhatsApp o el correo del equipo con la plantilla ya rellenada (se editan en la pestaña Mensajes). El envío automático con la API de Meta queda para más adelante.</p></div>
           <div class="caja"><div class="row"><Ic n="sync" /><h3>Notion y Excel de entrevistas</h3><span class="tag right" style="background:var(--success-bg);color:var(--ok-dark)">Activa</span></div><p class="sub">Cada entrevista que se crea o cambia aquí pasa sola a Notion (servicio «Entrevista prácticas») y de ahí al Excel de la agenda en unos minutos. Sin avisos automáticos de Chatwoot. Lo que se cambie en Notion o en el Excel todavía no vuelve al portal.</p></div>
