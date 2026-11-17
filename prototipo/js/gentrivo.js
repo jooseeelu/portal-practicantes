@@ -27,6 +27,9 @@ export function cargarGentrivo(forzar = false) {
 const palabras = (t) => normal(t || "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
 export function enGentrivo(c) {
   if (!c || !gentrivo.personas.length) return null;
+  // Elegida a mano en la ficha: manda sobre la búsqueda automática ("-" = no está en Gentrivo)
+  if (c.gentrivo === "-") return null;
+  if (c.gentrivo) { const p = gentrivo.personas.find((x) => x.email === c.gentrivo); if (p) return p; }
   const mail = String(c.email || "").trim().toLowerCase();
   if (mail) { const p = gentrivo.personas.find((x) => x.email === mail); if (p) return p; }
   const mias = palabras(`${c.nombre || ""} ${c.apellidos || ""}`);

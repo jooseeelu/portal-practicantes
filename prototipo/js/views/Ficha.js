@@ -21,6 +21,16 @@ export default {
     const est = computed(() => (c.value ? estudianteDe(c.value.id) : null));
     cargarGentrivo();
     const g = computed(() => (est.value ? enGentrivo(c.value) : null));
+    // Vincular a mano con su persona de Gentrivo cuando no se encuentra sola (o se encuentra mal)
+    const eligeG = ref(false);
+    const opcionesG = computed(() => [...gentrivo.personas].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    const vincularG = (email) => {
+      const p = gentrivo.personas.find((x) => x.email === email);
+      c.value.gentrivo = email || "";
+      eligeG.value = false;
+      addHist(c.value.id, "nota", email === "-" ? "Marcado como sin ficha en Gentrivo" : p ? "Vinculado con Gentrivo: " + p.nombre : "Quitado el vínculo con Gentrivo");
+      toast(email === "-" ? "Marcado: no está en Gentrivo" : p ? "Vinculado con Gentrivo" : "Vínculo quitado");
+    };
     const docs = computed(() => (c.value ? docsDe(c.value.id) : []));
     const hist = computed(() => (c.value ? histDe(c.value.id) : []));
     const notas = computed(() => store.notas.filter((n) => n.candId === c.value?.id).sort((a, b) => b.id - a.id));
@@ -189,7 +199,7 @@ export default {
     // --- Contacto directo desde la ficha ---
     const abrirWhatsApp = (ev) => elegirMensaje("whatsapp", c.value, ev);
     const abrirCorreo = (ev) => elegirMensaje("correo", c.value, ev);
-    return { gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -245,14 +255,20 @@ export default {
           <div class="row"><Ic n="estudiantes" /><b>Prácticas en la gestoría</b><Chip :texto="estadoPracticas(est)" c="var(--cyan)" cd="var(--cyan-dark)" /><button class="btn btn-sm right" @click="abrirInc"><Ic n="pencil" :s="14" />Editar</button></div>
           <div class="datos"><div><span>Inicio</span><b>{{ fCompleta(est.inicio) }}</b></div><div><span>Fin previsto</span><b>{{ fCompleta(est.fin) }}</b></div><div><span>Horario</span><b>{{ est.horaIni }}–{{ est.horaFin }}</b></div><div><span>Horas totales</span><b>{{ est.horas }} h</b></div><div><span>Tutor en la gestoría</span><b v-if="est.tutor">{{ est.tutor }}</b><b v-else class="muted">Sin asignar</b></div><div><span>Convenio</span><b>{{ est.convenio ? 'Firmado' : 'Pendiente de firma' }}</b></div></div>
           <div v-if="g" class="gentrivo-box">
-            <div class="row"><Ic n="clock" :s="16" /><b>Horario en Gentrivo</b><span class="sub">Hoy: <b>{{ textoHoy(g) }}</b><template v-if="hoyEsCambio(g) && g.hoy.motivo"> · {{ g.hoy.motivo }}</template></span></div>
+            <div class="row"><Ic n="clock" :s="16" /><b>Horario en Gentrivo</b><span class="sub">· {{ g.nombre }}</span><button class="btn-link right" @click="eligeG = !eligeG">{{ eligeG ? 'Cancelar' : 'No es esta persona' }}</button></div>
+            <div v-if="eligeG" class="vincular-g"><select class="inp" @change="vincularG($event.target.value)"><option value="">Elige su persona en Gentrivo…</option><option v-for="p in opcionesG" :key="p.email" :value="p.email">{{ p.nombre }} · {{ p.email }}</option><option value="-">No está en Gentrivo</option></select></div>
+            <div class="row"><span class="sub"><span class="sub">Hoy: <b>{{ textoHoy(g) }}</b><template v-if="hoyEsCambio(g) && g.hoy.motivo"> · {{ g.hoy.motivo }}</template></span></div>
             <div class="semana-g"><span v-for="d in semana(g)" :key="d.dia" :class="{libre: !d.trabaja}"><small>{{ DIAS_SEMANA[d.dia].slice(0, 3) }}</small><b>{{ d.trabaja ? d.ini + '–' + d.fin : 'Libre' }}</b></span></div>
             <div v-if="proximosCambios(g).length" class="cambios-g"><b class="sub">Cambios apuntados</b>
               <div v-for="x in proximosCambios(g)" :key="x.fecha" class="falta"><span><b>{{ fLarga(x.fecha) }}</b> · {{ (TIPO_CAMBIO[x.tipo] || x.tipo) + (x.ini ? " " + x.ini + "–" + x.fin : "") }}<template v-if="x.motivo"> · {{ x.motivo }}</template></span></div>
             </div>
             <p class="sub">Los cambios de horario (exámenes, días libres) se apuntan en Gentrivo y aparecen aquí.</p>
           </div>
-          <p v-else-if="gentrivo.configurado && gentrivo.cargado" class="sub"><Ic n="clock" :s="13" /> No aparece en Gentrivo: se busca por su correo o por su nombre completo.</p>
+          <div v-else-if="gentrivo.configurado && gentrivo.cargado" class="gentrivo-box">
+            <div class="row"><Ic n="clock" :s="16" /><b>Horario en Gentrivo</b><span v-if="c.gentrivo === '-'" class="sub">· Marcado como que no está en Gentrivo</span></div>
+            <p class="sub">{{ c.gentrivo === '-' ? 'Si ya tiene ficha en Gentrivo, elígela:' : 'No se ha encontrado sola (ni por correo ni por nombre). Elige su persona en Gentrivo y se verá su horario:' }}</p>
+            <div class="vincular-g"><select class="inp" @change="vincularG($event.target.value)"><option value="">Elige su persona en Gentrivo…</option><option v-for="p in opcionesG" :key="p.email" :value="p.email">{{ p.nombre }} · {{ p.email }}</option><option v-if="c.gentrivo !== '-'" value="-">No está en Gentrivo</option></select></div>
+          </div>
           <div class="faltas">
             <b>Faltas de asistencia <span class="sub">({{ (est.faltas || []).length }})</span></b>
             <div v-for="x in est.faltas || []" :key="x.fecha" class="falta"><span><b>{{ fLarga(x.fecha) }}</b><template v-if="x.motivo"> · {{ x.motivo }}</template></span><Chip :texto="x.recupera ? 'Se recupera (+1 día)' : 'No se recupera'" :c="x.recupera ? 'var(--gold-500)' : 'var(--text-400)'" :cd="x.recupera ? 'var(--gold-700)' : 'var(--text-600)'" /><button class="btn btn-sm" @click="quitarFalta(x)">Quitar</button></div>
