@@ -196,7 +196,7 @@ export default {
 
     <div class="card ficha-head">
       <div class="foto-col">
-        <label class="foto-edit" title="Cambiar la foto"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><span class="camara"><Ic n="camara" :s="15" /></span><input type="file" accept="image/*" hidden @change="ponerFoto" /></label>
+        <label class="foto-edit" title="Cambiar la foto"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><button v-if="c.foto" type="button" class="foto-x" title="Quitar la foto" aria-label="Quitar la foto" @click.prevent.stop="quitarFoto">×</button><span class="camara"><Ic n="camara" :s="15" /></span><input type="file" accept="image/*" hidden @change="ponerFoto" /></label>
         <button v-if="c.foto" class="foto-quitar" @click="quitarFoto">Quitar foto</button>
       </div>
       <div class="grow">
