@@ -79,3 +79,6 @@ export function crearZip(archivos) {
   const fin = new DataView(new ArrayBuffer(22)); fin.setUint32(0, 0x06054b50, true); fin.setUint16(8, archivos.length, true); fin.setUint16(10, archivos.length, true); fin.setUint32(12, tamCentral, true); fin.setUint32(16, pos, true);
   return new Blob([...partes, ...central, new Uint8Array(fin.buffer)], { type: "application/zip" });
 }
+
+/** ¿Encaja el área de un candidato con el filtro? ("__otras" = escrita a mano, fuera de la lista) */
+export const cumpleArea = (area, filtro, lista) => (!filtro ? true : filtro === "__otras" ? !!area && !lista.includes(area) : (area || "") === filtro);

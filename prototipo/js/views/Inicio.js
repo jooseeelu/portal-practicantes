@@ -1,10 +1,16 @@
 import { computed, ref } from "vue";
 import { store, centroDe, candDe, nombreCompleto, estadoPracticas, turnoEstudiante, TURNOS_OFICINA, etiquetaTurno } from "../store.js";
+import { miNombre } from "../api.js";
+import { normal } from "../util.js";
+
+// «Requiere tu atención»: por defecto solo lo de quien ha entrado; «Equipo» enseña lo de todos
+const verEquipo = ref(false);
 import { go } from "../router.js";
 import { Ic, Chip, Avatar, Num } from "../ui.js";
 import { ESTADOS_CITA, AREAS } from "../data.js";
 
-const fArea = ref("");
+// El área elegida en Inicio es el mismo filtro que usan Candidatos, Entrevistas y Estudiantes
+const fArea = computed({ get: () => filtros.area || "", set: (v) => { filtros.area = v; } });
 import { HOY_ISO, dia, fCorta, diaCorto, diaNum, relativo, difDias } from "../util.js";
 import { filtros } from "./Candidatos.js";
 
@@ -48,7 +54,17 @@ export default {
       }
       return out;
     });
-    const alertas = computed(() => {
+    const yo = normal(miNombre() || "").trim();
+    const esMio = (n) => { const x = normal(n || "").trim(); return !!x && !!yo && (x === yo || yo.startsWith(x + " ") || x.startsWith(yo)); };
+    const alertas = computed(() => (verEquipo.value ? alertasEquipo.value : alertasMias.value));
+    const alertasMias = computed(() => {
+      const a = [];
+      const mias = sinValorar.value.filter((e) => esMio(e.entrevistador));
+      if (mias.length) a.push({ tono: "am", i: "star", t: `${mias.length} entrevista${mias.length === 1 ? "" : "s"} tuya${mias.length === 1 ? "" : "s"} sin valorar`, s: mias.map((e) => candDe(e.candId).nombre).join(", "), ir: () => irCands("", "sinvalorar"), cta: "Valorar" });
+      finalizan.value.filter((e) => esMio(e.tutor)).forEach((e) => a.push({ tono: "info", i: "clock", t: `${nombreCompleto(candDe(e.candId))} (tu tutorizado/a) termina ${relativo(e.fin)}`, s: fCorta(e.fin), ir: () => go("candidato/" + e.candId), cta: "Abrir ficha" }));
+      return a;
+    });
+    const alertasEquipo = computed(() => {
       const a = [];
       if (sinValorar.value.length) a.push({ tono: "am", i: "star", t: `${sinValorar.value.length} entrevistas realizadas sin valorar`, s: sinValorar.value.map((e) => candDe(e.candId).nombre).join(", "), ir: () => irCands("", "sinvalorar"), cta: "Valorar" });
       picos.value.filter((p) => p.max > p.aforo).forEach((p) => a.push({ tono: "err", i: "alert", t: `Turno de ${p.turno.toLowerCase()} por encima del aforo el ${fCorta(p.cuando)}`, s: `${p.max} estudiantes para ${p.aforo} plazas supervisables`, ir: () => go("estudiantes/cuadrante"), cta: "Ver cuadrante" }));
@@ -70,7 +86,7 @@ export default {
       const l = enCurso.value.filter((e) => turnoEstudiante(e) === t);
       return { t, def: store.turnosDef[t], l: l.map((e) => candDe(e.candId)), n: l.length, aforo: store.aforo[t] };
     }));
-    return { fArea, areas, kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
+    return { verEquipo, fArea, areas, kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
   },
   template: `
   <div class="page">
@@ -91,15 +107,16 @@ export default {
     </div>
 
     <div class="dash">
+      <div class="dash-col">
       <section class="card">
-        <div class="card-head"><h3>Requiere tu atención</h3><span class="tag">{{ alertas.length }}</span></div>
+        <div class="card-head"><h3>Requiere tu atención</h3><span class="tag">{{ alertas.length }}</span><div class="seg seg-mini right" role="group" aria-label="De quién"><button :class="{on: !verEquipo}" @click="verEquipo = false">Lo mío</button><button :class="{on: verEquipo}" @click="verEquipo = true">Equipo</button></div></div>
         <div class="alertas">
           <div v-for="(a,i) in alertas" :key="i" class="alerta" :class="a.tono">
             <span class="alerta-ico"><Ic :n="a.i" :s="16" /></span>
             <div class="grow"><b>{{ a.t }}</b><small>{{ a.s }}</small></div>
             <button class="btn btn-sm" @click="a.ir()">{{ a.cta }}</button>
           </div>
-          <div v-if="!alertas.length" class="vacio-box"><b>Todo al día</b><span>No hay nada pendiente.</span></div>
+          <div v-if="!alertas.length" class="vacio-box"><b>Todo al día</b><span>{{ verEquipo ? 'No hay nada pendiente.' : 'No tienes nada pendiente: ni entrevistas tuyas sin valorar ni tutorizados que terminen pronto.' }}</span></div>
         </div>
       </section>
 
@@ -114,8 +131,20 @@ export default {
         </div>
       </section>
 
+      <section class="card ancho">
+        <div class="card-head"><h3>Colaboración por centro</h3><span class="sub right">Candidatos totales · <span style="color:var(--cyan-dark);font-weight:600">en prácticas ahora</span></span></div>
+        <div class="barras centros">
+          <button v-for="c in porCentro" :key="c.id" class="barra" @click="c.id==='_' ? irCands('') : go('centros/'+c.id)">
+            <span class="barra-n">{{ c.nombre }}</span>
+            <span class="barra-pista"><i :style="{width: c.w+'%', background: 'var(--navy-300)'}"></i><i class="sobre" :style="{width: c.wa+'%'}"></i></span>
+            <b>{{ c.total }}</b>
+          </button>
+        </div>
+      </section>
+      </div>
+      <div class="dash-col">
       <section class="card">
-        <div class="card-head"><h3>Candidatos por fase</h3><a class="right" @click="go('candidatos')" style="cursor:pointer">Ver todos</a></div>
+        <div class="card-head"><h3>Candidatos por fase</h3><a class="right" @click="irCands('')" style="cursor:pointer">Ver todos</a></div>
         <div class="barras">
           <button v-for="e in embudo" :key="e.k" class="barra" @click="irCands(e.k)" :title="'Ver candidatos en «'+e.n+'»'">
             <span class="barra-n">{{ e.n }}</span>
@@ -139,17 +168,7 @@ export default {
           <div v-if="previstas.length" class="aviso gold"><Ic n="calendario" :s="16" /><span><b>{{ previstas.length }} incorporaciones previstas</b> el {{ fCorta(previstas[0].inicio) }}: {{ previstas.map(e => candDe(e.candId).nombre + ' (' + etiquetaTurno(turnoEstudiante(e)).toLowerCase() + ')').join(', ') }}.</span></div>
         </div>
       </section>
-
-      <section class="card ancho">
-        <div class="card-head"><h3>Colaboración por centro</h3><span class="sub right">Candidatos totales · <span style="color:var(--cyan-dark);font-weight:600">en prácticas ahora</span></span></div>
-        <div class="barras centros">
-          <button v-for="c in porCentro" :key="c.id" class="barra" @click="c.id==='_' ? irCands('') : go('centros/'+c.id)">
-            <span class="barra-n">{{ c.nombre }}</span>
-            <span class="barra-pista"><i :style="{width: c.w+'%', background: 'var(--navy-300)'}"></i><i class="sobre" :style="{width: c.wa+'%'}"></i></span>
-            <b>{{ c.total }}</b>
-          </button>
-        </div>
-      </section>
+      </div>
     </div>
   </div>`,
 };
