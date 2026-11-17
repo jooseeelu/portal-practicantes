@@ -412,7 +412,6 @@ html, body { max-width: 100%; overflow-x: clip; }
 /* --- Entrevista: a favor / en contra + nota final --- */
 .ent-valor { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
 .ent-valor .pc-grid, .card-pad > .pc-grid { align-items: start; }
-.pc-col.con { --t: #c27400; }
 .pc-nuevo { gap: 8px; margin-top: 2px; }
 .pc-nuevo .inp { flex: 1; min-width: 0; }
 .nota-final { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 22px; background: var(--gold-bg); border: 1px solid var(--gold-border); }
@@ -456,3 +455,18 @@ button.foto-edit { border: 0; padding: 0; background: transparent; }
 .nf-exacta label { font-size: 13px; font-weight: 700; color: var(--gold-700); }
 .nf-exacta .inp { width: 90px; border-color: var(--gold-border); font-weight: 800; }
 .nf-exacta .nf-ayuda { flex-basis: 100%; }
+
+/* --- Nota final compacta (lavanda): solo el número --- */
+.nota-final { --lav: var(--violet); --lav-osc: var(--violet-dark); gap: 10px; padding: 14px; background: color-mix(in srgb, var(--lav) 9%, var(--surface)); border-color: color-mix(in srgb, var(--lav) 28%, var(--surface)); }
+.nf-fila { display: flex; align-items: flex-start; gap: 12px; }
+.nf-lbl { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--lav-osc); }
+.nf-caja { display: flex; align-items: baseline; gap: 6px; }
+.nf-input { width: 116px; height: 64px; border: 2px solid color-mix(in srgb, var(--lav) 45%, var(--surface)); border-radius: 14px; background: var(--surface); text-align: center; font-family: var(--font-head); font-size: 40px; font-weight: 800; color: var(--lav-osc); -moz-appearance: textfield; }
+.nf-input::-webkit-outer-spin-button, .nf-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.nf-input:focus { outline: none; border-color: var(--lav); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lav) 18%, transparent); }
+.nf-de { font-size: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-600); }
+.nota-final .nf-tag { margin-left: auto; background: var(--lav); color: #fff; }
+.nota-final .fld label { color: var(--lav-osc); }
+.nota-final .inp { border-color: color-mix(in srgb, var(--lav) 28%, var(--surface)); }
+.nf-guardar { justify-content: center; height: 42px; background: var(--lav); border-color: var(--lav); color: #fff; }
+.nf-guardar:hover { background: var(--lav-osc); }
