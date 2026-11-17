@@ -4,6 +4,7 @@ import { ruta, go } from "../router.js";
 import { Ic, Chip, Avatar, Vacio } from "../ui.js";
 import { registrar } from "../api.js";
 import { elegirMensaje } from "../mensajes.js";
+import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
 import { toast } from "../store.js";
 import { urlWhatsApp, HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
 
@@ -14,11 +15,12 @@ export default {
   components: { Ic, Chip, Avatar, Vacio },
   setup() {
     const s = estado;
+    cargarGentrivo();
     const vista = computed(() => (ruta.value.id === "cuadrante" ? "cuadrante" : "lista"));
     const filas = computed(() => store.estudiantes.map((e) => {
       const c = candDe(e.candId), est = estadoPracticas(e);
       const total = Math.max(1, difDias(e.fin, e.inicio)), hecho = Math.min(total, Math.max(0, difDias(HOY_ISO, e.inicio)));
-      return { e, c, est, turno: turnoEstudiante(e), pct: est === "Finalizada" ? 100 : est === "Prevista" ? 0 : Math.round((hecho / total) * 100), quedan: difDias(e.fin, HOY_ISO) };
+      return { e, c, est, g: enGentrivo(c), turno: turnoEstudiante(e), pct: est === "Finalizada" ? 100 : est === "Prevista" ? 0 : Math.round((hecho / total) * 100), quedan: difDias(e.fin, HOY_ISO) };
     }).filter((f) => s.filtro === "todos" || (s.filtro === "activos" ? f.est !== "Finalizada" : f.est === "Finalizada"))
       .sort((a, b) => a.e.fin.localeCompare(b.e.fin)));
 
@@ -38,7 +40,7 @@ export default {
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
+    return { gentrivo, cargarGentrivo, textoHoy, hoyEsCambio, menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
   },
   template: `
   <div class="page">
@@ -53,6 +55,8 @@ export default {
         <button class="pill" :class="{on: s.filtro==='finalizados'}" @click="s.filtro='finalizados'">Finalizadas</button>
         <button class="pill" :class="{on: s.filtro==='todos'}" @click="s.filtro='todos'">Todas</button>
         <span class="sub right">Para incorporar a alguien, abre su ficha y pulsa «Convertir en estudiante».</span>
+        <span v-if="gentrivo.configurado" class="sub gentrivo-estado"><Ic n="clock" :s="13" /> Horario de hoy según Gentrivo<template v-if="gentrivo.actualizado"> · {{ new Date(gentrivo.actualizado).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'}) }}</template> <button class="btn-link" :disabled="gentrivo.cargando" @click="cargarGentrivo(true)">{{ gentrivo.cargando ? 'Actualizando…' : 'Actualizar' }}</button></span>
+        <span v-else-if="gentrivo.error" class="sub" style="color:var(--err-dark)">Gentrivo: {{ gentrivo.error }}</span>
       </div>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>Estudiante</th><th>Centro</th><th>Estado</th><th>Turno y horario</th><th>Periodo</th><th style="min-width:130px">Avance</th><th>Horas</th><th>Tutor</th><th>Convenio</th></tr></thead>
@@ -60,7 +64,7 @@ export default {
           <td><div class="who"><Avatar :nombre="f.c.nombre" :apellidos="f.c.apellidos" /><div><b>{{ nombreCompleto(f.c) }}</b><small>{{ f.c.titulacion }}</small></div></div></td>
           <td>{{ centroDe(f.e.centroId)?.nombre || '—' }}</td>
           <td><Chip :texto="f.est" :c="COLOR[f.est][0]" :cd="COLOR[f.est][1]" /></td>
-          <td class="nowrap"><b>{{ f.turno === 'Mañana' ? 'Mañana' : 'Tarde' }}</b> <span class="sub">{{ f.e.horaIni }}–{{ f.e.horaFin }}</span></td>
+          <td class="nowrap"><template v-if="f.g && f.est==='En curso'"><b>Hoy {{ textoHoy(f.g) }}</b> <span v-if="hoyEsCambio(f.g)" class="tag gold" :title="f.g.hoy.motivo || 'Cambio puntual en Gentrivo'">{{ f.g.hoy.motivo || 'Cambio' }}</span><br><span class="sub">Habitual {{ f.e.horaIni }}–{{ f.e.horaFin }}</span></template><template v-else><b>{{ f.turno === 'Mañana' ? 'Mañana' : 'Tarde' }}</b> <span class="sub">{{ f.e.horaIni }}–{{ f.e.horaFin }}</span></template></td>
           <td class="nowrap">{{ fCorta(f.e.inicio) }} → {{ fCorta(f.e.fin) }}</td>
           <td><div class="avance"><span><i :style="{width: f.pct+'%'}"></i></span><small v-if="f.est==='En curso'" :class="{urge: f.quedan<=14}">{{ f.quedan<=14 ? 'Termina ' + relativo(f.e.fin) : f.pct + ' %' }}</small><small v-else-if="f.est==='Prevista'">Empieza {{ relativo(f.e.inicio) }}</small><small v-else>Completadas</small></div></td>
           <td class="nowrap">{{ f.e.horas }} h</td><td><span v-if="f.e.tutor">{{ f.e.tutor }}</span><span v-else class="muted">Sin tutor</span></td>

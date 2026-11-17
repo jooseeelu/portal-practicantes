@@ -94,3 +94,53 @@ onRecordAuthWithPasswordRequest((e) => {
     $app.save(reg);
   } catch (_) { /* el registro no debe impedir el acceso */ }
 }, "users");
+
+// Horarios de los practicantes leídos de Gentrivo (fichajes). Solo lectura: Gentrivo es quien manda en los horarios.
+// La dirección se cambia con GENTRIVO_URL (p. ej. al pasar a otro dominio). Las credenciales del usuario de servicio
+// están en un archivo del volumen de datos (nunca en el repositorio): /pb/pb_data/gentrivo.json → {"email":"…","clave":"…"}.
+routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
+  const yo = e.auth;
+  if (!yo || yo.collection().name !== "users" || !yo.getBool("activo")) throw new ForbiddenError("Sin permiso.");
+  const base = ($os.getenv("GENTRIVO_URL") || "https://gentrivo.gestoriainnova.com/api").replace(/\/+$/, "");
+  let cfg = null;
+  try { cfg = JSON.parse(toString($os.readFile($os.getenv("GENTRIVO_CREDENCIALES") || "/pb/pb_data/gentrivo.json"))); } catch (_) { cfg = null; }
+  if (!cfg || !cfg.email || !cfg.clave) return e.json(200, { configurado: false, personas: [] });
+
+  const almacen = $app.store();
+  const forzar = e.request.url.query().get("refrescar") === "1";
+  const cache = almacen.get("gentrivo_cache");
+  if (!forzar && cache && Date.now() - cache.cuando < 10 * 60 * 1000) return e.json(200, cache.datos);
+
+  const pedir = (metodo, ruta, cuerpo, token) => {
+    const cab = { "content-type": "application/json" };
+    if (token) cab.authorization = "Bearer " + token;
+    return $http.send({ url: base + ruta, method: metodo, body: cuerpo ? JSON.stringify(cuerpo) : "", headers: cab, timeout: 20 });
+  };
+  let token = almacen.get("gentrivo_token");
+  const entrar = () => {
+    const r = pedir("POST", "/auth/login", { email: cfg.email, password: cfg.clave });
+    if (r.statusCode !== 200 || !r.json || !r.json.token) throw new BadRequestError("No se pudo entrar en Gentrivo (" + r.statusCode + ").");
+    token = r.json.token;
+    almacen.set("gentrivo_token", token);
+  };
+  if (!token) entrar();
+  let r = pedir("GET", "/users", null, token);
+  if (r.statusCode === 401) { entrar(); r = pedir("GET", "/users", null, token); }
+  if (r.statusCode !== 200) throw new BadRequestError("Gentrivo no respondió (" + r.statusCode + ").");
+
+  const hhmm = (v) => (v ? String(v).slice(0, 5) : "");
+  const personas = ((r.json && r.json.users) || []).filter((u) => u.is_intern).map((u) => {
+    const h = pedir("GET", "/users/" + u.id + "/schedule", null, token);
+    const d = h.statusCode === 200 && h.json ? h.json : {};
+    const ef = d.effective || null;
+    return {
+      nombre: u.name || "", email: String(u.email || "").toLowerCase(), activo: !!u.active, fin: u.ends_on || "",
+      semanal: (d.weekly || []).map((w) => ({ dia: w.weekday, trabaja: !!w.is_working, ini: hhmm(w.start_time), fin: hhmm(w.end_time), pausa: w.break_minutes || 0 })),
+      cambios: (d.exceptions || []).map((x) => ({ fecha: String(x.date || "").slice(0, 10), tipo: x.kind, ini: hhmm(x.start_time), fin: hhmm(x.end_time), motivo: x.reason || "" })),
+      hoy: ef ? { tipo: ef.kind, ini: hhmm(ef.start), fin: hhmm(ef.end), motivo: ef.reason || "", origen: ef.source || "" } : null,
+    };
+  });
+  const datos = { configurado: true, actualizado: new Date().toISOString(), personas: personas };
+  almacen.set("gentrivo_cache", { cuando: Date.now(), datos: datos });
+  return e.json(200, datos);
+}, $apis.requireAuth("users"));
