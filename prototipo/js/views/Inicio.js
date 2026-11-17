@@ -1,26 +1,33 @@
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { store, centroDe, candDe, nombreCompleto, estadoPracticas, turnoEstudiante, TURNOS_OFICINA, etiquetaTurno } from "../store.js";
 import { go } from "../router.js";
 import { Ic, Chip, Avatar, Num } from "../ui.js";
-import { ESTADOS_CITA } from "../data.js";
+import { ESTADOS_CITA, AREAS } from "../data.js";
+
+const fArea = ref("");
 import { HOY_ISO, dia, fCorta, diaCorto, diaNum, relativo, difDias } from "../util.js";
 import { filtros } from "./Candidatos.js";
 
 export default {
   components: { Ic, Chip, Avatar, Num },
   setup() {
-    const enCurso = computed(() => store.estudiantes.filter((e) => estadoPracticas(e) === "En curso"));
-    const previstas = computed(() => store.estudiantes.filter((e) => estadoPracticas(e) === "Prevista").sort((a, b) => a.inicio.localeCompare(b.inicio)));
+    // Filtro por área de interés: afecta a todo lo que se ve en Inicio
+    const cands = computed(() => (fArea.value ? store.candidatos.filter((c) => (c.area || "") === fArea.value) : store.candidatos));
+    const ests = computed(() => (fArea.value ? store.estudiantes.filter((e) => (candDe(e.candId)?.area || "") === fArea.value) : store.estudiantes));
+    const ents = computed(() => (fArea.value ? store.entrevistas.filter((e) => (candDe(e.candId)?.area || "") === fArea.value) : store.entrevistas));
+    const areas = computed(() => [...new Set([...AREAS, ...store.candidatos.map((c) => c.area).filter(Boolean)])]);
+    const enCurso = computed(() => ests.value.filter((e) => estadoPracticas(e) === "En curso"));
+    const previstas = computed(() => ests.value.filter((e) => estadoPracticas(e) === "Prevista").sort((a, b) => a.inicio.localeCompare(b.inicio)));
     const finalizan = computed(() => enCurso.value.filter((e) => difDias(e.fin, HOY_ISO) <= 14).sort((a, b) => a.fin.localeCompare(b.fin)));
-    const proximas = computed(() => store.entrevistas.filter((e) => e.fecha >= HOY_ISO && ["Pendiente", "Confirmada", "Reprogramada"].includes(e.estado)).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)));
-    const sinValorar = computed(() => store.entrevistas.filter((e) => e.estado === "Realizada" && candDe(e.candId)?.nota == null));
-    const cuenta = (k) => store.candidatos.filter((c) => c.estado === k).length;
+    const proximas = computed(() => ents.value.filter((e) => e.fecha >= HOY_ISO && ["Pendiente", "Confirmada", "Reprogramada"].includes(e.estado)).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)));
+    const sinValorar = computed(() => ents.value.filter((e) => e.estado === "Realizada" && candDe(e.candId)?.nota == null));
+    const cuenta = (k) => cands.value.filter((c) => c.estado === k).length;
 
     const kpis = computed(() => [
-      { t: "Candidatos registrados", v: store.candidatos.length, s: `${cuenta("pendiente-revision")} pendientes de revisión`, i: "candidatos", ir: () => irCands("") },
+      { t: "Candidatos registrados", v: cands.value.length, s: `${cuenta("pendiente-revision")} pendientes de revisión`, i: "candidatos", ir: () => irCands("") },
       { t: "Entrevistas próximas", v: proximas.value.length, s: proximas.value[0] ? `La siguiente, ${relativo(proximas.value[0].fecha)}` : "Ninguna programada", i: "entrevistas", ir: () => go("entrevistas") },
       { t: "Pendientes de valorar", v: sinValorar.value.length, s: "Entrevistas hechas sin nota", i: "star", tono: sinValorar.value.length ? "am" : "", ir: () => irCands("", "sinvalorar") },
-      { t: "Seleccionados", v: cuenta("seleccionado"), s: "Pendientes de incorporación", i: "check", ir: () => irCands("seleccionado") },
+      { t: "Seleccionados", v: cuenta("seleccionado") + cuenta("seleccionado-esperando"), s: "Pendientes de incorporación", i: "check", ir: () => irCands("seleccionado") },
       { t: "En prácticas ahora", v: enCurso.value.length, s: `${finalizan.value.length} finalizan en 14 días`, i: "estudiantes", ir: () => go("estudiantes") },
       { t: "Próximas incorporaciones", v: previstas.value.length, s: previstas.value[0] ? `Desde el ${fCorta(previstas.value[0].inicio)}` : "Sin fecha prevista", i: "calendario", ir: () => go("estudiantes") },
     ]);
@@ -33,7 +40,7 @@ export default {
         let max = 0, cuando = HOY_ISO;
         for (let i = 0; i <= 14; i++) {
           const d = dia(i);
-          const n = store.estudiantes.filter((e) => e.inicio <= d && e.fin >= d && turnoEstudiante(e) === turno).length;
+          const n = ests.value.filter((e) => e.inicio <= d && e.fin >= d && turnoEstudiante(e) === turno).length;
           if (n > max) { max = n; cuando = d; }
         }
         out.push({ turno, max, cuando, aforo: store.aforo[turno] });
@@ -53,8 +60,8 @@ export default {
     const embudo = computed(() => { const max = Math.max(1, ...store.estados.map((e) => cuenta(e.k))); return store.estados.filter((e) => e.activo).map((e) => ({ ...e, n2: cuenta(e.k), w: (cuenta(e.k) / max) * 100 })); });
     const porCentro = computed(() => {
       const m = {};
-      store.candidatos.forEach((c) => { const k = c.centroId || "_"; (m[k] ||= { id: k, nombre: centroDe(c.centroId)?.nombre || "Autopostulados", total: 0, activos: 0 }).total++; });
-      store.estudiantes.filter((e) => estadoPracticas(e) === "En curso").forEach((e) => { if (m[e.centroId]) m[e.centroId].activos++; });
+      cands.value.forEach((c) => { const k = c.centroId || "_"; (m[k] ||= { id: k, nombre: centroDe(c.centroId)?.nombre || "Autopostulados", total: 0, activos: 0 }).total++; });
+      ests.value.filter((e) => estadoPracticas(e) === "En curso").forEach((e) => { if (m[e.centroId]) m[e.centroId].activos++; });
       const l = Object.values(m).sort((a, b) => b.total - a.total).slice(0, 7); const max = l[0]?.total || 1;
       return l.map((x) => ({ ...x, w: (x.total / max) * 100, wa: (x.activos / max) * 100 }));
     });
@@ -62,13 +69,14 @@ export default {
       const l = enCurso.value.filter((e) => turnoEstudiante(e) === t);
       return { t, def: store.turnosDef[t], l: l.map((e) => candDe(e.candId)), n: l.length, aforo: store.aforo[t] };
     }));
-    return { kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
+    return { fArea, areas, kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
   },
   template: `
   <div class="page">
     <div class="page-head">
       <div><h1>Buenos días</h1><p>Así está hoy el proceso de prácticas de la gestoría.</p></div>
       <div class="acciones">
+        <select class="inp" v-model="fArea" style="width:auto;min-width:190px" title="Filtrar todo Inicio por área de interés"><option value="">Todas las áreas</option><option v-for="a in areas" :key="a" :value="a">{{ a }}</option></select>
         <button class="btn" @click="go('entrevistas')"><Ic n="calendario" :s="16" />Programar entrevista</button>
         <button class="btn btn-accent" @click="go('candidatos/nuevo')"><Ic n="plus" :s="16" />Nuevo candidato</button>
       </div>
