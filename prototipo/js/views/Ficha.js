@@ -496,13 +496,12 @@ export default {
             </div>
           </div>
           <div class="nota-final">
-            <div class="nf-cab"><span class="nf-ico"><Ic n="star" :s="16" /></span><h3>Nota final</h3><span v-if="bor.nota != null" class="nf-tag">{{ etiquetaNota(bor.nota) }}</span></div>
-            <div class="nf-num"><b>{{ bor.nota == null ? '—' : String(bor.nota).replace('.', ',') }}</b><span>/ 10</span></div>
-            <div class="nf-barra"><i :style="{width: (bor.nota || 0) * 10 + '%'}"></i></div>
-            <div class="nf-botones" role="group" aria-label="Nota del 1 al 10"><button v-for="n in 10" :key="n" :class="{on: bor.nota === n, medio: bor.nota === n - 0.5}" :aria-pressed="bor.nota === n || bor.nota === n - 0.5" @click="ponerNota(n)">{{ n }}</button></div>
-            <div class="nf-exacta"><label for="nota-exacta">O escríbela:</label><input id="nota-exacta" class="inp" type="number" min="0" max="10" step="0.25" inputmode="decimal" :value="bor.nota ?? ''" placeholder="9,5" @input="notaEscrita($event)" /><small class="nf-ayuda">Medio punto: pulsa dos veces el número (dos veces el 10 = 9,5)</small></div>
-            <div class="fld"><label>Observaciones</label><textarea class="inp" rows="4" v-model="bor.obs" placeholder="Impresión general de la entrevista…"></textarea></div>
-            <button class="btn btn-ink nf-guardar" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button>
+            <div class="nf-fila">
+              <label class="nf-lbl" for="nota-exacta">Nota final<span class="nf-caja"><input id="nota-exacta" class="nf-input" type="number" min="0" max="10" step="0.25" inputmode="decimal" :value="bor.nota ?? ''" placeholder="—" @input="notaEscrita($event)" /><span class="nf-de">/ 10</span></span></label>
+              <span v-if="bor.nota != null" class="nf-tag">{{ etiquetaNota(bor.nota) }}</span>
+            </div>
+            <div class="fld"><label>Observaciones</label><textarea class="inp" rows="2" v-model="bor.obs" placeholder="Impresión general de la entrevista…"></textarea></div>
+            <button class="btn nf-guardar" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button>
             <div class="row nf-mas"><button v-if="cambiosVal" class="btn-link" @click="descartarValoracion">Descartar cambios</button><button v-if="c.nota != null || bor.nota != null" class="btn-link peligro" @click="borrarValoracion">Borrar valoración</button></div>
           </div>
           </div>
