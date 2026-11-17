@@ -368,3 +368,22 @@ html, body { max-width: 100%; overflow-x: clip; }
 .gentrivo-estado { display: inline-flex; align-items: center; gap: 6px; }
 .vincular-g .inp { max-width: 420px; }
 .gentrivo-box .btn-link.right { margin-left: auto; }
+.rondas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.icon-btn-sm { width: 28px; height: 28px; }
+.ia-foto img { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; flex: none; }
+
+/* Menú lateral en móvil: velo para cerrarlo tocando fuera */
+.side-velo { display: none; }
+@media (max-width: 1000px) {
+  .side-velo { display: block; position: fixed; inset: 0; z-index: 39; background: color-mix(in srgb, #060b1a 35%, transparent); animation: fade .2s ease; }
+  .side.open { z-index: 41; }
+}
+/* Zona para borrar la ficha */
+.zona-peligro { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--danger-bg) 55%, transparent); }
+.zona-peligro > div { display: flex; flex-direction: column; gap: 2px; }
+.btn-peligro { background: var(--surface); color: var(--err-dark); border-color: color-mix(in srgb, var(--danger) 50%, var(--border)); }
+.btn-peligro:hover { background: var(--danger-bg); }
+/* Entrevistas en lista: la tabla tiene su propio desplazamiento, así la barra horizontal está siempre a la vista */
+.tbl-scroll { max-height: calc(100vh - 260px); overflow: auto; }
+.tbl-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+@media (max-width: 700px) { .tbl-scroll { max-height: calc(100dvh - 200px); } }

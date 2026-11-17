@@ -105,14 +105,41 @@ export function incorporar(c, datos) {
   return e;
 }
 
+/** Borra la ficha de un candidato y todo lo suyo (entrevistas, prácticas, documentos, historial y notas).
+ *  Devuelve los ids de archivo del servidor para borrarlos también. */
+export function borrarCandidato(c) {
+  const id = c.id;
+  const archivos = store.documentos.filter((d) => d.candId === id && d.archivoId).map((d) => d.archivoId);
+  for (const k of ["entrevistas", "documentos", "historial", "notas", "estudiantes"]) {
+    const queda = store[k].filter((x) => x.candId !== id);
+    if (queda.length !== store[k].length) store[k].splice(0, store[k].length, ...queda);
+  }
+  const i = store.candidatos.findIndex((x) => x.id === id);
+  if (i >= 0) store.candidatos.splice(i, 1);
+  return archivos;
+}
+
+/** Número de entrevista de esa persona (1.ª, 2.ª…) por orden de fecha, sin contar las canceladas. */
+export function rondaDe(e) {
+  const l = store.entrevistas.filter((x) => x.candId === e.candId && x.estado !== "Cancelada").sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  const i = l.findIndex((x) => x.id === e.id);
+  return i >= 0 ? i + 1 : 1;
+}
+
 export function programarEntrevista(c, { fecha, hora, modalidad, entrevistador }) {
-  store.entrevistas.push({
+  const previas = store.entrevistas.filter((x) => x.candId === c.id && x.estado !== "Cancelada").length;
+  const nueva = {
     id: nuevoId(), candId: c.id, fecha, hora, modalidad, entrevistador, estado: "Pendiente", notion: true, obs: "", preguntas: [],
     criterios: { conocimientos: { n: null, t: "" }, comunicacion: { n: null, t: "" }, disponibilidad: { n: null, t: "" }, adecuacion: { n: null, t: "" } },
-  });
-  if (["pendiente-revision", "pendiente-entrevista"].includes(c.estado)) cambiarEstado(c, "entrevista-programada", { silencioso: true });
-  addHist(c.id, "entrevista", `Entrevista programada para el ${fecha} a las ${hora} (${modalidad.toLowerCase()})`);
-  toast(`Entrevista programada con ${nombreCompleto(c)}`);
+  };
+  store.entrevistas.push(nueva);
+  // Una 2.ª entrevista (p. ej. con dirección) vuelve a dejar la candidatura en «Entrevista programada»
+  const pasa = previas ? ["pendiente-revision", "pendiente-entrevista", "entrevistado", "en-valoracion"] : ["pendiente-revision", "pendiente-entrevista"];
+  if (pasa.includes(c.estado)) cambiarEstado(c, "entrevista-programada", { silencioso: true });
+  const n = previas ? `${previas + 1}.ª entrevista` : "Entrevista";
+  addHist(c.id, "entrevista", `${n} programada para el ${fecha} a las ${hora} (${modalidad.toLowerCase()})${entrevistador ? " con " + entrevistador : ""}`);
+  toast(`${n} programada con ${nombreCompleto(c)}`);
+  return nueva;
 }
 
 export { dia, HOY_ISO };

@@ -124,6 +124,7 @@ const App = {
   </div>
 
   <div v-else class="shell">
+    <div v-if="menu" class="side-velo" @click="menu=false" aria-hidden="true"></div>
     <aside class="side" :class="{open: menu}">
       <div class="brand"><img class="brand-logo" src="img/logo-g.svg" alt="" /><div><b>Gestoría eMadrid</b><span>Portal de prácticas</span></div></div>
       <nav class="nav">

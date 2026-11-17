@@ -69,7 +69,7 @@ export default {
           <td><span class="tag">{{ x.d.tipo }}</span></td>
           <td><div class="who"><Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :s="26" />{{ nombreCompleto(x.c) }}</div></td>
           <td>{{ centroDe(x.c.centroId)?.nombre || 'Autopostulado' }}</td>
-          <td class="nowrap">{{ fCompleta(x.d.fecha) }}</td><td class="nowrap">{{ tam(x.d.tam) }}</td>
+          <td class="nowrap">{{ fCompleta(x.d.fecha) }}<template v-if="x.d.hora">, {{ x.d.hora }}</template><small v-if="x.d.por" class="sub" style="display:block">{{ x.d.por }}</small></td><td class="nowrap">{{ tam(x.d.tam) }}</td>
           <td class="nowrap"><button class="icon-btn" title="Ver"><Ic n="eye" :s="16" /></button><button class="icon-btn" title="Descargar" @click.stop="x.d.archivoId ? descargar(x.d) : demo('se descargaría el archivo')"><Ic n="download" :s="16" /></button></td>
         </tr></tbody></table>
         <Vacio v-if="!lista.length" titulo="Ningún documento con estos filtros" texto="" />

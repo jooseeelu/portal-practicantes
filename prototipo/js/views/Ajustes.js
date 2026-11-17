@@ -6,13 +6,14 @@ import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
 import { plantillasIniciales, FIRMA_INICIAL, VARIABLES } from "../mensajes.js";
 import { slug, fCompleta, dia, HOY_ISO, iso, pad } from "../util.js";
 
-const tabActual = ref("estados");
+const tabActual = ref("equipo");
 
 export default {
   components: { Ic, Chip, Avatar, Modal },
   setup() {
     const tab = tabActual;
-    const tabs = [["estados", "Estados del proceso", "kanban"], ["turnos", "Turnos y aforo", "clock"], ["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["mensajes", "Mensajes", "mail"], ["datos", "Protección de datos", "shield"], ["integraciones", "Integraciones", "link"]];
+    // Por orden de importancia: lo estético (colores de los estados) al final
+    const tabs = [["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["mensajes", "Mensajes", "mail"], ["turnos", "Turnos y aforo", "clock"], ["integraciones", "Integraciones", "link"], ["datos", "Protección de datos", "shield"], ["estados", "Estados del proceso", "kanban"]];
     const usados = (k) => store.candidatos.filter((c) => c.estado === k).length;
     const mover = (i, d) => { const j = i + d; if (j < 0 || j >= store.estados.length) return; const a = store.estados; [a[i], a[j]] = [a[j], a[i]]; };
     const color = (e, col) => Object.assign(e, { col, c: COLORES[col].c, cd: COLORES[col].cd });
@@ -114,7 +115,7 @@ export default {
       vaciarDatos(); toast("Entorno vaciado");
     };
 
-    const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "no-seleccionado-comunicado", "retirada"].includes(c.estado)).length);
+    const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "no-seleccionado-comunicado", "retirada", "cancelado"].includes(c.estado)).length);
     const demo = (m) => toast((enServidor.value ? "Todavía no disponible: " : "Demo: ") + m);
     const restaurarPlantillas = async () => { if (!(await pedirConfirmacion({ titulo: "¿Restaurar los textos originales?", texto: "Se perderán los cambios que hayas hecho en las plantillas.", boton: "Sí, restaurar" }))) return; store.plantillas = plantillasIniciales(); store.firma = FIRMA_INICIAL; toast("Plantillas restauradas"); };
     const nuevaPlantilla = () => store.plantillas.push({ id: "p" + Date.now().toString(36), nombre: "Nueva plantilla", uso: "general", asunto: "", texto: "Hola {nombre}, \n\n{firma}" });

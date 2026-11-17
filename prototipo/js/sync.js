@@ -15,6 +15,9 @@ const AJUSTES = ["estados", "aforo", "turnosDef", "retencionMeses", "personas", 
 const K_AJUSTES = "ajustes/general";
 
 const remoto = new Map(); // "tipo/clave" -> { id, json }
+// «version» cuenta los cambios hechos aquí: si cambia mientras se trae del servidor, lo traído se descarta
+// (si no, un documento recién añadido podía desaparecer al llegar una recarga que había empezado antes).
+let version = 0;
 let paradas = [], temporizador = null, pendiente = false, cola = Promise.resolve(), avisoAjustes = 0, intervalo = null;
 
 const leerAjustes = () => Object.fromEntries(AJUSTES.map((k) => [k, store[k]]));
@@ -71,6 +74,7 @@ async function empujar() {
 }
 
 function programar() {
+  version++;
   pendiente = true;
   clearTimeout(temporizador);
   temporizador = setTimeout(() => { cola = cola.then(empujar); }, 700);
@@ -85,13 +89,15 @@ export function guardarAhora() {
 }
 
 /** Lee todo del servidor y lo vuelca en el store sin romper las referencias que usan las vistas. */
-async function traer() {
+async function traer(soloSiNadaCambia = false) {
+  const v0 = version;
   const filas = [];
   for (let pag = 1; ; pag++) {
     const d = await pedir("GET", `api/collections/registros/records?perPage=500&page=${pag}&sort=created&skipTotal=1`);
     filas.push(...d.items);
     if (d.items.length < 500) break;
   }
+  if (soloSiNadaCambia && (version !== v0 || pendiente || sesion.guardando)) return;
   const porTipo = {};
   for (const f of filas) (porTipo[f.tipo] ||= []).push(f);
   remoto.clear();
@@ -128,12 +134,14 @@ async function traer() {
       store.estados.splice(j >= 0 ? j + 1 : store.estados.length, 0, { ...e });
     });
   }
+  // «Mañana o tarde» se quitó por confundirse con «Disponibilidad completa»
+  store.candidatos.forEach((c) => { if (c.turno === "Mañana o tarde") { c.turno = "Disponibilidad completa"; c.disponibilidad = c.turno; } });
 }
 
 /** Trae los cambios de otras personas si aquí no hay nada pendiente de guardar. */
 function refrescar() {
   if (sesion.modo !== "servidor" || !sesion.usuario || pendiente || sesion.guardando || document.hidden) return;
-  cola = cola.then(() => (pendiente ? null : traer().catch(() => {})));
+  cola = cola.then(() => (pendiente ? null : traer(true).catch(() => {})));
 }
 
 const alOcultar = () => { if (document.hidden) guardarAhora(); else refrescar(); };
