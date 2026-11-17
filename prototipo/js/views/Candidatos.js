@@ -5,7 +5,7 @@ import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir, 
 import { recortarFoto } from "../cv.js";
 import { elegirMensaje } from "../mensajes.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas, SelectArea } from "../ui.js";
-import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
+import { AREAS_UNIDAS, TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
 import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
@@ -98,7 +98,7 @@ export default {
         const d = await leerCurriculum(r.id), x = d.datos || {};
         const pon = (k, v) => { if (v && !String(n[k] || "").trim()) { n[k] = v; lee.hecho++; } };
         ["nombre", "apellidos", "email", "tel", "titulacion", "idiomas", "herramientas", "experiencia"].forEach((k) => pon(k, x[k]));
-        pon("area", x.area);
+        pon("area", AREAS_UNIDAS[x.area] || x.area);
         if (x.centro && !n.centroId) {
           const nc = normal(x.centro);
           const m = store.centros.find((ce) => !ce.archivado && (normal(ce.nombre) === nc || (normal(ce.nombre).length > 3 && (nc.includes(normal(ce.nombre)) || normal(ce.nombre).includes(nc)))));

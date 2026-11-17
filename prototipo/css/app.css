@@ -504,3 +504,9 @@ button.foto-edit { border: 0; padding: 0; background: transparent; }
 .rc-esq.ne { right: -9px; top: -9px; cursor: nesw-resize; } .rc-esq.sw { left: -9px; bottom: -9px; cursor: nesw-resize; }
 @media (pointer: coarse) { .rc-esq { width: 22px; height: 22px; } }
 .foto-mas { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+.seg-mini { padding: 3px; }
+.seg-mini button { height: 28px; padding: 0 10px; font-size: 12px; }
+.chip-area-global { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+/* Inicio: dos columnas independientes, sin huecos entre tarjetas */
+.dash-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }

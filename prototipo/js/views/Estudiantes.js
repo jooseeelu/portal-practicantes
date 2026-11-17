@@ -6,7 +6,9 @@ import { registrar } from "../api.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
 import { toast } from "../store.js";
-import { urlWhatsApp, HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
+import { filtros as filtrosC } from "./Candidatos.js";
+import { AREAS } from "../data.js";
+import { cumpleArea, urlWhatsApp, HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
 
 const COLOR = { "En curso": ["var(--cyan)", "var(--cyan-dark)"], Prevista: ["var(--gold-500)", "var(--gold-700)"], Finalizada: ["var(--text-400)", "var(--text-600)"] };
 const estado = reactive({ semana: lunesDe(HOY_ISO), filtro: "activos" });
@@ -17,7 +19,7 @@ export default {
     const s = estado;
     cargarGentrivo();
     const vista = computed(() => (ruta.value.id === "cuadrante" ? "cuadrante" : "lista"));
-    const filas = computed(() => store.estudiantes.map((e) => {
+    const filas = computed(() => store.estudiantes.filter((e) => cumpleArea(candDe(e.candId)?.area, filtrosC.area, AREAS)).map((e) => {
       const c = candDe(e.candId), est = estadoPracticas(e);
       const total = Math.max(1, difDias(e.fin, e.inicio)), hecho = Math.min(total, Math.max(0, difDias(HOY_ISO, e.inicio)));
       return { e, c, est, g: enGentrivo(c), turno: turnoEstudiante(e), pct: est === "Finalizada" ? 100 : est === "Prevista" ? 0 : Math.round((hecho / total) * 100), quedan: difDias(e.fin, HOY_ISO) };
@@ -40,10 +42,11 @@ export default {
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { gentrivo, cargarGentrivo, textoHoy, hoyEsCambio, menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
+    return { filtrosC, gentrivo, cargarGentrivo, textoHoy, hoyEsCambio, menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
   },
   template: `
   <div class="page">
+    <div v-if="filtrosC.area" class="chip-area-global"><span class="chip-filtro" @click="filtrosC.area = ''" role="button" tabindex="0">Área: {{ filtrosC.area === '__otras' ? 'Otra' : filtrosC.area }}<Ic n="x" :s="14" /></span><span class="sub">Solo se ve lo de esta área (elegida en Inicio o en Candidatos).</span></div>
     <div class="page-head">
       <div><h1>Estudiantes en prácticas</h1><p>Seguimiento de quién está en la oficina, en qué turno y hasta cuándo.</p></div>
       <div class="acciones"><div class="seg"><button :class="{on: vista==='lista'}" @click="go('estudiantes')"><Ic n="tabla" :s="15" />Listado</button><button :class="{on: vista==='cuadrante'}" @click="go('estudiantes/cuadrante')"><Ic n="calendario" :s="15" />Cuadrante de turnos</button></div></div>

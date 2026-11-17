@@ -7,7 +7,7 @@ import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurricul
 import { recortarFoto } from "../cv.js";
 import { RecorteFoto } from "../recorte.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas, SelectArea } from "../ui.js";
-import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
+import { AREAS_UNIDAS, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe, normal, esFinde, urlWhatsApp } from "../util.js";
 
 const CRITERIOS = [["conocimientos", "Conocimientos"], ["comunicacion", "Comunicación"], ["disponibilidad", "Disponibilidad"], ["adecuacion", "Adecuación al puesto"]];
@@ -295,6 +295,7 @@ export default {
       try {
         const r = await leerCurriculum(d.archivoId);
         const x = r.datos || {};
+        if (AREAS_UNIDAS[x.area]) x.area = AREAS_UNIDAS[x.area];
         const puestos = [];
         for (const [k, etq] of [...CAMPOS_IA, ["area", "Área"]]) if (x[k] && !String(c.value[k] ?? "").trim()) { c.value[k] = x[k]; puestos.push(etq.toLowerCase()); }
         if (x.centro && !c.value.centroId) {

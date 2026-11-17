@@ -4,8 +4,9 @@ import { go } from "../router.js";
 import { enviarPlantilla } from "../mensajes.js";
 import { miNombre, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
-import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA } from "../data.js";
-import { HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal, esFinde, urlWhatsApp } from "../util.js";
+import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, AREAS } from "../data.js";
+import { filtros as filtrosC } from "./Candidatos.js";
+import { cumpleArea, HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal, esFinde, urlWhatsApp } from "../util.js";
 
 const H0 = 10, H1 = 20, PX = 64, DUR = 45; // horario visible, píxeles por hora y duración de una entrevista
 const estado = reactive({ vista: "calendario", semana: lunesDe(dia(3)), fEstado: "", fQuien: "", q: "", orden: { col: "fecha", dir: "desc" } });
@@ -16,7 +17,7 @@ export default {
     const s = estado;
     const dias = computed(() => [0, 1, 2, 3, 4].map((i) => dia(i, s.semana)));
     const horas = Array.from({ length: H1 - H0 + 1 }, (_, i) => H0 + i);
-    const filtradas = computed(() => store.entrevistas.filter((e) => !s.fQuien || (s.fQuien === "_ninguno" ? !e.entrevistador : e.entrevistador === s.fQuien)));
+    const filtradas = computed(() => store.entrevistas.filter((e) => cumpleArea(candDe(e.candId)?.area, filtrosC.area, AREAS)).filter((e) => !s.fQuien || (s.fQuien === "_ninguno" ? !e.entrevistador : e.entrevistador === s.fQuien)));
 
     // Reparto en carriles de las citas que se pisan
     function colocar(evs) {
@@ -93,11 +94,12 @@ export default {
     const clicHueco = (d, ev) => { const y = ev.offsetY; const m = Math.round(((y / PX) * 60) / 15) * 15 + H0 * 60; abrirNueva(d, deMin(Math.min(m, H1 * 60))); };
     const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); if (esFinde(nueva.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
 
-    return { menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    return { filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
   <div class="page">
+    <div v-if="filtrosC.area" class="chip-area-global"><span class="chip-filtro" @click="filtrosC.area = ''" role="button" tabindex="0">Área: {{ filtrosC.area === '__otras' ? 'Otra' : filtrosC.area }}<Ic n="x" :s="14" /></span><span class="sub">Solo se ve lo de esta área (elegida en Inicio o en Candidatos).</span></div>
     <div class="page-head">
       <div><h1>Entrevistas</h1><p>Agenda común del equipo, de lunes a viernes.</p></div>
       <div class="acciones">
