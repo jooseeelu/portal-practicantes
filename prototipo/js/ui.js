@@ -212,7 +212,7 @@ export const Dropzone = {
 export const Toasts = {
   components: { Ic },
   setup: () => ({ store }),
-  template: `<div class="toasts" aria-live="polite"><div v-for="t in store.toasts" :key="t.id" class="toast" :class="t.tipo"><Ic :n="t.tipo==='error'?'alert':'check'" :s="16" />{{ t.msg }}</div></div>`,
+  template: `<div class="toasts" aria-live="polite"><div v-for="t in store.toasts" :key="t.id" class="toast" :class="[t.tipo, {con: t.accion}]"><Ic :n="t.tipo==='error'?'alert':'check'" :s="16" /><span>{{ t.msg }}</span><button v-if="t.accion" class="toast-accion" @click="t.accion.f(); store.toasts = store.toasts.filter((x) => x.id !== t.id)">{{ t.accion.t }}</button></div></div>`,
 };
 
 export const Vacio = {

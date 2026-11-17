@@ -1,5 +1,5 @@
-import { computed, reactive, ref, watch } from "vue";
-import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
+import { computed, reactive, ref, watch, onUnmounted } from "vue";
+import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
@@ -55,26 +55,56 @@ export default {
     const prog = reactive({ abierto: false, otra: false, fecha: dia(3), hora: "10:30", modalidad: "Presencial", entrevistador: "" });
     const guardarProg = () => { if (esFinde(prog.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); const e = programarEntrevista(c.value, prog); entSel.value = e?.id || null; prog.abierto = false; prog.otra = false; tab.value = "entrevista"; };
     const otraEntrevista = () => Object.assign(prog, { abierto: true, otra: true, fecha: dia(3), entrevistador: "" });
-    // Valoración: quitar un criterio o borrarla entera
-    const quitarCriterio = (k) => { ent.value.criterios[k].n = null; ent.value.criterios[k].t = ""; };
+    // Valoración en BORRADOR: lo que se toca aquí no se guarda hasta pulsar «Guardar valoración» (o se descarta)
+    const vacioCrit = () => Object.fromEntries(CRITERIOS.map(([k]) => [k, { n: null, t: "" }]));
+    const bor = reactive({ criterios: vacioCrit(), obs: "", nota: null, de: null });
+    const original = () => ({ criterios: JSON.parse(JSON.stringify(ent.value?.criterios || vacioCrit())), obs: ent.value?.obs || "", nota: c.value?.nota ?? null });
+    function cargarBorrador() { const o = original(); Object.assign(bor, { ...o, de: ent.value?.id ?? null }); }
+    watch(() => ent.value && ent.value.id, cargarBorrador, { immediate: true });
+    const cambiosVal = computed(() => {
+      if (!ent.value) return 0;
+      const o = original(); let n = 0;
+      for (const [k] of CRITERIOS) { if ((bor.criterios[k]?.n ?? null) !== (o.criterios[k]?.n ?? null)) n++; if ((bor.criterios[k]?.t || "") !== (o.criterios[k]?.t || "")) n++; }
+      if ((bor.obs || "") !== o.obs) n++;
+      if ((bor.nota ?? null) !== (o.nota ?? null)) n++;
+      return n;
+    });
+    const descartarValoracion = () => { cargarBorrador(); toast("Cambios descartados"); };
+    const elegirRonda = async (id) => {
+      if (cambiosVal.value && !(await pedirConfirmacion({ titulo: "Hay cambios sin guardar", texto: "La valoración de esta entrevista tiene cambios sin guardar. Si cambias de entrevista se descartan.", boton: "Descartar y cambiar" }))) return;
+      entSel.value = id;
+    };
+    const quitarCriterio = (k) => { bor.criterios[k] = { n: null, t: "" }; };
     const borrarValoracion = async () => {
       if (!(await pedirConfirmacion({ titulo: "¿Borrar la valoración?", texto: "Se quitan las notas y comentarios de los criterios de esta entrevista y la nota final de la ficha.", boton: "Borrar valoración" }))) return;
-      for (const [k] of CRITERIOS) quitarCriterio(k);
-      notaFinal.value = null;
-      if (c.value.nota != null) { c.value.nota = null; addHist(c.value.id, "valoracion", "Valoración borrada"); }
-      toast("Valoración borrada");
+      const copia = { criterios: JSON.parse(JSON.stringify(ent.value.criterios)), obs: ent.value.obs, nota: c.value.nota };
+      ent.value.criterios = vacioCrit();
+      const tenia = c.value.nota;
+      c.value.nota = null;
+      if (tenia != null) addHist(c.value.id, "valoracion", "Valoración borrada", miNombre(), { cambio: { campo: "nota", antes: tenia, despues: null } });
+      cargarBorrador();
+      const e = ent.value;
+      toast("Valoración borrada", "ok", { t: "Deshacer", f: () => { e.criterios = copia.criterios; e.obs = copia.obs; c.value.nota = copia.nota; cargarBorrador(); } });
     };
-    const media = computed(() => { const v = CRITERIOS.map(([k]) => ent.value?.criterios[k].n).filter((x) => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 2) / 2 : null; });
-    const notaFinal = ref(c.value?.nota ?? null);
+    const media = computed(() => { const v = CRITERIOS.map(([k]) => bor.criterios[k]?.n).filter((x) => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 2) / 2 : null; });
+    const notaFinal = computed({ get: () => bor.nota, set: (v) => { bor.nota = v === "" || v == null ? null : Number(v); } });
     const guardarValoracion = () => {
-      const v = notaFinal.value ?? media.value;
+      const v = bor.nota ?? media.value;
       if (v == null) return toast("Puntúa al menos un criterio o escribe la nota final.", "error");
-      c.value.nota = Number(v); notaFinal.value = Number(v);
+      const antes = c.value.nota ?? null;
+      ent.value.criterios = JSON.parse(JSON.stringify(bor.criterios));
+      ent.value.obs = bor.obs;
+      c.value.nota = Number(v);
       ent.value.estado = "Realizada";
-      addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || miNombre());
+      addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || miNombre(), { cambio: { campo: "nota", antes, despues: Number(v) } });
       if (["entrevista-programada", "entrevistado", "pendiente-entrevista"].includes(c.value.estado)) cambiarEstado(c.value, "en-valoracion", { silencioso: true });
+      cargarBorrador();
       toast("Valoración guardada");
     };
+    // Al salir de la página con la valoración a medias, el navegador avisa
+    const avisoSalir = (e) => { if (cambiosVal.value) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", avisoSalir);
+    onUnmounted(() => window.removeEventListener("beforeunload", avisoSalir));
     const addPregunta = () => ent.value.preguntas.push({ q: "", a: "" });
 
     // --- Documentos ---
@@ -118,13 +148,14 @@ export default {
       try { window.open(await urlArchivo(d, { descargar }), "_blank", "noopener"); }
       catch (e) { toast(`No se pudo abrir el archivo: ${e.message}`, "error"); }
     }
-    const borrarDoc = async (d) => {
-      if (!(await pedirConfirmacion({ titulo: "¿Eliminar este documento?", texto: `«${d.nombre}» dejará de estar en la ficha${d.archivoId ? " y se borrará el archivo del servidor" : ""}.`, boton: "Eliminar" }))) return;
-      if (d.archivoId && enServidor()) {
-        try { await borrarArchivo(d.archivoId); }
-        catch (e) { if (e.estado !== 404) { toast(`No se pudo borrar el archivo: ${e.message}`, "error"); return; } }
-      }
-      store.documentos = store.documentos.filter((x) => x.id !== d.id); addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`); toast("Documento eliminado"); };
+    const borrarDoc = (d) => {
+      store.documentos = store.documentos.filter((x) => x.id !== d.id);
+      addHist(c.value.id, "documento", `Documento eliminado: ${d.nombre}`);
+      let deshecho = false;
+      // El archivo del servidor se borra cuando ya no se puede deshacer
+      const t = setTimeout(() => { if (!deshecho && d.archivoId && enServidor()) borrarArchivo(d.archivoId).catch(() => {}); }, 9000);
+      toast(`«${d.nombre}» eliminado`, "ok", { t: "Deshacer", f: () => { deshecho = true; clearTimeout(t); store.documentos.push(d); addHist(d.candId, "documento", `Documento recuperado: ${d.nombre}`); } });
+    };
     const tam = (kb) => (kb >= 1024 ? (kb / 1024).toFixed(1).replace(".", ",") + " MB" : kb + " KB");
 
     // --- Notas internas ---
@@ -177,7 +208,7 @@ export default {
       const archivo = ev.target.files[0]; ev.target.value = "";
       try { c.value.foto = await leerFoto(archivo); addHist(c.value.id, "documento", "Foto de perfil actualizada"); toast("Foto actualizada"); } catch (e) { toast(e.message, "error"); }
     };
-    const quitarFoto = async () => { if (!(await pedirConfirmacion({ titulo: "¿Quitar la foto?", texto: "Se mostrarán las iniciales en su lugar. Podrás subir otra cuando quieras.", boton: "Quitar foto" }))) return; c.value.foto = ""; toast("Foto eliminada"); };
+    const quitarFoto = () => { const antes = c.value.foto, cc = c.value; cc.foto = ""; toast("Foto quitada", "ok", { t: "Deshacer", f: () => { cc.foto = antes; } }); };
 
     // --- Lectura del currículum con IA: propone datos y una persona decide cuáles aplicar ---
     const CAMPOS_IA = [["nombre", "Nombre"], ["apellidos", "Apellidos"], ["email", "Correo electrónico"], ["tel", "Teléfono"], ["titulacion", "Titulación"], ["curso", "Curso"], ["idiomas", "Idiomas"], ["herramientas", "Herramientas"], ["experiencia", "Experiencia previa"]];
@@ -235,7 +266,8 @@ export default {
       toast("Ficha de " + nom + " borrada");
       go("candidatos");
     };
-    return { esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    const deshacerHist = (h) => { if (deshacerCambio(h)) toast("Cambio deshecho"); };
+    return { bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -401,7 +433,7 @@ export default {
         <Vacio v-if="!ent" icono="calendario" titulo="Sin entrevista programada" texto="Programa la entrevista para poder valorarla después."><button class="btn btn-primary" style="margin-top:8px" @click="prog.abierto=true"><Ic n="calendario" :s="16" />Programar entrevista</button></Vacio>
         <template v-else>
           <div class="rondas">
-            <button v-for="(e, i) in ents" :key="e.id" class="pill" :class="{on: ent.id === e.id}" @click="entSel = e.id">{{ i + 1 }}.ª entrevista · {{ fCorta(e.fecha) }}<template v-if="e.entrevistador"> · {{ e.entrevistador }}</template><template v-if="e.estado === 'Cancelada'"> · cancelada</template></button>
+            <button v-for="(e, i) in ents" :key="e.id" class="pill" :class="{on: ent.id === e.id}" @click="elegirRonda(e.id)">{{ i + 1 }}.ª entrevista · {{ fCorta(e.fecha) }}<template v-if="e.entrevistador"> · {{ e.entrevistador }}</template><template v-if="e.estado === 'Cancelada'"> · cancelada</template></button>
             <button class="btn btn-sm right" @click="otraEntrevista"><Ic n="plus" :s="14" />Programar otra entrevista</button>
           </div>
           <div class="ent-cab">
@@ -418,10 +450,10 @@ export default {
           <div class="valoracion">
             <div class="val-crit">
               <h3>Valoración por criterios</h3>
-              <div v-for="[k, t] in CRITERIOS" :key="k" class="crit">
-                <div class="row"><b class="grow">{{ t }}</b><Nota :v="ent.criterios[k].n" /><button v-if="ent.criterios[k].n != null || ent.criterios[k].t" class="icon-btn icon-btn-sm" title="Quitar la nota de este criterio" aria-label="Quitar la nota de este criterio" @click="quitarCriterio(k)"><Ic n="x" :s="14" /></button></div>
-                <input type="range" min="0" max="10" step="0.5" :value="ent.criterios[k].n ?? 5" @input="ent.criterios[k].n = Number($event.target.value)" :class="{sin: ent.criterios[k].n==null}" />
-                <input class="inp" v-model="ent.criterios[k].t" :placeholder="'Comentario sobre ' + t.toLowerCase()" />
+              <div v-for="[k, t] in CRITERIOS" :key="k" class="crit" :class="{cambiado: (bor.criterios[k].n ?? null) !== (ent.criterios[k]?.n ?? null) || (bor.criterios[k].t || '') !== (ent.criterios[k]?.t || '')}">
+                <div class="row"><b class="grow">{{ t }}</b><Nota :v="bor.criterios[k].n" /><button v-if="bor.criterios[k].n != null || bor.criterios[k].t" class="icon-btn icon-btn-sm" title="Quitar la nota de este criterio" aria-label="Quitar la nota de este criterio" @click="quitarCriterio(k)"><Ic n="x" :s="14" /></button></div>
+                <input type="range" min="0" max="10" step="0.5" :value="bor.criterios[k].n ?? 5" @input="bor.criterios[k].n = Number($event.target.value)" :class="{sin: bor.criterios[k].n==null}" />
+                <input class="inp" v-model="bor.criterios[k].t" :placeholder="'Comentario sobre ' + t.toLowerCase()" />
               </div>
             </div>
             <div class="val-final">
@@ -429,11 +461,16 @@ export default {
               <Nota :v="notaFinal ?? media" grande />
               <div class="fld"><label>Nota (0–10, admite medios puntos)</label><input class="inp" type="number" min="0" max="10" step="0.5" v-model.number="notaFinal" :placeholder="media!=null ? 'Media: ' + media : '—'" /></div>
               <button class="btn btn-sm" v-if="media!=null" @click="notaFinal=media">Usar la media de criterios ({{ String(media).replace('.', ',') }})</button>
-              <div class="fld"><label>Observaciones de la entrevista</label><textarea class="inp" rows="4" v-model="ent.obs" placeholder="Impresión general, puntos fuertes, dudas…"></textarea></div>
-              <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button><button v-if="c.nota != null || media != null || notaFinal != null" class="btn btn-ghost" @click="borrarValoracion"><Ic n="x" :s="15" />Borrar valoración</button></div>
+              <div class="fld"><label>Observaciones de la entrevista</label><textarea class="inp" rows="4" v-model="bor.obs" placeholder="Impresión general, puntos fuertes, dudas…"></textarea></div>
+              <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" @click="guardarValoracion"><Ic n="check" :s="16" />Guardar valoración</button><button v-if="cambiosVal" class="btn" @click="descartarValoracion">Descartar cambios</button><button v-if="c.nota != null || media != null || notaFinal != null" class="btn btn-ghost" @click="borrarValoracion"><Ic n="x" :s="15" />Borrar valoración</button></div>
             </div>
           </div>
 
+          <Teleport to="body"><div v-if="cambiosVal && tab==='entrevista'" class="barra-guardar" role="status">
+            <Ic n="alert" :s="17" /><span class="grow"><b>{{ cambiosVal }} cambio{{ cambiosVal === 1 ? '' : 's' }} sin guardar</b> en la valoración de la {{ ents.findIndex(e => e.id === ent.id) + 1 }}.ª entrevista</span>
+            <button class="btn btn-borde-claro" @click="descartarValoracion">Descartar</button>
+            <button class="btn btn-accent" @click="guardarValoracion"><Ic n="check" :s="15" />Guardar valoración</button>
+          </div></Teleport>
           <div>
             <div class="row" style="margin-bottom:10px"><h3>Preguntas y respuestas</h3><button class="btn btn-sm right" @click="addPregunta"><Ic n="plus" :s="14" />Añadir pregunta</button></div>
             <div v-for="(p,i) in ent.preguntas" :key="i" class="qa"><input class="inp" v-model="p.q" placeholder="Pregunta" /><textarea class="inp" v-model="p.a" rows="2" placeholder="Respuesta del candidato"></textarea></div>
@@ -478,7 +515,7 @@ export default {
       <!-- HISTORIAL -->
       <div v-else-if="tab==='historial'" class="card-pad">
         <ol class="timeline">
-          <li v-for="h in hist" :key="h.id" :class="h.tipo"><span class="t-ico"><Ic :n="ICONO_HIST[h.tipo] || 'info'" :s="14" /></span><div><b>{{ h.texto }}</b><small>{{ fCompleta(h.fecha) }} · {{ h.autor }}</small></div></li>
+          <li v-for="h in hist" :key="h.id" :class="h.tipo"><span class="t-ico"><Ic :n="ICONO_HIST[h.tipo] || 'info'" :s="14" /></span><div class="grow"><b>{{ h.texto }}</b><small>{{ fCompleta(h.fecha) }}<template v-if="h.hora">, {{ h.hora }}</template> · {{ h.autor }}</small></div><button v-if="sePuedeDeshacer(h)" class="btn btn-sm" @click="deshacerHist(h)"><Ic n="history" :s="14" />Deshacer este cambio</button></li>
         </ol>
       </div>
 
