@@ -144,6 +144,18 @@ export function borrarCandidato(c) {
   return archivos;
 }
 
+/** Elimina una entrevista creada por error (en Notion queda como cancelada). */
+export async function eliminarEntrevista(e) {
+  const { pedirConfirmacion } = await import("./ui.js");
+  const c = candDe(e.candId);
+  if (!(await pedirConfirmacion({ titulo: "¿Eliminar esta entrevista?", texto: "Úsalo solo si se creó por error o está repetida. Desaparece del portal y en Notion queda como cancelada. Si la entrevista no se va a hacer, mejor márcala como «Cancelada».", boton: "Eliminar entrevista" }))) return false;
+  const i = store.entrevistas.findIndex((x) => x.id === e.id);
+  if (i >= 0) store.entrevistas.splice(i, 1);
+  if (c) addHist(c.id, "entrevista", `Entrevista del ${e.fecha} a las ${e.hora} eliminada (creada por error)`);
+  toast("Entrevista eliminada");
+  return true;
+}
+
 /** Número de entrevista de esa persona (1.ª, 2.ª…) por orden de fecha, sin contar las canceladas. */
 export function rondaDe(e) {
   const l = store.entrevistas.filter((x) => x.candId === e.candId && x.estado !== "Cancelada").sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));

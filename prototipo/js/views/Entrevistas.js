@@ -1,5 +1,5 @@
 import { computed, reactive, ref } from "vue";
-import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast } from "../store.js";
+import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast, eliminarEntrevista } from "../store.js";
 import { go } from "../router.js";
 import { enviarPlantilla } from "../mensajes.js";
 import { miNombre, registrar } from "../api.js";
@@ -79,7 +79,9 @@ export default {
         { t: "Recordar por correo", i: "mail", oculto: !abierta, f: () => { sel.value = e; recordar("correo"); sel.value = null; } },
         { t: "Marcar como realizada y valorar", i: "star", oculto: !abierta, f: () => { sel.value = e; valorar(); } },
         { sep: true, oculto: !abierta },
-        { t: "Cancelar la cita", i: "trash", peligro: true, oculto: !abierta, f: async () => { sel.value = e; await cancelar(); sel.value = null; } },
+        { t: "Cancelar la cita", i: "x", peligro: true, oculto: !abierta, f: async () => { sel.value = e; await cancelar(); sel.value = null; } },
+        { sep: true },
+        { t: "Eliminar (creada por error)", i: "trash", peligro: true, f: async () => { if (await eliminarEntrevista(e)) sel.value = null; } },
       ] };
     };
 

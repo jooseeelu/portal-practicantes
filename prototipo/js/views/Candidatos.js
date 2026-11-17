@@ -4,7 +4,7 @@ import { ruta, go } from "../router.js";
 import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir, miNombre } from "../api.js";
 import { recortarFoto } from "../cv.js";
 import { elegirMensaje } from "../mensajes.js";
-import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas } from "../ui.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas, SelectArea } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
 import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
 
@@ -17,7 +17,7 @@ const COLS = [
 ];
 
 export default {
-  components: { OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
+  components: { SelectArea, OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
   setup() {
     const f = filtros;
     const opCentros = computed(() => store.centros.filter((c) => !c.archivado).map((c) => ({ valor: c.id, etiqueta: c.nombre })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)));
@@ -27,7 +27,7 @@ export default {
     const base = computed(() => {
       const n = normal(f.q.trim());
       return store.candidatos.filter((c) => {
-        if (n && !normal(`${c.nombre} ${c.apellidos} ${c.email} ${c.tel} ${c.titulacion} ${c.area} ${centroDe(c.centroId)?.nombre || "autopostulado"} ${c.obs}`).includes(n)) return false;
+        if (n && !normal(`${c.nombre} ${c.apellidos} ${c.email} ${c.tel} ${c.titulacion} ${c.area} ${centroDe(c.centroId)?.nombre || "autopostulado"} ${c.obs} ${entrevistaDe(c.id)?.obs || ""}`).includes(n)) return false;
         if (f.centro && c.centroId !== f.centro) return false;
         if (f.turno && c.turno !== f.turno) return false;
         if (f.area === "__otras" ? (!c.area || AREAS.includes(c.area)) : f.area && (c.area || "") !== f.area) return false;
@@ -140,12 +140,14 @@ export default {
       go("candidato/" + id);
     }
 
+    // Observaciones del listado: las de la última entrevista (o las antiguas de la ficha)
+    const obsDe = (c) => entrevistaDe(c.id)?.obs || c.obs || "";
     const menuCand = (c) => ({ titulo: nombreCompleto(c), items: [
       { t: "Abrir la ficha", i: "user", f: () => go("candidato/" + c.id) },
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       hoja, NOTAS, RAPIDOS, chips, alta, n, lee, adjuntar, quitarArchivo, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -222,7 +224,7 @@ export default {
               <td><Chip :k="c.estado" /></td>
               <td><Nota :v="c.nota" /></td>
               <td><span :class="c.cv ? 'ico-ok' : 'ico-no'" :title="c.cv ? 'Currículum adjunto' : 'Sin currículum'"><Ic :n="c.cv ? 'documentos' : 'minus'" :s="16" /></span></td>
-              <td><div class="cell-clip sub" :title="c.obs">{{ c.obs || '—' }}</div></td>
+              <td><div class="cell-clip sub" :title="obsDe(c)">{{ obsDe(c) || '—' }}</div></td>
             </tr>
           </tbody>
         </table>
@@ -275,7 +277,7 @@ export default {
         <div class="fld"><label>Teléfono</label><input class="inp" v-model="n.tel" placeholder="600 000 000" /></div>
         <div class="fld"><label>Centro educativo</label><SelectBuscable v-model="n.centroId" :opciones="opCentros" etiqueta-todos="Sin centro (autopostulado)" /></div>
         <div class="fld"><label>Titulación o especialidad</label><input class="inp" v-model="n.titulacion" list="dl-tit" placeholder="Elige o escribe" /><datalist id="dl-tit"><option v-for="t in titulaciones" :key="t" :value="t" /></datalist></div>
-        <div class="fld"><label>Área de interés</label><input class="inp" list="lista-areas" v-model="n.area" placeholder="Elige una o escribe otra…" /><datalist id="lista-areas"><option v-for="a in AREAS" :key="a" :value="a"></option></datalist></div>
+        <div class="fld"><label>Área de interés</label><SelectArea v-model="n.area" :areas="AREAS" /></div>
         <div class="fld"><label>Turno disponible</label><select class="inp" v-model="n.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
         <div v-if="n.turno==='Horario personalizado'" class="fld" style="grid-column:1/-1"><label>Horario personalizado</label><input class="inp" v-model="n.horarioLibre" placeholder="Ej.: lunes y miércoles de 9 a 13, resto de la semana por la tarde" /></div>
         <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" min="0" v-model="n.horas" placeholder="340" /></div>

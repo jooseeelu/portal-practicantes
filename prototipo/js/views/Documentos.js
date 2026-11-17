@@ -14,7 +14,7 @@ export default {
     const s = estado;
     const lista = computed(() => {
       const n = normal(s.q);
-      return store.documentos.map((d) => ({ d, c: candDe(d.candId) })).filter(({ d, c }) => (!s.tipo || d.tipo === s.tipo) && (!n || normal(d.nombre + " " + nombreCompleto(c)).includes(n)))
+      return store.documentos.map((d) => ({ d, c: candDe(d.candId) })).filter(({ d, c }) => c && (!s.tipo || d.tipo === s.tipo) && (!n || normal(d.nombre + " " + nombreCompleto(c)).includes(n)))
         .sort((a, b) => b.d.fecha.localeCompare(a.d.fecha) || b.d.id - a.d.id);
     });
     // Descarga en un ZIP los documentos que se ven con los filtros actuales (solo los que tienen archivo)

@@ -1,11 +1,12 @@
 import { computed, reactive, ref, watch, onUnmounted } from "vue";
-import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
+import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, eliminarEntrevista, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
 import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar, esAdmin } from "../api.js";
 import { recortarFoto } from "../cv.js";
-import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
+import { RecorteFoto } from "../recorte.js";
+import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas, SelectArea } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA } from "../data.js";
 import { fCompleta, fCorta, fLarga, HOY_ISO, dia, relativo, turnoDe, normal, esFinde, urlWhatsApp } from "../util.js";
 
@@ -14,7 +15,7 @@ const TIPOS_DOC = ["Currículum", "Convenio", "Anexo", "Justificante", "Otro"];
 const ICONO_HIST = { alta: "plus", estado: "sync", entrevista: "calendario", valoracion: "star", incorporacion: "estudiantes", documento: "documentos", nota: "note" };
 
 export default {
-  components: { OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
+  components: { SelectArea, RecorteFoto, OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
   setup() {
     const c = computed(() => candDe(ruta.value.id));
     const tab = ref(store.fichaTab === "pc" ? "entrevista" : store.fichaTab || "personal"); store.fichaTab = "personal";
@@ -36,6 +37,7 @@ export default {
       toast(email === "-" ? "Marcado: no está en Gentrivo" : p ? "Vinculado con Gentrivo" : "Vínculo quitado");
     };
     const docs = computed(() => (c.value ? docsDe(c.value.id) : []));
+    const docsCentro = computed(() => (c.value && c.value.centroId ? store.documentos.filter((d) => !d.candId && String(d.centroId) === String(c.value.centroId)) : []));
     const hist = computed(() => (c.value ? histDe(c.value.id) : []));
     const notas = computed(() => store.notas.filter((n) => n.candId === c.value?.id).sort((a, b) => b.id - a.id));
     const cv = computed(() => docs.value.find((d) => d.tipo === "Currículum") || null);
@@ -136,8 +138,8 @@ export default {
         hechos++;
       }
       if (hechos) toast(hechos > 1 ? `${hechos} archivos añadidos` : "Archivo añadido");
-      // Currículum nuevo: se lee solo (datos y foto) y se proponen los cambios
-      if (hechos && cvActual.value?.archivoId && files.some((f) => f.name === cvActual.value.nombre) && puedeLeerIA.value) leerConIA();
+      // Currículum nuevo: se lee solo y rellena lo que falte en la ficha (y la foto si no tiene)
+      if (hechos && cvActual.value?.archivoId && files.some((f) => f.name === cvActual.value.nombre) && puedeLeerIA.value) leerAuto();
     }
     // Visor del currículum y apertura/descarga de archivos reales (con enlace temporal)
     const urlVisor = ref(""), errorVisor = ref("");
@@ -227,7 +229,19 @@ export default {
       toast("Foto eliminada");
     };
     const cambiarFoto = async (ev) => { await ponerFoto(ev); fotoAbierta.value = false; };
-    const buscarFotoCv = () => { fotoAbierta.value = false; leerConIA(); };
+    // Recorte manual de la foto sobre el currículum (la IA coloca el recuadro de partida)
+    const recorte = reactive({ abierto: false, archivo: null, caja: null, buscando: false });
+    async function abrirRecorte() {
+      const d = cvActual.value;
+      if (!d || !d.archivoId || !/^(pdf|jpe?g|png|webp)$/.test(d.ext || "")) return toast("Sube primero el currículum en PDF o imagen.", "error");
+      fotoAbierta.value = false;
+      try { const blob = await (await fetch(await urlArchivo(d))).blob(); recorte.archivo = new File([blob], d.nombre, { type: d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext }); }
+      catch (_) { return toast("No se pudo abrir el currículum.", "error"); }
+      Object.assign(recorte, { abierto: true, caja: null, buscando: true });
+      leerCurriculum(d.archivoId).then((r) => { if (recorte.abierto && r.foto) recorte.caja = r.foto; }).catch(() => {}).finally(() => { recorte.buscando = false; });
+    }
+    const usarRecorte = (url) => { c.value.foto = url; recorte.abierto = false; addHist(c.value.id, "documento", "Foto recortada del currículum"); toast("Foto actualizada"); };
+    const buscarFotoCv = abrirRecorte;
 
     // --- Lectura del currículum con IA: propone datos y una persona decide cuáles aplicar ---
     const CAMPOS_IA = [["nombre", "Nombre"], ["apellidos", "Apellidos"], ["email", "Correo electrónico"], ["tel", "Teléfono"], ["titulacion", "Titulación"], ["curso", "Curso"], ["idiomas", "Idiomas"], ["herramientas", "Herramientas"], ["experiencia", "Experiencia previa"]];
@@ -259,6 +273,34 @@ export default {
         registrar("Leyó un currículum con IA", d.nombre);
       } catch (e) { ia.error = e.message; } finally { ia.cargando = false; }
     }
+    // Lectura automática al subir el currículum: solo rellena lo que esté vacío; no pregunta
+    const auto = reactive({ cargando: false });
+    async function leerAuto() {
+      const d = cvActual.value; if (!d || auto.cargando) return;
+      auto.cargando = true;
+      try {
+        const r = await leerCurriculum(d.archivoId);
+        const x = r.datos || {};
+        const puestos = [];
+        for (const [k, etq] of [...CAMPOS_IA, ["area", "Área"]]) if (x[k] && !String(c.value[k] ?? "").trim()) { c.value[k] = x[k]; puestos.push(etq.toLowerCase()); }
+        if (x.centro && !c.value.centroId) {
+          const n = normal(x.centro);
+          const m = store.centros.find((ce) => !ce.archivado && (normal(ce.nombre) === n || (normal(ce.nombre).length > 3 && (n.includes(normal(ce.nombre)) || normal(ce.nombre).includes(n)))));
+          if (m) { c.value.centroId = m.id; puestos.push("centro"); }
+        }
+        if (r.foto && !c.value.foto) {
+          try {
+            const blob = await (await fetch(await urlArchivo(d))).blob();
+            const foto = await recortarFoto(new File([blob], d.nombre, { type: d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext }), r.foto);
+            if (foto) { c.value.foto = foto; puestos.push("foto"); }
+          } catch (_) { /* sin foto */ }
+        }
+        if (puestos.length) { addHist(c.value.id, "documento", "Rellenado desde el currículum: " + puestos.join(", ")); toast("Rellenado desde el currículum: " + puestos.join(", ")); }
+        else toast("Currículum leído: la ficha ya tenía todos esos datos");
+        registrar("Leyó un currículum con IA", d.nombre);
+      } catch (e) { toast("No se pudo leer el currículum: " + e.message, "error"); }
+      finally { auto.cargando = false; }
+    }
     function aplicarIA() {
       const usados = ia.campos.filter((f) => f.usar);
       usados.forEach((f) => { c.value[f.k] = f.nuevo; });
@@ -286,7 +328,20 @@ export default {
       go("candidatos");
     };
     const deshacerHist = (h) => { if (deshacerCambio(h)) toast("Cambio deshecho"); };
-    return { notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    const borrarCv = async (d) => {
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar este currículum?", texto: "«" + d.nombre + "» se quita de la ficha. Los datos que ya se rellenaron con él se quedan.", boton: "Borrar currículum" }))) return;
+      borrarDoc(d);
+      if (cvSel.value === d.id) cvSel.value = null;
+    };
+    const borrarEsta = async () => { if (ent.value && (await eliminarEntrevista(ent.value))) entSel.value = null; };
+    const borrarNota = async (n) => {
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar esta observación?", texto: "Se quita de las observaciones internas de esta persona.", boton: "Borrar" }))) return;
+      const i = store.notas.findIndex((x) => x.id === n.id);
+      if (i >= 0) store.notas.splice(i, 1);
+      addHist(c.value.id, "nota", "Observación interna borrada");
+      toast("Observación borrada");
+    };
+    return { docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -331,13 +386,12 @@ export default {
           <div class="fld"><label>Cómo ha llegado</label><select class="inp" v-model="c.origen"><option v-for="o in ORIGENES" :key="o">{{ o }}</option></select></div>
           <div class="fld"><label>Correo electrónico</label><input class="inp" v-model="c.email" /></div>
           <div class="fld"><label>Teléfono</label><input class="inp" v-model="c.tel" /></div>
-          <div class="fld"><label>Área de interés</label><input class="inp" list="lista-areas" v-model="c.area" placeholder="Elige una o escribe otra…" /><datalist id="lista-areas"><option v-for="a in AREAS" :key="a" :value="a"></option></datalist></div>
+          <div class="fld"><label>Área de interés</label><SelectArea v-model="c.area" :areas="AREAS" /></div>
           <div class="fld"><label>Turno disponible</label><select class="inp" v-model="c.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
         <div v-if="c.turno==='Horario personalizado'" class="fld" style="grid-column:1/-1"><label>Horario personalizado</label><input class="inp" v-model="c.horarioLibre" placeholder="Ej.: lunes y miércoles de 9 a 13, resto de la semana por la tarde" /></div>
           <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" v-model="c.horas" /></div>
           <div class="fld"><label>Registrado el</label><input class="inp" :value="fCompleta(c.creado)" disabled /></div>
         </div>
-        <div class="fld"><label>Observaciones</label><textarea class="inp" v-model="c.obs" rows="3" placeholder="Resumen visible en el listado de candidatos"></textarea></div>
         <div v-if="est" class="practicas-box">
           <div class="row"><Ic n="estudiantes" /><b>Prácticas en la gestoría</b><Chip :texto="estadoPracticas(est)" c="var(--cyan)" cd="var(--cyan-dark)" /><button class="btn btn-sm right" @click="abrirInc"><Ic n="pencil" :s="14" />Editar</button></div>
           <div class="datos"><div><span>Inicio</span><b>{{ fCompleta(est.inicio) }}</b></div><div><span>Fin previsto</span><b>{{ fCompleta(est.fin) }}</b></div><div><span>Horario</span><b>{{ est.horaIni }}–{{ est.horaFin }}</b></div><div><span>Horas totales</span><b>{{ est.horas }} h</b></div><div><span>Tutor en la gestoría</span><b v-if="est.tutor">{{ est.tutor }}</b><b v-else class="muted">Sin asignar</b></div><div><span>Convenio</span><b>{{ est.convenio ? 'Firmado' : 'Pendiente de firma' }}</b></div></div>
@@ -372,7 +426,7 @@ export default {
           <div class="fld"><label>Centro educativo</label><SelectBuscable v-model="centroSel" :opciones="opCentros" etiqueta-todos="Sin centro (autopostulado)" /></div>
           <div class="fld"><label>Titulación</label><input class="inp" v-model="c.titulacion" list="dl-prog" /><datalist id="dl-prog"><option v-for="p in (centroDe(c.centroId)?.programas || [])" :key="p" :value="p" /></datalist></div>
           <div class="fld"><label>Curso</label><input class="inp" v-model="c.curso" placeholder="2.º" /></div>
-          <div class="fld"><label>Especialidad / área</label><input class="inp" list="lista-areas" v-model="c.area" placeholder="Elige una o escribe otra…" /><datalist id="lista-areas"><option v-for="a in AREAS" :key="a" :value="a"></option></datalist></div>
+          <div class="fld"><label>Especialidad / área</label><SelectArea v-model="c.area" :areas="AREAS" /></div>
           <div class="fld"><label>Idiomas</label><input class="inp" v-model="c.idiomas" placeholder="Inglés (B2), francés (básico)…" /></div>
           <div class="fld"><label>Herramientas</label><input class="inp" v-model="c.herramientas" placeholder="Excel, Word, Canva…" /></div>
           <div class="fld" style="grid-column:1/-1"><label>Experiencia previa</label><textarea class="inp" v-model="c.experiencia" rows="2" placeholder="Prácticas o trabajos anteriores"></textarea></div>
@@ -422,13 +476,11 @@ export default {
         <div class="visor" v-else><div class="visor-area"><div class="vacio-box"><Ic n="documentos" :s="30" /><b>Sin currículum</b><span>Arrastra el PDF a la columna de la derecha (o haz clic allí para elegirlo).</span></div></div></div>
         <aside class="visor-lado">
           <h4>Currículums de esta ficha</h4>
-          <button v-for="d in docs.filter(x => x.tipo==='Currículum')" :key="d.id" class="doc-fila" :class="{on: cvActual && cvActual.id===d.id}" @click="cvSel=d.id"><Ic n="documentos" :s="16" /><span class="grow"><b>{{ d.nombre }}</b><small>{{ fCorta(d.fecha) }} · {{ tam(d.tam) }}</small></span></button>
+          <div v-for="d in docs.filter(x => x.tipo==='Currículum')" :key="d.id" class="doc-fila-env"><button class="doc-fila" :class="{on: cvActual && cvActual.id===d.id}" @click="cvSel=d.id"><Ic n="documentos" :s="16" /><span class="grow"><b>{{ d.nombre }}</b><small>{{ fCorta(d.fecha) }} · {{ tam(d.tam) }}</small></span></button><button class="icon-btn icon-btn-sm doc-borrar" title="Borrar este currículum" aria-label="Borrar este currículum" @click="borrarCv(d)"><Ic n="trash" :s="14" /></button></div>
           <Dropzone compacto :texto="subiendo ? 'Subiendo…' : 'Soltar o elegir el currículum'" @archivos="subir($event, 'Currículum')" />
-          <div class="ia-box">
-            <div class="row"><Ic n="sparkles" :s="16" /><b>Lectura con IA</b></div>
-            <p class="sub">Propone nombre, contacto, formación e idiomas a partir del currículum. Tú eliges qué se guarda en la ficha.</p>
-            <button class="btn btn-sm" :disabled="!puedeLeerIA || ia.cargando" @click="leerConIA" :title="puedeLeerIA ? '' : 'Hace falta un currículum subido en PDF o imagen'"><Ic n="sparkles" :s="14" />{{ ia.cargando ? 'Leyendo…' : 'Extraer datos del currículum' }}</button>
-          </div>
+          <div v-if="auto.cargando" class="aviso"><Ic n="sparkles" :s="16" /><span class="grow"><b>Leyendo el currículum…</b> rellena solo lo que falte en la ficha.<div class="ia-barra" style="margin-top:6px"><i></i></div></span></div>
+          <p v-else class="sub"><Ic n="sparkles" :s="13" /> Al subir un currículum se lee solo y rellena lo que falte en la ficha (también la foto).</p>
+          <button v-if="puedeLeerIA" class="btn btn-sm" @click="abrirRecorte"><Ic n="camara" :s="14" />Recortar la foto del currículum</button>
         </aside>
         <Modal v-if="ia.abierto" titulo="Datos leídos del currículum" :ancho="620" @cerrar="ia.abierto=false">
           <div v-if="ia.cargando" class="vacio-box" style="padding:28px"><div class="ia-barra"><i></i></div><b>Leyendo «{{ ia.doc }}»…</b><span>Suele tardar entre 5 y 20 segundos.</span></div>
@@ -467,7 +519,7 @@ export default {
         <template v-else>
           <div class="rondas">
             <button v-for="(e, i) in ents" :key="e.id" class="pill" :class="{on: ent.id === e.id}" @click="elegirRonda(e.id)">{{ i + 1 }}.ª entrevista · {{ fCorta(e.fecha) }}<template v-if="e.entrevistador"> · {{ e.entrevistador }}</template><template v-if="e.estado === 'Cancelada'"> · cancelada</template></button>
-            <button class="btn btn-sm right" @click="otraEntrevista"><Ic n="plus" :s="14" />Programar otra entrevista</button>
+            <button class="btn btn-sm right" @click="otraEntrevista"><Ic n="plus" :s="14" />Programar otra entrevista</button><button class="btn btn-sm btn-ghost" title="Eliminar esta entrevista (creada por error)" @click="borrarEsta"><Ic n="trash" :s="14" />Eliminar</button>
           </div>
           <div class="ent-cab">
             <div class="fecha-b grande"><small>{{ fLarga(ent.fecha).split(' ')[0] }}</small><b>{{ fCorta(ent.fecha) }}</b></div>
@@ -522,7 +574,12 @@ export default {
       <!-- A FAVOR Y EN CONTRA -->
       <!-- DOCUMENTACIÓN -->
       <div v-else-if="tab==='docs'" class="card-pad stack">
-        <Dropzone :texto="subiendo ? 'Subiendo…' : 'Arrastra aquí convenios, anexos, justificantes o currículums'" @archivos="subir($event)" />
+        <div v-if="docsCentro.length" class="convenio-centro">
+          <h4>Convenio de su centro <span class="sub">({{ centroDe(c.centroId)?.nombre }})</span></h4>
+          <div v-for="d in docsCentro" :key="d.id" class="doc-centro"><span class="ext" :class="d.ext">{{ d.ext }}</span><span class="grow"><b>{{ d.nombre }}</b><small class="sub" style="display:block">Común a todos los alumnos del centro · se cambia en Centros educativos</small></span><button class="btn btn-sm" @click="abrirArchivo(d)">Abrir</button></div>
+        </div>
+        <p v-else-if="c.centroId" class="sub"><Ic n="info" :s="13" /> Su centro todavía no tiene convenio subido (se sube en Centros educativos).</p>
+        <Dropzone :texto="subiendo ? 'Subiendo…' : 'Arrastra aquí anexos, justificantes o currículums de esta persona'" @archivos="subir($event)" />
         <div class="tbl-wrap"><table class="tbl sin-hover">
           <thead><tr><th>Documento</th><th>Tipo</th><th>Subido</th><th>Tamaño</th><th></th></tr></thead>
           <tbody><tr v-for="d in docs" :key="d.id">
@@ -545,10 +602,12 @@ export default {
       <div v-else class="card-pad stack">
         <div class="aviso gold"><Ic n="lock" :s="16" /><span>Estas observaciones solo las ve el personal autorizado de la gestoría. Nunca se comparten con el candidato ni con el centro.</span></div>
         <div class="row" style="align-items:flex-start"><textarea class="inp grow" rows="2" v-model="nuevaNota" placeholder="Escribe una observación interna…" @keydown.ctrl.enter="addNota"></textarea><button class="btn btn-primary" @click="addNota">Añadir</button></div>
-        <div v-for="n in notas" :key="n.id" class="nota-int"><Avatar :nombre="n.autor" apellidos="" :s="30" /><div><div class="row"><b>{{ n.autor }}</b><span class="sub">{{ fCompleta(n.fecha) }}</span></div><p>{{ n.texto }}</p></div></div>
+        <div v-for="n in notas" :key="n.id" class="nota-int"><Avatar :nombre="n.autor" apellidos="" :s="30" /><div><div class="row"><b>{{ n.autor }}</b><span class="sub">{{ fCompleta(n.fecha) }}</span></div><p>{{ n.texto }}</p></div><button v-if="n.autor === miNombre() || esAdmin()" class="icon-btn icon-btn-sm nota-borrar" title="Borrar esta observación" aria-label="Borrar esta observación" @click="borrarNota(n)"><Ic n="trash" :s="14" /></button></div>
         <p v-if="!notas.length" class="sub">Todavía no hay observaciones internas.</p>
       </div>
     </div>
+
+    <RecorteFoto v-if="recorte.abierto" :archivo="recorte.archivo" :caja="recorte.caja" :buscando="recorte.buscando" @listo="usarRecorte" @cerrar="recorte.abierto = false" />
 
     <Modal v-if="fotoAbierta && c.foto" :titulo="nombreCompleto(c)" :ancho="460" @cerrar="fotoAbierta = false">
       <img :src="c.foto" class="foto-grande" :alt="'Foto de ' + nombreCompleto(c)" />
@@ -556,7 +615,7 @@ export default {
         <label class="btn btn-ink"><Ic n="camara" :s="16" />Cambiar foto<input type="file" accept="image/*" hidden @change="cambiarFoto" /></label>
         <button class="btn btn-peligro" @click="quitarFoto"><Ic n="trash" :s="16" />Eliminar foto</button>
       </div>
-      <button v-if="puedeLeerIA" class="btn-link foto-buscar" @click="buscarFotoCv">Buscar otra vez la foto en su currículum</button>
+      <button v-if="puedeLeerIA" class="btn-link foto-buscar" @click="buscarFotoCv">Recortar la foto del currículum</button>
     </Modal>
 
     <Modal v-if="prog.abierto" :titulo="prog.otra ? 'Programar ' + (ents.filter(e => e.estado !== 'Cancelada').length + 1) + '.ª entrevista' : 'Programar entrevista'" @cerrar="prog.abierto=false; prog.otra=false">

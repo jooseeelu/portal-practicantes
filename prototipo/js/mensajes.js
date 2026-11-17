@@ -1,14 +1,15 @@
 // Plantillas de mensajes de WhatsApp y correo.
 // El portal NO envía nada: abre WhatsApp o el correo de quien pulsa, con el texto ya escrito.
 // Los textos se editan en Ajustes → Mensajes. Variables: {nombre} {apellidos} {centro} {fecha} {hora} {lugar} {entrevistador} {inicio} {horario} {firma}
+import { reactive } from "vue";
 import { store, entrevistasDe, estudianteDe, centroDe, addHist, toast, nombreCompleto } from "./store.js";
-import { abrirMenu, menuCtx } from "./ui.js";
-import { registrar } from "./api.js";
+import { abrirMenu, menuCtx, Modal, Ic } from "./ui.js";
+import { registrar, enviarCorreo, sesion } from "./api.js";
 import { urlWhatsApp, fLarga, HOY_ISO, normal } from "./util.js";
 
 import { DIRECCION, FIRMA_INICIAL, plantillasIniciales } from "./data.js";
 export { DIRECCION, FIRMA_INICIAL, plantillasIniciales };
-export const VARIABLES = ["nombre", "apellidos", "centro", "fecha", "hora", "lugar", "entrevistador", "inicio", "horario", "firma"];
+export const VARIABLES = ["nombre", "apellidos", "centro", "fecha", "hora", "donde", "lugar", "lugar_oficina", "entrevistador", "inicio", "horario", "firma"];
 
 const fechaLarga = (iso) => { const t = fLarga(iso); return t ? t.charAt(0).toLowerCase() + t.slice(1) : ""; };
 
@@ -26,6 +27,7 @@ export function variables(c, e = entrevistaPara(c)) {
     fecha: e ? fechaLarga(e.fecha) : "", hora: e?.hora || "",
     lugar: e ? (e.modalidad === "Online" ? " (online; te enviaremos el enlace)" : " en nuestra oficina (" + DIRECCION + ")") : "",
     lugar_oficina: DIRECCION, entrevistador: e?.entrevistador || "",
+    donde: e ? (e.modalidad === "Online" ? "Online (te enviaremos el enlace)" : "Presencial · " + DIRECCION) : "",
     inicio: est ? fechaLarga(est.inicio) : "", horario: est ? `${est.horaIni}–${est.horaFin}` : "",
     firma: store.firma || FIRMA_INICIAL,
   };
@@ -48,13 +50,47 @@ function abrir(canal, c, p) {
     window.open(url, "_blank", "noopener");
   } else {
     if (!c.email) return toast("Esta persona no tiene correo en su ficha.", "error");
-    const asunto = p ? rellenar(p.asunto, v) : "";
-    location.href = "mailto:" + encodeURI(c.email).replace("%40", "@") + "?subject=" + encodeURIComponent(asunto) + "&body=" + encodeURIComponent(texto.replace(/\n/g, "\r\n"));
+    // El correo se revisa antes de enviarlo: desde info@ (servidor) o con el correo de cada uno
+    Object.assign(redactor, { abierto: true, c, para: c.email, asunto: p ? rellenar(p.asunto, v) : "", texto, plantilla: p ? p.nombre : "", enviando: false, error: "" });
+    return;
   }
   const que = p ? `«${p.nombre}»` : "mensaje en blanco";
   addHist(c.id, "nota", `${canal === "whatsapp" ? "WhatsApp" : "Correo"} abierto con ${que}`);
   registrar(canal === "whatsapp" ? "Abrió WhatsApp con una plantilla" : "Abrió el correo con una plantilla", nombreCompleto(c));
 }
+
+// --- Ventana para revisar y enviar un correo ---
+export const redactor = reactive({ abierto: false, c: null, para: "", asunto: "", texto: "", plantilla: "", enviando: false, error: "" });
+const anotar = (c, como) => {
+  addHist(c.id, "nota", `Correo ${como}${redactor.plantilla ? " con «" + redactor.plantilla + "»" : ""}: ${redactor.asunto}`);
+  registrar("Correo " + como, nombreCompleto(c));
+};
+export const RedactorCorreo = {
+  components: { Modal, Ic },
+  setup() {
+    const enServidor = () => sesion.modo === "servidor";
+    async function enviar() {
+      if (!redactor.para || !redactor.asunto.trim() || !redactor.texto.trim()) return (redactor.error = "Falta el destinatario, el asunto o el texto.");
+      redactor.enviando = true; redactor.error = "";
+      try { await enviarCorreo(redactor); anotar(redactor.c, "enviado desde info@"); toast("Correo enviado desde info@gestoriaemadrid.com"); redactor.abierto = false; }
+      catch (e) { redactor.error = e.message; }
+      finally { redactor.enviando = false; }
+    }
+    function abrirEnMiCorreo() {
+      location.href = "mailto:" + encodeURI(redactor.para).replace("%40", "@") + "?subject=" + encodeURIComponent(redactor.asunto) + "&body=" + encodeURIComponent(redactor.texto.replace(/\n/g, "\r\n"));
+      anotar(redactor.c, "abierto en el correo propio"); redactor.abierto = false;
+    }
+    return { r: redactor, enviar, abrirEnMiCorreo, enServidor };
+  },
+  template: `<Modal v-if="r.abierto" :titulo="'Correo a ' + (r.c ? r.c.nombre : '')" :ancho="640" @cerrar="r.abierto=false">
+    <div class="fld"><label>Para</label><input class="inp" type="email" v-model.trim="r.para" /></div>
+    <div class="fld"><label>Asunto</label><input class="inp" v-model="r.asunto" /></div>
+    <div class="fld"><label>Mensaje</label><textarea class="inp redactor-texto" v-model="r.texto" rows="12"></textarea></div>
+    <p class="sub"><Ic n="mail" :s="13" /> Se envía desde <b>info@gestoriaemadrid.com</b>; las respuestas llegan a esa bandeja.</p>
+    <div v-if="r.error" class="aviso err"><Ic n="alert" :s="16" /><span>{{ r.error }}</span></div>
+    <template #pie><button class="btn" @click="abrirEnMiCorreo">Abrir en mi correo</button><button class="btn btn-ink" :disabled="r.enviando || !enServidor()" @click="enviar"><Ic n="mail" :s="15" />{{ r.enviando ? 'Enviando…' : 'Enviar desde info@' }}</button></template>
+  </Modal>`,
+};
 
 /** Abre el mensaje con una plantilla concreta (por ejemplo, «recordatorio»). */
 export function enviarPlantilla(canal, c, id) {
