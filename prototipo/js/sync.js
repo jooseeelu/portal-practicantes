@@ -6,6 +6,7 @@ import { watch } from "vue";
 import { store, toast, vaciarDatos, cargarDemo, ajustesPorDefecto } from "./store.js";
 import { sesion, pedir, esAdmin } from "./api.js";
 import { ESTADOS_INICIALES, plantillasIniciales, PLANTILLAS_ANTIGUAS, AREAS_UNIDAS } from "./data.js";
+const sinEspacios = (t) => String(t || "").replace(/[ \t\r\n]+/g, " ").trim();
 
 const COLECCIONES = {
   candidatos: (x) => x.id, centros: (x) => x.id, entrevistas: (x) => x.id, estudiantes: (x) => x.candId,
@@ -136,7 +137,7 @@ async function traer(soloSiNadaCambia = false) {
   }
   if (esAdmin() && Array.isArray(store.plantillas)) {
     const nuevas = plantillasIniciales();
-    store.plantillas.forEach((p, i) => { const n = nuevas.find((x) => x.id === p.id); if (n && PLANTILLAS_ANTIGUAS[p.id] === p.texto) store.plantillas.splice(i, 1, { ...p, texto: n.texto, asunto: n.asunto }); });
+    store.plantillas.forEach((p, i) => { const n = nuevas.find((x) => x.id === p.id); if (n && PLANTILLAS_ANTIGUAS[p.id] && sinEspacios(PLANTILLAS_ANTIGUAS[p.id]) === sinEspacios(p.texto)) store.plantillas.splice(i, 1, { ...p, texto: n.texto, asunto: n.asunto }); });
   }
   // «Mañana o tarde» se quitó por confundirse con «Disponibilidad completa»
   store.candidatos.forEach((c) => {
