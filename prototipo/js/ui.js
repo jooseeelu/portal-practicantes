@@ -283,6 +283,22 @@ export function abrirMenu(x, y, items, titulo = "") {
 export const cerrarMenu = () => { menuCtx.abierto = false; };
 
 /** v-ctx="() => [{ t: 'Texto', i: 'icono', f: () => …, peligro: true }, { sep: true }]" */
+/** v-alto: la tabla ocupa hasta el final de la pantalla, así su barra para deslizar a los lados siempre se ve. */
+export const vAlto = {
+  mounted(el) {
+    const ajustar = () => {
+      if (window.innerWidth <= 700) { el.style.maxHeight = ""; return; } // en el móvil, la página entera
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.maxHeight = Math.max(240, Math.round(window.innerHeight - top - 16)) + "px";
+    };
+    el._alto = ajustar;
+    ajustar(); setTimeout(ajustar, 300);
+    window.addEventListener("resize", ajustar);
+  },
+  updated(el) { el._alto && setTimeout(el._alto, 0); },
+  unmounted(el) { window.removeEventListener("resize", el._alto); },
+};
+
 export const vCtx = {
   mounted(el, b) {
     el._ctx = b.value; el.setAttribute("data-ctx", "");
