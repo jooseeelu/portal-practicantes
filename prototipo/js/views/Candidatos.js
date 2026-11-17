@@ -1,7 +1,8 @@
 import { computed, reactive, ref } from "vue";
 import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
-import { registrar } from "../api.js";
+import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir } from "../api.js";
+import { recortarFoto } from "../cv.js";
 import { elegirMensaje } from "../mensajes.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas } from "../ui.js";
 import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
@@ -63,13 +64,44 @@ export default {
 
     // Alta rápida
     const alta = ref(ruta.value.id === "nuevo");
-    const vacio = () => ({ nombre: "", apellidos: "", email: "", tel: "", centroId: "", titulacion: "", area: "", turno: "Por confirmar", horarioLibre: "", horas: "", origen: "Centro educativo", obs: "", archivo: null, foto: "", situacion: "nuevo", inicio: "", fin: "", horaIni: "", horaFin: "", tutor: "" });
+    const vacio = () => ({ nombre: "", apellidos: "", email: "", tel: "", centroId: "", titulacion: "", area: "", turno: "Por confirmar", horarioLibre: "", idiomas: "", herramientas: "", experiencia: "", archivoId: "", archivoSrv: "", horas: "", origen: "Centro educativo", obs: "", archivo: null, foto: "", situacion: "nuevo", inicio: "", fin: "", horaIni: "", horaFin: "", tutor: "" });
+    // Lectura automática del currículum al adjuntarlo: rellena lo que esté vacío y propone la foto
+    const lee = reactive({ cargando: false, error: "", hecho: 0, avisos: [], fotoIA: false });
+    const enServidor = () => sesion.modo === "servidor";
+    async function adjuntar(files) {
+      const f = files[0]; if (!f) return;
+      if (!/\.(pdf|docx?|jpe?g|png|webp)$/i.test(f.name)) return toast("Solo se admiten PDF, Word o imágenes.", "error");
+      if (f.size > 20 * 1024 * 1024) return toast("El archivo pesa más de 20 MB.", "error");
+      n.archivo = f; n.archivoId = ""; n.archivoSrv = "";
+      Object.assign(lee, { cargando: false, error: "", hecho: 0, avisos: [], fotoIA: false });
+      if (!enServidor()) return;
+      lee.cargando = true;
+      try {
+        const r = await subirArchivo(f, { candId: "borrador", tipo: "Currículum", nombre: f.name });
+        n.archivoId = r.id; n.archivoSrv = r.archivo;
+        if (!/\.(pdf|jpe?g|png|webp)$/i.test(f.name)) { lee.error = "Este formato (Word) no se puede leer solo. Guárdalo como PDF si quieres que se rellene automáticamente."; return; }
+        const d = await leerCurriculum(r.id), x = d.datos || {};
+        const pon = (k, v) => { if (v && !String(n[k] || "").trim()) { n[k] = v; lee.hecho++; } };
+        ["nombre", "apellidos", "email", "tel", "titulacion", "idiomas", "herramientas", "experiencia"].forEach((k) => pon(k, x[k]));
+        pon("area", x.area);
+        if (x.centro && !n.centroId) {
+          const nc = normal(x.centro);
+          const m = store.centros.find((ce) => !ce.archivado && (normal(ce.nombre) === nc || (normal(ce.nombre).length > 3 && (nc.includes(normal(ce.nombre)) || normal(ce.nombre).includes(nc)))));
+          if (m) { n.centroId = m.id; lee.hecho++; }
+        }
+        lee.avisos = d.avisos || [];
+        if (d.foto && !n.foto) { const fo = await recortarFoto(f, d.foto); if (fo) { n.foto = fo; lee.fotoIA = true; } }
+        registrar("Leyó un currículum con IA al dar de alta", f.name);
+      } catch (e) { lee.error = e.message; } finally { lee.cargando = false; }
+    }
+    const quitarArchivo = () => { if (n.archivoId) borrarArchivo(n.archivoId).catch(() => {}); n.archivo = null; n.archivoId = ""; n.archivoSrv = ""; Object.assign(lee, { cargando: false, error: "", hecho: 0, avisos: [], fotoIA: false }); };
+    const quitarFotoAlta = () => { n.foto = ""; lee.fotoIA = false; };
     const fotoAlta = async (ev) => { const a = ev.target.files[0]; ev.target.value = ""; try { n.foto = await leerFoto(a); } catch (e) { toast(e.message, "error"); } };
     const n = reactive(vacio());
     const soloDigitos = (s) => String(s || "").replace(/\D/g, "");
     const duplicado = computed(() => store.candidatos.find((c) => (n.email.trim() && c.email.toLowerCase() === n.email.trim().toLowerCase()) || (soloDigitos(n.tel).length >= 9 && soloDigitos(c.tel) === soloDigitos(n.tel))));
     const titulaciones = computed(() => { const c = centroDe(n.centroId); return c ? c.programas : [...new Set(store.candidatos.map((x) => x.titulacion))].sort(); });
-    const abrirAlta = () => { Object.assign(n, vacio()); alta.value = true; };
+    const abrirAlta = () => { Object.assign(n, vacio()); Object.assign(lee, { cargando: false, error: "", hecho: 0, avisos: [], fotoIA: false }); alta.value = true; };
     const cerrarAlta = () => { alta.value = false; if (ruta.value.id === "nuevo") go("candidatos"); };
     function guardar() {
       if (!n.nombre.trim() || !n.apellidos.trim()) return toast("Escribe al menos el nombre y los apellidos.", "error");
@@ -77,8 +109,11 @@ export default {
       if (yaHizo && (!n.inicio || !n.fin)) return toast("Indica desde cuándo y hasta cuándo hizo las prácticas.", "error");
       if (yaHizo && n.fin < n.inicio) return toast("La fecha de fin no puede ser anterior a la de inicio.", "error");
       const id = nuevoId();
-      store.candidatos.push({ id, nombre: n.nombre.trim(), apellidos: n.apellidos.trim(), email: n.email.trim(), tel: n.tel.trim(), centroId: n.centroId || null, titulacion: n.titulacion, area: n.area, turno: n.turno, horarioLibre: n.horarioLibre, disponibilidad: n.turno, horas: Number(n.horas) || "", curso: "", origen: n.origen, obs: n.obs, estado: "pendiente-revision", nota: null, pros: [], contras: [], creado: HOY_ISO, cv: !!n.archivo, foto: n.foto });
-      if (n.archivo) store.documentos.push({ id: nuevoId(), candId: id, nombre: n.archivo.name, tipo: "Currículum", fecha: HOY_ISO, tam: Math.max(1, Math.round(n.archivo.size / 1024)), ext: n.archivo.name.split(".").pop().toLowerCase() });
+      store.candidatos.push({ id, nombre: n.nombre.trim(), apellidos: n.apellidos.trim(), email: n.email.trim(), tel: n.tel.trim(), centroId: n.centroId || null, titulacion: n.titulacion, area: n.area, turno: n.turno, horarioLibre: n.horarioLibre, disponibilidad: n.turno, horas: Number(n.horas) || "", curso: "", idiomas: n.idiomas, herramientas: n.herramientas, experiencia: n.experiencia, origen: n.origen, obs: n.obs, estado: "pendiente-revision", nota: null, pros: [], contras: [], creado: HOY_ISO, cv: !!n.archivo, foto: n.foto });
+      if (n.archivo) {
+        store.documentos.push({ id: nuevoId(), candId: id, nombre: n.archivo.name, tipo: "Currículum", fecha: HOY_ISO, tam: Math.max(1, Math.round(n.archivo.size / 1024)), ext: n.archivo.name.split(".").pop().toLowerCase(), ...(n.archivoId ? { archivoId: n.archivoId, archivo: n.archivoSrv } : {}) });
+        if (n.archivoId) pedir("PATCH", `api/collections/archivos/records/${n.archivoId}`, { candId: String(id) }).catch(() => {});
+      }
       addHist(id, "alta", `Candidatura registrada (${n.origen.toLowerCase()})${n.archivo ? " con currículum adjunto" : ""}`);
       if (yaHizo) {
         const t = ["Tarde", "Tarde 2"].includes(n.turno) ? n.turno : "Mañana";
@@ -96,7 +131,7 @@ export default {
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
     return { menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
-      alta, n, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
+      alta, n, lee, adjuntar, quitarArchivo, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
   <div class="page">
@@ -186,11 +221,15 @@ export default {
     </div>
 
     <Modal v-if="alta" titulo="Nuevo candidato" :ancho="680" @cerrar="cerrarAlta">
-      <Dropzone v-if="!n.archivo" texto="Arrastra aquí el currículum (opcional)" compacto @archivos="n.archivo = $event[0]" />
-      <div v-else class="aviso ok"><Ic n="documentos" :s="16" /><span class="grow"><b>{{ n.archivo.name }}</b> se adjuntará a la ficha.</span><button class="btn btn-sm btn-ghost" @click="n.archivo=null">Quitar</button></div>
+      <Dropzone v-if="!n.archivo" texto="📄 Arrastra aquí el currículum: se leerá solo y rellenará la ficha" compacto @archivos="adjuntar" />
+      <div v-else class="aviso ok"><Ic n="documentos" :s="16" /><span class="grow"><b>{{ n.archivo.name }}</b> se adjuntará a la ficha.</span><button class="btn btn-sm btn-ghost" @click="quitarArchivo">Quitar</button></div>
+      <div v-if="lee.cargando" class="aviso"><Ic n="sparkles" :s="16" /><span class="grow"><b>Leyendo el currículum…</b> suele tardar unos segundos.<div class="ia-barra" style="margin-top:6px"><i></i></div></span></div>
+      <div v-else-if="lee.error" class="aviso warn"><Ic n="alert" :s="16" /><span class="grow">{{ lee.error }}</span></div>
+      <div v-else-if="lee.hecho || lee.fotoIA" class="aviso ok"><Ic n="sparkles" :s="16" /><span class="grow">✨ Rellenado desde el currículum: <b>{{ lee.hecho }}</b> campo{{ lee.hecho === 1 ? '' : 's' }}{{ lee.fotoIA ? ' y la foto' : '' }}. Revísalo antes de guardar.</span></div>
+      <div v-for="a in lee.avisos" :key="a" class="aviso warn"><Ic n="alert" :s="16" /><span>{{ a }}</span></div>
       <div v-if="duplicado" class="aviso warn"><Ic n="alert" :s="16" /><span class="grow"><b>Posible duplicado:</b> {{ nombreCompleto(duplicado) }} ya está registrado con ese correo o teléfono.</span><button class="btn btn-sm" @click="cerrarAlta(); go('candidato/'+duplicado.id)">Abrir su ficha</button></div>
       <div class="foto-alta">
-        <label class="foto-edit" title="Añadir foto"><Avatar v-if="n.nombre || n.foto" :nombre="n.nombre" :apellidos="n.apellidos" :foto="n.foto" :s="60" /><span v-else class="avatar avatar-vacio" style="width:60px;height:60px"><Ic n="camara" :s="24" /></span><span class="camara"><Ic n="camara" :s="14" /></span><input type="file" accept="image/*" hidden @change="fotoAlta" /></label>
+        <label class="foto-edit" title="Añadir foto"><Avatar v-if="n.nombre || n.foto" :nombre="n.nombre" :apellidos="n.apellidos" :foto="n.foto" :s="60" /><span v-else class="avatar avatar-vacio" style="width:60px;height:60px"><Ic n="camara" :s="24" /></span><span class="camara"><Ic n="camara" :s="14" /></span><input type="file" accept="image/*" hidden @change="fotoAlta" /><button v-if="n.foto" type="button" class="foto-x" title="Quitar esta foto" aria-label="Quitar la foto" @click.prevent.stop="quitarFotoAlta">×</button></label>
         <div><b>Foto de la persona (opcional)</b><div class="sub">Ayuda a reconocerla en listados, agenda y cuadrante. Se puede añadir o cambiar después.</div></div>
       </div>
       <div class="grid2">
