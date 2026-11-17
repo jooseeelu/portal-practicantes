@@ -9,7 +9,7 @@ import { TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
 import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
-export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", notaMin: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
+export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
 
 const COLS = [
   { k: "nombre", t: "Candidato" }, { k: "centro", t: "Centro educativo" }, { k: "titulacion", t: "Titulación" }, { k: "turno", t: "Turno" },
@@ -30,6 +30,7 @@ export default {
         if (n && !normal(`${c.nombre} ${c.apellidos} ${c.email} ${c.tel} ${c.titulacion} ${c.area} ${centroDe(c.centroId)?.nombre || "autopostulado"} ${c.obs}`).includes(n)) return false;
         if (f.centro && c.centroId !== f.centro) return false;
         if (f.turno && c.turno !== f.turno) return false;
+        if (f.area === "__otras" ? (!c.area || AREAS.includes(c.area)) : f.area && (c.area || "") !== f.area) return false;
         if (f.notaMin && !(c.nota != null && c.nota >= Number(f.notaMin))) return false;
         if (f.rapido === "sinvalorar" && !(c.nota == null && entrevistaDe(c.id)?.estado === "Realizada")) return false;
         if (f.rapido === "semana") { const d = fechaEnt(c); if (!(d >= HOY_ISO && d <= dia(7))) return false; }
@@ -53,8 +54,9 @@ export default {
       descargarCsv("candidatos-" + HOY_ISO + ".csv", ["Nombre", "Apellidos", "Correo", "Teléfono", "Centro", "Titulación", "Área", "Turno", "Horas", "Estado", "Valoración", "Fecha entrevista", "Hora entrevista", "Estado de la cita", "Origen", "Registrado", "Observaciones"], filas);
       registrar("Exportó candidatos a Excel", filas.length + " fichas"); toast(filas.length + " candidatos exportados");
     };
-    const hayFiltros = computed(() => f.q || f.estado || f.centro || f.turno || f.notaMin || f.rapido);
-    const limpiar = () => Object.assign(f, { q: "", estado: "", centro: "", turno: "", notaMin: "", rapido: "" });
+    const areasFiltro = AREAS;
+    const hayFiltros = computed(() => f.q || f.estado || f.centro || f.turno || f.area || f.notaMin || f.rapido);
+    const limpiar = () => Object.assign(f, { q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", rapido: "" });
     const rapido = (k) => { f.rapido = f.rapido === k ? "" : k; };
 
     // Kanban: arrastrar una tarjeta a otra columna cambia su estado
@@ -130,7 +132,7 @@ export default {
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       alta, n, lee, adjuntar, quitarArchivo, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -153,6 +155,7 @@ export default {
         <div class="buscar"><Ic n="search" :s="16" /><input class="inp" v-model="f.q" placeholder="Buscar por nombre, correo, teléfono, titulación u observaciones…" /></div>
         <SelectBuscable v-model="f.centro" :opciones="opCentros" etiqueta-todos="Todos los centros" style="width:210px" />
         <select class="inp" v-model="f.turno" style="width:170px"><option value="">Cualquier turno</option><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select>
+        <select class="inp" v-model="f.area" style="width:190px"><option value="">Cualquier área</option><option v-for="a in areasFiltro" :key="a" :value="a">{{ a }}</option><option value="__otras">Otra (texto libre)</option></select>
         <select class="inp" v-model="f.notaMin" style="width:150px"><option value="">Cualquier nota</option><option value="9">Nota 9 o más</option><option value="8">Nota 8 o más</option><option value="7">Nota 7 o más</option><option value="5">Nota 5 o más</option></select>
         <div class="seg right">
           <button :class="{on: f.vista==='tabla'}" @click="f.vista='tabla'"><Ic n="tabla" :s="15" />Tabla</button>
