@@ -22,14 +22,17 @@ export function cargarGentrivo(forzar = false) {
   return promesa;
 }
 
-/** Busca a la persona en Gentrivo: primero por correo y, si no, por nombre completo. */
+/** Busca a la persona en Gentrivo: por correo y, si no, porque su nombre de Gentrivo («Nombre Apellido»)
+ *  esté entero dentro del nombre completo del portal. Solo vale si la coincidencia es única. */
+const palabras = (t) => normal(t || "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
 export function enGentrivo(c) {
   if (!c || !gentrivo.personas.length) return null;
   const mail = String(c.email || "").trim().toLowerCase();
   if (mail) { const p = gentrivo.personas.find((x) => x.email === mail); if (p) return p; }
-  const nom = normal(`${c.nombre || ""} ${c.apellidos || ""}`).replace(/\s+/g, " ").trim();
-  if (!nom) return null;
-  return gentrivo.personas.find((x) => normal(x.nombre).replace(/\s+/g, " ").trim() === nom) || null;
+  const mias = palabras(`${c.nombre || ""} ${c.apellidos || ""}`);
+  if (mias.length < 2) return null;
+  const cand = gentrivo.personas.filter((x) => { const t = palabras(x.nombre); return t.length >= 2 && t.every((w) => mias.includes(w)); });
+  return cand.length === 1 ? cand[0] : null;
 }
 
 /** Texto corto del horario de hoy: "10:00–13:00", "Libre", "Ausencia · examen"… */
