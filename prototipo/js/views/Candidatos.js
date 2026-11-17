@@ -105,7 +105,7 @@ export default {
           if (m) { n.centroId = m.id; lee.hecho++; }
         }
         lee.avisos = d.avisos || [];
-        if (d.foto && !n.foto) { const fo = await recortarFoto(f, d.foto); if (fo) { n.foto = fo; lee.fotoIA = true; } }
+        if (d.foto && !n.foto) { const fo = await recortarFoto(f, d.foto, { soloConCara: true }); if (fo) { n.foto = fo; lee.fotoIA = true; } }
         registrar("Leyó un currículum con IA al dar de alta", f.name);
       } catch (e) { lee.error = e.message; } finally { lee.cargando = false; }
     }

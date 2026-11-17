@@ -280,7 +280,7 @@ export default {
           try {
             const blob = await (await fetch(await urlArchivo(d))).blob();
             const tipo = d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext;
-            ia.foto = await recortarFoto(new File([blob], d.nombre, { type: tipo }), r.foto);
+            ia.foto = await recortarFoto(new File([blob], d.nombre, { type: tipo }), r.foto, { soloConCara: true });
             ia.usarFoto = !!ia.foto && !c.value.foto;
           } catch (_) { /* sin foto: no impide aplicar el resto */ }
         }
@@ -306,7 +306,7 @@ export default {
         if (r.foto && !c.value.foto) {
           try {
             const blob = await (await fetch(await urlArchivo(d))).blob();
-            const foto = await recortarFoto(new File([blob], d.nombre, { type: d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext }), r.foto);
+            const foto = await recortarFoto(new File([blob], d.nombre, { type: d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext }), r.foto, { soloConCara: true });
             if (foto) { c.value.foto = foto; puestos.push("foto"); }
           } catch (_) { /* sin foto */ }
         }
