@@ -1,6 +1,7 @@
 import { ref, reactive, computed, watch } from "vue";
-import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos } from "../store.js";
-import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria } from "../api.js";
+import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos, addHist, nombreCompleto } from "../store.js";
+import { recortarFoto } from "../cv.js";
+import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria, leerCurriculum, urlArchivo, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Modal, pedirConfirmacion } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
 import { plantillasIniciales, FIRMA_INICIAL, VARIABLES } from "../mensajes.js";
@@ -115,12 +116,47 @@ export default {
       vaciarDatos(); toast("Entorno vaciado");
     };
 
+    // --- Poner a cada candidato sin foto la foto de su currículum (lee cada currículum con la IA) ---
+    const LEGIBLE = /^(pdf|jpe?g|png|webp)$/;
+    const pendientesFoto = computed(() => store.candidatos.filter((c) => !c.foto).map((c) => {
+      const cv = store.documentos.filter((d) => d.candId === c.id && d.tipo === "Currículum" && d.archivoId && LEGIBLE.test(d.ext || "")).sort((a, b) => (b.fecha + (b.hora || "")).localeCompare(a.fecha + (a.hora || "")) || b.id - a.id)[0];
+      return cv ? { c, cv } : null;
+    }).filter(Boolean));
+    const lote = reactive({ activo: false, parar: false, hechos: 0, total: 0, conFoto: 0, sinFoto: 0, errores: 0, actual: "", terminado: false });
+    async function fotosDesdeCurriculums() {
+      const lista = [...pendientesFoto.value];
+      if (!lista.length) return toast("No hay candidatos sin foto con currículum en PDF o imagen.");
+      if (!(await pedirConfirmacion({ titulo: "¿Buscar fotos en " + lista.length + " currículums?", texto: "Se lee cada currículum con la IA (como el botón «Extraer datos») y, si tiene foto, se pone en la ficha. Solo se toca la foto. Tarda unos segundos por persona; puedes pararlo cuando quieras.", boton: "Empezar" }))) return;
+      Object.assign(lote, { activo: true, parar: false, hechos: 0, total: lista.length, conFoto: 0, sinFoto: 0, errores: 0, actual: "", terminado: false });
+      for (const { c, cv } of lista) {
+        if (lote.parar) break;
+        lote.actual = nombreCompleto(c);
+        try {
+          if (!c.foto) {
+            const r = await leerCurriculum(cv.archivoId);
+            if (r.foto) {
+              const blob = await (await fetch(await urlArchivo(cv))).blob();
+              const tipo = cv.ext === "pdf" ? "application/pdf" : blob.type || "image/" + cv.ext;
+              const foto = await recortarFoto(new File([blob], cv.nombre, { type: tipo }), r.foto);
+              if (foto && !c.foto) { c.foto = foto; addHist(c.id, "documento", "Foto puesta desde el currículum (" + cv.nombre + ")"); lote.conFoto++; } else lote.sinFoto++;
+            } else lote.sinFoto++;
+          }
+        } catch (e) {
+          lote.errores++;
+          if (e.estado === 429) { toast("La IA pide una pausa: vuelve a pulsar el botón dentro de un rato para seguir.", "error"); break; }
+        }
+        lote.hechos++;
+      }
+      registrar("Puso fotos desde los currículums", lote.conFoto + " de " + lote.hechos);
+      Object.assign(lote, { activo: false, actual: "", terminado: true });
+      toast(lote.conFoto + " fotos puestas");
+    }
     const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "no-seleccionado-comunicado", "retirada", "cancelado"].includes(c.estado)).length);
     const demo = (m) => toast((enServidor.value ? "Todavía no disponible: " : "Demo: ") + m);
     const restaurarPlantillas = async () => { if (!(await pedirConfirmacion({ titulo: "¿Restaurar los textos originales?", texto: "Se perderán los cambios que hayas hecho en las plantillas.", boton: "Sí, restaurar" }))) return; store.plantillas = plantillasIniciales(); store.firma = FIRMA_INICIAL; toast("Plantillas restauradas"); };
     const nuevaPlantilla = () => store.plantillas.push({ id: "p" + Date.now().toString(36), nombre: "Nueva plantilla", uso: "general", asunto: "", texto: "Hola {nombre}, \n\n{firma}" });
     const quitarPlantilla = async (i) => { if (await pedirConfirmacion({ titulo: "¿Quitar esta plantilla?", texto: store.plantillas[i].nombre, boton: "Sí, quitar" })) store.plantillas.splice(i, 1); };
-    return { VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    return { pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
@@ -253,7 +289,10 @@ export default {
 
       <div v-else class="card-pad">
         <div class="integ">
-          <div class="caja"><div class="row"><Ic n="sparkles" /><h3>Lectura de currículums con IA</h3><span class="tag right" style="background:var(--success-bg);color:var(--ok-dark)">Activa</span></div><p class="sub">Al dar de alta un candidato y en la pestaña Currículum de la ficha: rellena los datos y recorta la foto a partir del PDF o la imagen. El archivo se envía a OpenAI solo para leerlo.</p></div>
+          <div class="caja"><div class="row"><Ic n="sparkles" /><h3>Lectura de currículums con IA</h3><span class="tag right" style="background:var(--success-bg);color:var(--ok-dark)">Activa</span></div><p class="sub">Al dar de alta un candidato y en la pestaña Currículum de la ficha: rellena los datos y recorta la foto a partir del PDF o la imagen. El archivo se envía a OpenAI solo para leerlo.</p><div v-if="enServidor && admin" class="lote-fotos">
+              <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn btn-sm" :disabled="lote.activo || !pendientesFoto.length" @click="fotosDesdeCurriculums"><Ic n="user" :s="14" />Poner fotos desde los currículums</button><span class="sub">{{ pendientesFoto.length }} candidatos sin foto con currículum en PDF o imagen</span><button v-if="lote.activo" class="btn btn-sm btn-ghost" @click="lote.parar = true">Parar</button></div>
+              <div v-if="lote.activo || lote.terminado" class="lote-prog"><div class="ia-barra-fija"><i :style="{width: (lote.total ? Math.round(lote.hechos / lote.total * 100) : 0) + '%'}"></i></div><span class="sub">{{ lote.hechos }} de {{ lote.total }} · {{ lote.conFoto }} con foto · {{ lote.sinFoto }} sin foto en el currículum<template v-if="lote.errores"> · {{ lote.errores }} no se pudieron leer</template><template v-if="lote.actual"> · leyendo {{ lote.actual }}…</template></span></div>
+            </div></div>
           <div class="caja"><div class="row"><Ic n="whatsapp" /><h3>WhatsApp y correo</h3><span class="tag right" style="background:var(--success-bg);color:var(--ok-dark)">Activo</span></div><p class="sub">Desde la ficha, las entrevistas y el menú de cada persona: abre WhatsApp o el correo del equipo con la plantilla ya rellenada (se editan en la pestaña Mensajes). El envío automático con la API de Meta queda para más adelante.</p></div>
           <div class="caja"><div class="row"><Ic n="sync" /><h3>Notion y Excel de entrevistas</h3><span class="tag right">En preparación</span></div><p class="sub">Que las entrevistas creadas aquí aparezcan también en Notion y en el Excel de la agenda, y al revés.</p></div>
           <div class="caja"><div class="row"><Ic n="clock" /><h3>Gentrivo (fichajes y horarios)</h3><span class="tag right">En preparación</span></div><p class="sub">Dar de alta en Gentrivo a quien empieza las prácticas y traer su horario de cada día, con los cambios puntuales (exámenes, días libres).</p></div>

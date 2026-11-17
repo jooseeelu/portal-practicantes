@@ -404,3 +404,6 @@ html, body { max-width: 100%; overflow-x: clip; }
   .barra-guardar .btn { flex: 1; justify-content: center; height: 46px; }
   .barra-guardar .grow { flex-basis: 100%; }
 }
+.lote-fotos { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.ia-barra-fija { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.ia-barra-fija i { display: block; height: 100%; background: var(--gold-500); transition: width .3s; }
