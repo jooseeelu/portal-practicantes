@@ -67,7 +67,7 @@ export default {
     const alertasEquipo = computed(() => {
       const a = [];
       if (sinValorar.value.length) a.push({ tono: "am", i: "star", t: `${sinValorar.value.length} entrevistas realizadas sin valorar`, s: sinValorar.value.map((e) => candDe(e.candId).nombre).join(", "), ir: () => irCands("", "sinvalorar"), cta: "Valorar" });
-      picos.value.filter((p) => p.max > p.aforo).forEach((p) => a.push({ tono: "err", i: "alert", t: `Turno de ${p.turno.toLowerCase()} por encima del aforo el ${fCorta(p.cuando)}`, s: `${p.max} estudiantes para ${p.aforo} plazas supervisables`, ir: () => go("estudiantes/cuadrante"), cta: "Ver cuadrante" }));
+      // (El aviso de aforo se quitó a petición del equipo)
       finalizan.value.forEach((e) => a.push({ tono: "info", i: "clock", t: `${nombreCompleto(candDe(e.candId))} termina sus prácticas ${relativo(e.fin)}`, s: `${fCorta(e.fin)} · ${e.tutor ? "tutor: " + e.tutor : "sin tutor asignado"}`, ir: () => go("candidato/" + e.candId), cta: "Abrir ficha" }));
       const hoyC = cuenta("pendiente-revision");
       if (hoyC) a.push({ tono: "gold", i: "documentos", t: `${hoyC} currículums nuevos por revisar`, s: "Recibidos por correo y de los centros", ir: () => irCands("pendiente-revision"), cta: "Revisar" });
@@ -158,8 +158,7 @@ export default {
         <div class="card-head"><h3>Hoy en la oficina</h3><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
         <div class="turnos-hoy">
           <div v-for="t in hoyTurnos" :key="t.t" class="turno-hoy">
-            <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span><span class="right aforo" title="Practicantes que vienen hoy en este turno y cuántos se pueden atender a la vez (se cambia en Ajustes → Turnos y aforo)" :class="{lleno: t.n>=t.aforo, pasa: t.n>t.aforo}">{{ t.n }} {{ t.n === 1 ? 'practicante' : 'practicantes' }} · caben {{ t.aforo }}</span></div>
-            <div class="medidor"><i v-for="k in t.aforo" :key="k" :class="{on: k<=t.n}"></i></div>
+            <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span></div>
             <div class="row wrap" style="gap:6px">
               <a v-for="c in t.l" :key="c.id" class="persona" @click="go('candidato/'+c.id)"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="22" />{{ c.nombre }}</a>
               <span v-if="!t.l.length" class="muted">Nadie en este turno</span>
