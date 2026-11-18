@@ -690,7 +690,6 @@ export default {
         <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="inc.tutor"><option value="">Sin tutor asignado</option><OpcionesPersonas :actual="inc.tutor" /></select></div>
       </div>
       <label class="row"><input type="checkbox" v-model="inc.convenio" /> Convenio de prácticas firmado</label>
-      <div class="aviso" :class="ocupacion.pasa ? 'err' : ''"><Ic :n="ocupacion.pasa ? 'alert' : 'info'" :s="16" /><span>Turno de <b>{{ etiquetaTurno(ocupacion.t).toLowerCase() }}</b> el día de inicio: {{ ocupacion.n }} de {{ ocupacion.aforo }} plazas ocupadas.<template v-if="ocupacion.pasa"> <b>Con esta incorporación se supera el aforo supervisable.</b></template></span></div>
       <template #pie><button class="btn" @click="inc.abierto=false">Cancelar</button><button class="btn btn-accent" @click="guardarInc"><Ic n="estudiantes" :s="16" />{{ est ? 'Guardar' : 'Incorporar' }}</button></template>
     </Modal>
   </div>
