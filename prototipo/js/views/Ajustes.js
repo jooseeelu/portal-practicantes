@@ -198,7 +198,7 @@ export default {
       if (!(await pedirConfirmacion({ titulo: "¿Vaciar la papelera?", texto: "Se borran para siempre " + n + " fichas y todos sus archivos. No se puede deshacer.", boton: "Vaciar la papelera" }))) return;
       store.papelera.slice().forEach((p) => borrarArchivos(vaciarDePapelera(p))); registrar("Vació la papelera", n + " fichas"); toast("Papelera vacía");
     };
-    return { copia, hacerExcel, hacerCopia, caducadas, proximasCad, revision, abrirRevision, seleccionadas, mantener, mandarSeleccion, papelera, restaurar, eliminarYa, vaciarPapelera, DIAS_PAPELERA, diasEnPapelera, estadoDe, ultimoContacto, vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    return { fCompleta, nombreCompleto, copia, hacerExcel, hacerCopia, caducadas, proximasCad, revision, abrirRevision, seleccionadas, mantener, mandarSeleccion, papelera, restaurar, eliminarYa, vaciarPapelera, DIAS_PAPELERA, diasEnPapelera, estadoDe, ultimoContacto, vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
