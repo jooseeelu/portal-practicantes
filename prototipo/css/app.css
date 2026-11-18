@@ -541,3 +541,15 @@ textarea.pc-txt { resize: none; overflow: hidden; field-sizing: content; white-s
 .chat-adj { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-top: 1px solid var(--border); font-size: 13px; }
 .chat-adj img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
 .chat-clip { border: 1px solid var(--border); background: var(--surface); color: var(--text-700); border-radius: 10px; width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer; flex: 0 0 auto; }
+
+.chat-resp { border: 0; background: none; color: inherit; cursor: pointer; font-size: 13px; padding: 0 2px; opacity: 0; transition: opacity .15s; }
+.chat-msg:hover .chat-resp, .chat-resp:focus { opacity: .7; }
+@media (hover: none) { .chat-resp { opacity: .6; } }
+.chat-cita { display: block; width: 100%; text-align: left; border: 0; border-left: 3px solid var(--teal-500); background: color-mix(in srgb, var(--text-400) 14%, transparent); color: inherit; border-radius: 6px; padding: 4px 8px; margin: 4px 0; font: 12px/1.35 var(--font-base); cursor: pointer; }
+.chat-cita b { display: block; font-size: 11px; }
+.chat-visto { font-size: 11px; opacity: .75; margin-top: 3px; text-align: right; }
+.chat-respondiendo { border-left: 3px solid var(--teal-500); font-size: 12px; }
+.chat-emojis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 6px 10px; border-top: 1px solid var(--border); max-height: 140px; overflow-y: auto; }
+.chat-emojis button { border: 0; background: none; font-size: 20px; padding: 4px 0; cursor: pointer; border-radius: 6px; }
+.chat-emojis button:hover { background: var(--surface-alt); }
+.chat-msg.chat-resalta .chat-burbuja { outline: 2px solid var(--teal-500); }
