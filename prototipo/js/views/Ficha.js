@@ -1,5 +1,5 @@
 import { computed, reactive, ref, watch, onUnmounted } from "vue";
-import { abrirCertificado, CRITERIOS_EVAL } from "../certificado.js";
+import { htmlCertificado, CRITERIOS_EVAL } from "../certificado.js";
 import { DIAS_PAPELERA, store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, eliminarEntrevista, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
@@ -29,6 +29,11 @@ export default {
     const g = computed(() => (est.value ? enGentrivo(c.value) : null));
     // Vincular a mano con su persona de Gentrivo cuando no se encuentra sola (o se encuentra mal)
     const eligeG = ref(false);
+    // Quien en Gentrivo ya no es practicante (p. ej. hizo prácticas y ahora es empleado): ficha básica, sin horario ni faltas
+    const empleado = computed(() => !!g.value && g.value.practicante === false);
+    // Ausencias apuntadas en Gentrivo dentro del periodo de prácticas que aún no están como falta aquí
+    const faltasG = computed(() => { const e = est.value; if (!g.value || empleado.value || !e) return []; const ya = new Set((e.faltas || []).map((x) => x.fecha)); return (g.value.cambios || []).filter((x) => x.tipo === "absence" && x.fecha >= e.inicio && x.fecha <= e.fin && !ya.has(x.fecha)); });
+    const apuntarG = (x) => { Object.assign(falta, { fecha: x.fecha, motivo: x.motivo || "Ausencia en Gentrivo", recupera: true }); addFalta(); };
     const opcionesG = computed(() => [...gentrivo.personas].sort((a, b) => a.nombre.localeCompare(b.nombre)));
     const vincularG = (email) => {
       const p = gentrivo.personas.find((x) => x.email === email);
@@ -51,7 +56,11 @@ export default {
       { k: "entrevista", t: "Entrevista", i: "entrevistas", n: (c.value.pros?.length || 0) + (c.value.contras?.length || 0) || null }, { k: "docs", t: "Documentación", i: "archive", n: docs.value.length },
       { k: "historial", t: "Historial", i: "history", n: hist.value.length }, { k: "notas", t: "Observaciones internas", i: "lock", n: notas.value.length },
     ]);
-    const estadoSel = computed({ get: () => c.value.estado, set: (k) => cambiarEstado(c.value, k) });
+    // Al cancelar, retirarse o no ser seleccionado se puede apuntar el motivo (sin tener que poner nota)
+    const CON_MOTIVO = ["cancelado", "retirada", "no-seleccionado"];
+    const motivo = reactive({ k: "", texto: "" });
+    const estadoSel = computed({ get: () => c.value.estado, set: (k) => { if (CON_MOTIVO.includes(k)) Object.assign(motivo, { k, texto: "" }); else cambiarEstado(c.value, k); } });
+    const confirmarMotivo = () => { const t = motivo.texto.trim(); cambiarEstado(c.value, motivo.k); if (t) { c.value.motivoEstado = t; addHist(c.value.id, "nota", "Motivo: " + t); } else delete c.value.motivoEstado; motivo.k = ""; };
     const zoom = ref(1);
 
     // --- Entrevista: programar y valorar ---
@@ -171,9 +180,12 @@ export default {
     // --- Evaluación final y certificado ---
     const ev = reactive({ abierta: false });
     const evaluacion = computed(() => est.value?.evaluacion || { criterios: {}, comentario: "", resultado: "" });
-    const ponerEval = (campo, valor) => { const e = est.value; if (!e) return; const x = (e.evaluacion ||= { criterios: {}, comentario: "", resultado: "" }); if (campo === "criterio") x.criterios[valor[0]] = valor[1]; else x[campo] = valor; x.fecha = HOY_ISO; x.por = miNombre(); };
+    const ponerEval = (campo, valor) => { const e = est.value; if (!e) return; const x = (e.evaluacion ||= { criterios: {}, comentario: "", resultado: "" }); if (campo === "criterio") { if (x.criterios[valor[0]] === valor[1]) delete x.criterios[valor[0]]; else x.criterios[valor[0]] = valor[1]; } else x[campo] = valor; x.fecha = HOY_ISO; x.por = miNombre(); };
     const mediaEval = computed(() => { const v = Object.values(evaluacion.value.criterios || {}).filter(Boolean); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : ""; });
-    const hacerCertificado = () => { if (!abrirCertificado(c.value, est.value, centroDe(c.value.centroId))) toast("El navegador bloqueó la ventana. Permite las ventanas emergentes.", "error"); else addHist(c.value.id, "nota", "Certificado de prácticas generado"); };
+    const cert = reactive({ html: "" });
+    const hacerCertificado = () => { cert.html = htmlCertificado(c.value, est.value, centroDe(c.value.centroId)); addHist(c.value.id, "nota", "Certificado de prácticas generado"); };
+    const imprimirCert = () => { const f = document.getElementById("marco-cert"); f?.contentWindow?.print(); };
+    const quitarEval = async () => { if (!(await pedirConfirmacion({ titulo: "¿Borrar la evaluación final?", texto: "Se quitan las notas, el resultado y el comentario.", boton: "Borrar" }))) return; delete est.value.evaluacion; toast("Evaluación borrada"); };
 
     // --- Faltas de asistencia (si se recupera el día, el fin se alarga un día laborable) ---
     const falta = reactive({ fecha: HOY_ISO, motivo: "", recupera: true });
@@ -363,7 +375,7 @@ export default {
       addHist(c.value.id, "nota", "Observación interna borrada");
       toast("Observación borrada");
     };
-    return { ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -377,7 +389,9 @@ export default {
         <label v-else class="foto-edit" title="Poner una foto"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><span class="camara"><Ic n="camara" :s="15" /></span><input type="file" accept="image/*" hidden @change="ponerFoto" /></label>
       </div>
       <div class="grow">
-        <div class="row wrap"><h1>{{ c.nombre }} {{ c.apellidos }}</h1><Chip :k="c.estado" /><span v-if="est" class="tag gold"><Ic n="estudiantes" :s="13" />Prácticas: {{ estadoPracticas(est).toLowerCase() }}</span></div>
+        <div class="row wrap"><h1>{{ c.nombre }} {{ c.apellidos }}</h1><Chip :k="c.estado" /><span v-if="c.motivoEstado && ['cancelado','retirada','no-seleccionado','no-seleccionado-comunicado'].includes(c.estado)" class="sub" :title="c.motivoEstado">Motivo: {{ c.motivoEstado }}</span>
+        <Modal v-if="motivo.k" titulo="¿Por qué?" :ancho="480" @cerrar="motivo.k=''"><p class="sub">Pasa a «{{ store.estados.find((e) => e.k === motivo.k)?.n }}». Puedes apuntar el motivo (opcional); queda en la ficha y en el historial.</p><textarea class="inp" rows="3" v-model="motivo.texto" placeholder="Por ejemplo: ha encontrado otras prácticas"></textarea><template #pie><button class="btn" @click="motivo.k=''">Cancelar</button><button class="btn btn-ink" @click="confirmarMotivo">Guardar</button></template></Modal>
+        <span v-if="empleado" class="tag"><Ic n="user" :s="13" />Empleado/a</span><span v-if="est" class="tag gold"><Ic n="estudiantes" :s="13" />Prácticas: {{ estadoPracticas(est).toLowerCase() }}</span></div>
         <div class="ficha-sub">
           <span><Ic n="centros" :s="14" />{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</span>
           <span><Ic n="estudiantes" :s="14" />{{ c.titulacion || 'Sin titulación' }}</span>
@@ -417,7 +431,8 @@ export default {
         <div v-if="est" class="practicas-box">
           <div class="row"><Ic n="estudiantes" /><b>Prácticas en la gestoría</b><Chip :texto="estadoPracticas(est)" c="var(--cyan)" cd="var(--cyan-dark)" /><button class="btn btn-sm right" @click="abrirInc"><Ic n="pencil" :s="14" />Editar</button></div>
           <div class="datos"><div><span>Inicio</span><b>{{ fCompleta(est.inicio) }}</b></div><div><span>Fin previsto</span><b>{{ fCompleta(est.fin) }}</b></div><div><span>Horario</span><b>{{ est.horaIni }}–{{ est.horaFin }}</b></div><div><span>Horas totales</span><b>{{ est.horas }} h</b></div><div><span>Tutor en la gestoría</span><b v-if="est.tutor">{{ est.tutor }}</b><b v-else class="muted">Sin asignar</b></div><div><span>Convenio</span><b>{{ est.convenio ? 'Firmado' : 'Pendiente de firma' }}</b></div></div>
-          <div v-if="g" class="gentrivo-box">
+          <div v-if="empleado" class="aviso ok"><Ic n="user" :s="16" /><span class="grow">Ahora trabaja en la gestoría (empleado/a en Gentrivo: {{ g.nombre }}). Por eso no se muestran su horario ni las faltas.</span><button class="btn-link" @click="vincularG('-')">No es esta persona</button></div>
+          <div v-else-if="g" class="gentrivo-box">
             <div class="row"><Ic n="clock" :s="16" /><b>Horario en Gentrivo</b><span class="sub">· {{ g.nombre }}</span><button class="btn-link right" @click="eligeG = !eligeG">{{ eligeG ? 'Cancelar' : 'No es esta persona' }}</button></div>
             <div v-if="eligeG" class="vincular-g"><select class="inp" @change="vincularG($event.target.value)"><option value="">Elige su persona en Gentrivo…</option><option v-for="p in opcionesG" :key="p.email" :value="p.email">{{ p.nombre }} · {{ p.email }}</option><option value="-">No está en Gentrivo</option></select></div>
             <div class="row"><span class="sub"><span class="sub">Hoy: <b>{{ textoHoy(g) }}</b><template v-if="hoyEsCambio(g) && g.hoy.motivo"> · {{ g.hoy.motivo }}</template></span></div>
@@ -432,7 +447,8 @@ export default {
             <p class="sub">{{ c.gentrivo === '-' ? 'Si ya tiene ficha en Gentrivo, elígela:' : 'No se ha encontrado sola (ni por correo ni por nombre). Elige su persona en Gentrivo y se verá su horario:' }}</p>
             <div class="vincular-g"><select class="inp" @change="vincularG($event.target.value)"><option value="">Elige su persona en Gentrivo…</option><option v-for="p in opcionesG" :key="p.email" :value="p.email">{{ p.nombre }} · {{ p.email }}</option><option v-if="c.gentrivo !== '-'" value="-">No está en Gentrivo</option></select></div>
           </div>
-          <div class="faltas">
+          <div v-if="!empleado" class="faltas">
+            <div v-if="faltasG.length" class="aviso"><Ic n="info" :s="16" /><span class="grow">En Gentrivo hay {{ faltasG.length }} ausencia{{ faltasG.length === 1 ? '' : 's' }} sin apuntar aquí: <template v-for="(x,i) in faltasG" :key="x.fecha">{{ i ? ', ' : '' }}<a style="cursor:pointer;text-decoration:underline" @click="apuntarG(x)" title="Apuntar como falta">{{ fCorta(x.fecha) }}{{ x.motivo ? ' (' + x.motivo + ')' : '' }}</a></template>. Pulsa una fecha para apuntarla.</span></div>
             <b>Faltas de asistencia <span class="sub">({{ (est.faltas || []).length }})</span></b>
             <div v-for="x in est.faltas || []" :key="x.fecha" class="falta"><span><b>{{ fLarga(x.fecha) }}</b><template v-if="x.motivo"> · {{ x.motivo }}</template></span><Chip :texto="x.recupera ? 'Se recupera (+1 día)' : 'No se recupera'" :c="x.recupera ? 'var(--gold-500)' : 'var(--text-400)'" :cd="x.recupera ? 'var(--gold-700)' : 'var(--text-600)'" /><button class="btn btn-sm" @click="quitarFalta(x)">Quitar</button></div>
             <div class="falta-nueva"><input class="inp" type="date" v-model="falta.fecha" :min="est.inicio" :max="est.fin" /><input class="inp" v-model="falta.motivo" placeholder="Motivo (opcional)" @keydown.enter="addFalta" /><label class="check"><input type="checkbox" v-model="falta.recupera" /> Recupera el día (termina 1 día más tarde)</label><button class="btn" @click="addFalta"><Ic n="plus" :s="15" />Apuntar falta</button></div>
@@ -442,7 +458,12 @@ export default {
             <div v-for="[k,t] in CRITERIOS_EVAL" :key="k" class="falta"><span>{{ t }}</span><span><button v-for="n in 5" :key="n" class="btn btn-sm" :class="{'btn-ink': (evaluacion.criterios[k]||0) >= n}" style="padding:2px 8px" @click="ponerEval('criterio',[k,n])">{{ n }}</button></span></div>
             <p v-if="mediaEval" class="sub">Media: <b>{{ mediaEval }}</b> / 5</p>
             <div class="grid2"><div class="fld"><label>Resultado</label><select class="inp" :value="evaluacion.resultado" @change="ponerEval('resultado',$event.target.value)"><option value="">Sin valorar</option><option>Apto</option><option>No apto</option></select></div><div class="fld"><label>Comentario (sale en el certificado)</label><input class="inp" :value="evaluacion.comentario" @input="ponerEval('comentario',$event.target.value)" placeholder="Opcional" /></div></div>
-            <div><button class="btn btn-sm" @click="hacerCertificado"><Ic n="download" :s="14" />Certificado de prácticas</button></div>
+            <p class="sub">Pulsa otra vez un número para quitarlo.</p>
+            <div class="row wrap"><button class="btn btn-sm" @click="hacerCertificado"><Ic n="download" :s="14" />Certificado de prácticas</button><button v-if="est.evaluacion" class="btn btn-sm btn-ghost" @click="quitarEval">Borrar evaluación</button></div>
+            <Modal v-if="cert.html" titulo="Certificado de prácticas" :ancho="820" @cerrar="cert.html=''">
+              <iframe id="marco-cert" :srcdoc="cert.html" style="width:100%;height:65vh;border:1px solid var(--line, #ddd);border-radius:8px;background:#fff"></iframe>
+              <template #pie><button class="btn" @click="cert.html=''">Volver a la ficha</button><button class="btn btn-ink" @click="imprimirCert"><Ic n="download" :s="15" />Imprimir o guardar PDF</button></template>
+            </Modal>
           </div>
         </div>
         <p class="sub"><Ic n="check" :s="13" /> Los cambios se guardan solos al escribir.</p>
