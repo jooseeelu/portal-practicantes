@@ -3,6 +3,8 @@ import { store, estadoDe } from "./store.js";
 import { iniciales, hash, normal } from "./util.js";
 
 export const ICONS = {
+  enviar: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
+  clip: '<path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
   inicio: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
   candidatos: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-1.7-5.4-4-6.5"/>',

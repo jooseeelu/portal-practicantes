@@ -78,18 +78,20 @@ export const ChatEquipo = {
         const resp = respondiendo.value?.id || "";
         if (adjunto.value) { const fd = new FormData(); fd.append("autor", yo.value); fd.append("nombre", nombre); fd.append("texto", x); fd.append("respuesta", resp); fd.append("archivo", adjunto.value); await crearConArchivo("chat", fd); }
         else await pedir("POST", "api/collections/chat/records", { autor: yo.value, nombre, texto: x, respuesta: resp });
-        texto.value = ""; quitarAdjunto(); respondiendo.value = null; emojis.value = false; await cargar(); bajar();
+        texto.value = ""; crecer(); quitarAdjunto(); respondiendo.value = null; emojis.value = false; await cargar(); bajar();
       }
       catch (e) { error.value = "No se pudo enviar: " + e.message; }
       finally { enviando.value = false; }
     }
     async function borrar(m) { try { await pedir("DELETE", `api/collections/chat/records/${m.id}`); await cargar(); } catch (_) { error.value = "No se pudo borrar."; } }
+    // La caja de texto crece con lo que se escribe (hasta 5 líneas)
+    const crecer = () => nextTick(() => { const el = caja.value; if (!el) return; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; });
     const teclas = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } else if (e.key === "Escape") { respondiendo.value = null; emojis.value = false; } };
     const hora = (iso) => { const d = new Date(String(iso).replace(" ", "T")); const hoy = new Date().toDateString() === d.toDateString(); return (hoy ? "" : d.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) + " · ") + d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); };
     const partes = (n) => { const p = String(n || "?").split(" "); return { nombre: p[0], apellidos: p.slice(1).join(" ") }; };
     onMounted(() => { cargar(); programar(); });
     onUnmounted(() => clearTimeout(t));
-    return { EMOJIS, respondiendo, emojis, caja, porId, resumen, responder, irA, ponerEmoji, ultimoMio, vistoPor, bajar, adjunto, vistaAdj, entradaArchivo, urls, esImagen, quitarAdjunto, elegirArchivo, pegar, abierto, texto, lista, enviando, error, estado, yo, noLeidos, alternar, enviar, borrar, teclas, hora, partes, esAdmin, sesion };
+    return { crecer, EMOJIS, respondiendo, emojis, caja, porId, resumen, responder, irA, ponerEmoji, ultimoMio, vistoPor, bajar, adjunto, vistaAdj, entradaArchivo, urls, esImagen, quitarAdjunto, elegirArchivo, pegar, abierto, texto, lista, enviando, error, estado, yo, noLeidos, alternar, enviar, borrar, teclas, hora, partes, esAdmin, sesion };
   },
   template: `<div v-if="sesion.modo === 'servidor' && sesion.usuario" class="chat-eq">
     <div v-if="abierto" class="chat-panel">
@@ -112,7 +114,7 @@ export const ChatEquipo = {
       <div v-if="respondiendo" class="chat-adj chat-respondiendo"><span class="grow"><b>Respondiendo a {{ respondiendo.nombre }}</b><br>{{ resumen(respondiendo) }}</span><button class="chat-borrar" title="Cancelar" @click="respondiendo=null">×</button></div>
       <div v-if="emojis" class="chat-emojis"><button v-for="e in EMOJIS" :key="e" @click="ponerEmoji(e)">{{ e }}</button></div>
       <div v-if="adjunto" class="chat-adj"><img v-if="vistaAdj" :src="vistaAdj" alt="" /><Ic v-else n="documentos" :s="18" /><span class="grow">{{ adjunto.name }}</span><button class="chat-borrar" title="Quitar" @click="quitarAdjunto">×</button></div>
-      <div class="chat-pie"><button class="chat-clip" title="Adjuntar captura o archivo" @click="entradaArchivo.click()"><Ic n="upload" :s="18" /></button><input ref="entradaArchivo" type="file" accept="image/*,application/pdf" hidden @change="elegirArchivo" /><button class="chat-clip" title="Emojis" @click="emojis = !emojis">😊</button><textarea ref="caja" v-model="texto" rows="2" class="inp" placeholder="Escribe un mensaje… (Intro para enviar, Ctrl+V para pegar una captura)" @keydown="teclas" @paste="pegar"></textarea><button class="btn btn-ink" :disabled="(!texto.trim() && !adjunto) || enviando" @click="enviar">Enviar</button></div>
+      <div class="chat-pie"><div class="chat-campo"><button class="chat-ico" :class="{on: emojis}" title="Emojis" @click="emojis = !emojis"><span style="font-size:19px;line-height:1">😊</span></button><textarea ref="caja" v-model="texto" rows="1" placeholder="Escribe un mensaje…" title="Intro para enviar · Mayús+Intro para otra línea · Ctrl+V para pegar una captura" @keydown="teclas" @paste="pegar" @input="crecer"></textarea><button class="chat-ico" title="Adjuntar captura o archivo" @click="entradaArchivo.click()"><Ic n="clip" :s="19" /></button><input ref="entradaArchivo" type="file" accept="image/*,application/pdf" hidden @change="elegirArchivo" /></div><button class="chat-enviar" :disabled="(!texto.trim() && !adjunto) || enviando" title="Enviar" aria-label="Enviar" @click="enviar"><Ic n="enviar" :s="19" /></button></div>
     </div>
     <button class="chat-boton" :title="abierto ? 'Cerrar el chat' : 'Chat del equipo'" @click="alternar"><Ic n="chat" :s="22" /><span v-if="noLeidos && !abierto" class="chat-badge">{{ noLeidos > 9 ? '9+' : noLeidos }}</span></button>
   </div>`,
