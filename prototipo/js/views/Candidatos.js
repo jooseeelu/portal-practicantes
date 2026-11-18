@@ -3,6 +3,7 @@ import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, 
 import { ruta, go } from "../router.js";
 import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir, miNombre } from "../api.js";
 import { recortarFoto } from "../cv.js";
+import { RecorteFoto } from "../recorte.js";
 import { elegirMensaje } from "../mensajes.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas, SelectArea } from "../ui.js";
 import { AREAS_UNIDAS, TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
@@ -17,7 +18,7 @@ const COLS = [
 ];
 
 export default {
-  components: { SelectArea, OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
+  components: { RecorteFoto, SelectArea, OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
   setup() {
     const f = filtros;
     const opCentros = computed(() => store.centros.filter((c) => !c.archivado).map((c) => ({ valor: c.id, etiqueta: c.nombre })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)));
@@ -107,11 +108,14 @@ export default {
           if (m) { n.centroId = m.id; lee.hecho++; }
         }
         lee.avisos = d.avisos || [];
+        recorteAlta.caja = d.foto || null;
         if (d.foto && !n.foto) { const fo = await recortarFoto(f, d.foto, { soloConCara: true }); if (fo) { n.foto = fo; lee.fotoIA = true; } }
         registrar("Leyó un currículum con IA al dar de alta", f.name);
       } catch (e) { lee.error = e.message; } finally { lee.cargando = false; }
     }
     const quitarArchivo = () => { if (n.archivoId) borrarArchivo(n.archivoId).catch(() => {}); n.archivo = null; n.archivoId = ""; n.archivoSrv = ""; Object.assign(lee, { cargando: false, error: "", hecho: 0, avisos: [], fotoIA: false }); };
+    const recorteAlta = reactive({ abierto: false, caja: null });
+    const usarRecorteAlta = (url) => { n.foto = url; lee.fotoIA = false; recorteAlta.abierto = false; };
     const quitarFotoAlta = () => { n.foto = ""; lee.fotoIA = false; };
     const fotoAlta = async (ev) => { const a = ev.target.files[0]; ev.target.value = ""; try { n.foto = await leerFoto(a); } catch (e) { toast(e.message, "error"); } };
     const n = reactive(vacio());
@@ -150,7 +154,7 @@ export default {
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
     return { obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
-      hoja, NOTAS, RAPIDOS, chips, alta, n, lee, adjuntar, quitarArchivo, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
+      hoja, NOTAS, RAPIDOS, chips, alta, n, lee, adjuntar, quitarArchivo, recorteAlta, usarRecorteAlta, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
   <div class="page">
@@ -270,7 +274,8 @@ export default {
       <div v-if="duplicado" class="aviso warn"><Ic n="alert" :s="16" /><span class="grow"><b>Posible duplicado:</b> {{ nombreCompleto(duplicado) }} ya está registrado con ese correo o teléfono.</span><button class="btn btn-sm" @click="cerrarAlta(); go('candidato/'+duplicado.id)">Abrir su ficha</button></div>
       <div class="foto-alta">
         <label class="foto-edit" title="Añadir foto"><Avatar v-if="n.nombre || n.foto" :nombre="n.nombre" :apellidos="n.apellidos" :foto="n.foto" :s="60" /><span v-else class="avatar avatar-vacio" style="width:60px;height:60px"><Ic n="camara" :s="24" /></span><span class="camara"><Ic n="camara" :s="14" /></span><input type="file" accept="image/*" hidden @change="fotoAlta" /><button v-if="n.foto" type="button" class="foto-x" title="Quitar esta foto" aria-label="Quitar la foto" @click.prevent.stop="quitarFotoAlta">×</button></label>
-        <div><b>Foto de la persona (opcional)</b><div class="sub">Ayuda a reconocerla en listados, agenda y cuadrante. Se puede añadir o cambiar después.</div></div>
+        <div><b>Foto de la persona (opcional)</b><div class="sub">Ayuda a reconocerla en listados, agenda y cuadrante. Se puede añadir o cambiar después.</div><button v-if="n.archivo" type="button" class="btn btn-sm" style="margin-top:6px" @click="recorteAlta.abierto = true"><Ic n="camara" :s="14" />{{ n.foto ? "Recortar mejor" : "Recortar del currículum" }}</button></div>
+        <RecorteFoto v-if="recorteAlta.abierto" :archivo="n.archivo" :caja="recorteAlta.caja" @listo="usarRecorteAlta" @cerrar="recorteAlta.abierto = false" />
       </div>
       <div class="grid2">
         <div class="fld"><label>Nombre *</label><input class="inp" v-model="n.nombre" /></div>
