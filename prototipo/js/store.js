@@ -20,7 +20,7 @@ export const ajustesPorDefecto = () => ({
     practicantes: ["Milena", "Montserrat", "Belén", "Johan", "Joaquín", "Mayela", "Ileana", "Daniel", "Mey"],
   },
 });
-const DATOS = ["centros", "candidatos", "entrevistas", "estudiantes", "documentos", "historial", "notas"];
+const DATOS = ["centros", "candidatos", "entrevistas", "estudiantes", "documentos", "historial", "notas", "papelera"];
 
 // El portal arranca vacío: los datos llegan del servidor (sync.js) o, en modo demo, de cargarDemo().
 export const store = reactive({
@@ -38,7 +38,7 @@ export function vaciarDatos() {
 /** Rellena el portal con los datos de demostración (inventados). */
 export function cargarDemo() {
   const d = crearDatos();
-  for (const k of DATOS) store[k].splice(0, store[k].length, ...d[k]);
+  for (const k of DATOS) store[k].splice(0, store[k].length, ...(d[k] || []));
 }
 
 // Turnos de la oficina y cómo se muestran (con su horario, que se edita en Ajustes)
@@ -130,18 +130,65 @@ export function incorporar(c, datos) {
   return e;
 }
 
-/** Borra la ficha de un candidato y todo lo suyo (entrevistas, prácticas, documentos, historial y notas).
- *  Devuelve los ids de archivo del servidor para borrarlos también. */
+// --- Papelera: una ficha borrada se guarda entera 30 días y se puede recuperar ---
+export const DIAS_PAPELERA = 30;
+const FICHA = ["entrevistas", "documentos", "historial", "notas", "estudiantes"];
+
+/** Manda la ficha de un candidato y todo lo suyo (entrevistas, prácticas, documentos, historial y notas) a la papelera.
+ *  Los archivos subidos NO se borran: se borran cuando la ficha se elimina para siempre. */
 export function borrarCandidato(c) {
-  const id = c.id;
-  const archivos = store.documentos.filter((d) => d.candId === id && d.archivoId).map((d) => d.archivoId);
-  for (const k of ["entrevistas", "documentos", "historial", "notas", "estudiantes"]) {
+  const id = c.id, ahora = new Date();
+  const copia = (x) => JSON.parse(JSON.stringify(x));
+  const datos = { cand: copia(c) };
+  for (const k of FICHA) datos[k] = store[k].filter((x) => x.candId === id).map(copia);
+  store.papelera.push({ id: nuevoId(), candId: id, nombre: nombreCompleto(c), fecha: HOY_ISO, hora: `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`, por: miNombre(), estado: c.estado, centro: centroDe(c.centroId)?.nombre || "", datos });
+  for (const k of FICHA) {
     const queda = store[k].filter((x) => x.candId !== id);
     if (queda.length !== store[k].length) store[k].splice(0, store[k].length, ...queda);
   }
   const i = store.candidatos.findIndex((x) => x.id === id);
   if (i >= 0) store.candidatos.splice(i, 1);
-  return archivos;
+}
+/** Los ids de archivo del servidor que lleva una ficha de la papelera. */
+export const archivosDe = (p) => (p.datos?.documentos || []).filter((d) => d.archivoId).map((d) => d.archivoId);
+/** Saca una ficha de la papelera y la deja como estaba. */
+export function restaurarDePapelera(p) {
+  if (store.candidatos.some((x) => x.id === p.candId)) { toast("Ya hay una ficha con ese número; no se puede restaurar.", "error"); return false; }
+  store.candidatos.push(p.datos.cand);
+  for (const k of FICHA) store[k].push(...(p.datos[k] || []));
+  store.papelera.splice(store.papelera.indexOf(p), 1);
+  addHist(p.candId, "estado", "Ficha restaurada desde la papelera");
+  return true;
+}
+/** Elimina para siempre una ficha de la papelera. Devuelve los archivos que hay que borrar del servidor. */
+export function vaciarDePapelera(p) {
+  const i = store.papelera.indexOf(p);
+  if (i >= 0) store.papelera.splice(i, 1);
+  return archivosDe(p);
+}
+export const diasEnPapelera = (p) => Math.round((Date.parse(HOY_ISO) - Date.parse(p.fecha)) / 86400000);
+/** Fichas que llevan más de 30 días en la papelera. */
+export const caducadasEnPapelera = () => store.papelera.filter((p) => diasEnPapelera(p) >= DIAS_PAPELERA);
+
+// --- Conservación de datos: candidaturas que ya no siguen en el proceso y han pasado el plazo ---
+export const ESTADOS_SIN_PROCESO = ["no-seleccionado", "no-seleccionado-comunicado", "retirada", "cancelado"];
+/** Último contacto real con la persona: alta, entrevista ya hecha o cambio de estado hecho por alguien del equipo. */
+export function ultimoContacto(c) {
+  const f = [c.creado];
+  for (const e of store.entrevistas) if (e.candId === c.id && e.fecha <= HOY_ISO) f.push(e.fecha);
+  for (const h of store.historial) if (h.candId === c.id && h.tipo === "estado" && h.autor !== "Portal") f.push(h.fecha);
+  if (c.conservadoHasta) f.push(c.conservadoDesde || "");
+  return f.filter(Boolean).sort().pop() || HOY_ISO;
+}
+const sumarMeses = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+/** Fecha en la que termina el plazo de conservación de una candidatura. */
+export const venceEl = (c) => { const v = sumarMeses(ultimoContacto(c), store.retencionMeses || 12); return c.conservadoHasta && c.conservadoHasta > v ? c.conservadoHasta : v; };
+/** Candidaturas sin proceso cuyo plazo ya ha pasado (o pasa en los próximos `dias` días). */
+export const candidaturasCaducadas = (dias = 0) => store.candidatos.filter((c) => ESTADOS_SIN_PROCESO.includes(c.estado) && !store.estudiantes.some((e) => e.candId === c.id) && venceEl(c) <= dia(dias)).sort((a, b) => venceEl(a).localeCompare(venceEl(b)));
+/** Decidir conservar una candidatura otro periodo completo. */
+export function mantenerCandidatura(c) {
+  c.conservadoDesde = HOY_ISO; c.conservadoHasta = sumarMeses(HOY_ISO, store.retencionMeses || 12);
+  addHist(c.id, "nota", `Se mantiene la candidatura otros ${store.retencionMeses || 12} meses (hasta el ${c.conservadoHasta})`);
 }
 
 /** Elimina una entrevista creada por error (en Notion queda como cancelada). */
