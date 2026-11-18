@@ -14,9 +14,10 @@ import Entrevistas from "./views/Entrevistas.js";
 import Estudiantes from "./views/Estudiantes.js";
 import Centros from "./views/Centros.js";
 import Documentos from "./views/Documentos.js";
+import Informes from "./views/Informes.js";
 import Ajustes from "./views/Ajustes.js";
 
-const VISTAS = { inicio: Inicio, candidatos: Candidatos, candidato: Ficha, entrevistas: Entrevistas, estudiantes: Estudiantes, centros: Centros, documentos: Documentos, ajustes: Ajustes };
+const VISTAS = { inicio: Inicio, candidatos: Candidatos, candidato: Ficha, entrevistas: Entrevistas, estudiantes: Estudiantes, centros: Centros, documentos: Documentos, informes: Informes, ajustes: Ajustes };
 
 const App = {
   components: { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, MenuCtx, RedactorCorreo, ChatEquipo },
@@ -80,6 +81,7 @@ const App = {
       { k: "estudiantes", t: "Estudiantes en prácticas", i: "estudiantes" },
       { k: "centros", t: "Centros educativos", i: "centros" },
       { k: "documentos", t: "Documentos", i: "documentos" },
+      { k: "informes", t: "Informes", i: "kanban" },
     ]);
     const menu = ref(false);
     const ir = (k) => { menu.value = false; go(k); };
