@@ -202,3 +202,13 @@
 .ia-barra { width: 150px; height: 3px; background: var(--border); overflow: hidden; position: relative; margin-bottom: 6px; }
 .ia-barra i { position: absolute; inset: 0 auto 0 0; width: 40%; background: var(--gold-500); animation: ia-carga 1.1s cubic-bezier(.45,0,.55,1) infinite; }
 @keyframes ia-carga { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+@media (max-width: 640px) {
+  /* Móvil: los filtros y botones de cabecera ocupan todo el ancho, ordenados en filas */
+  .page-head .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .page-head .acciones > select.inp, .page-head .acciones > input.inp { width: 100% !important; grid-column: 1 / -1; }
+  .page-head .acciones > .seg { grid-column: 1 / -1; display: flex; width: 100%; }
+  .page-head .acciones > .seg > button { flex: 1; justify-content: center; }
+  .page-head .acciones > .btn { width: 100%; justify-content: center; }
+  .page-head .acciones > .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
