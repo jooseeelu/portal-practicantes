@@ -9,7 +9,7 @@ import { urlWhatsApp, fLarga, HOY_ISO, normal } from "./util.js";
 
 import { DIRECCION, FIRMA_INICIAL, plantillasIniciales } from "./data.js";
 export { DIRECCION, FIRMA_INICIAL, plantillasIniciales };
-export const VARIABLES = ["nombre", "apellidos", "centro", "fecha", "hora", "donde", "lugar", "lugar_oficina", "entrevistador", "inicio", "horario", "firma"];
+export const VARIABLES = ["nombre", "apellidos", "centro", "fecha", "hora", "donde", "lugar", "lugar_oficina", "entrevistador", "inicio", "horario", "contacto", "titulacion", "horas", "periodo", "firma"];
 
 const fechaLarga = (iso) => { const t = fLarga(iso); return t ? t.charAt(0).toLowerCase() + t.slice(1) : ""; };
 
@@ -29,6 +29,8 @@ export function variables(c, e = entrevistaPara(c)) {
     lugar_oficina: DIRECCION, entrevistador: e?.entrevistador || "",
     donde: e ? (e.modalidad === "Online" ? "Online (te enviaremos el enlace)" : "Presencial · " + DIRECCION) : "",
     inicio: est ? fechaLarga(est.inicio) : "", horario: est ? `${est.horaIni}–${est.horaFin}` : "",
+    contacto: centroDe(c.centroId)?.contacto || "equipo de prácticas", titulacion: c.titulacion || "",
+    horas: String(est?.horas || c.horas || ""), periodo: est ? `del ${fechaLarga(est.inicio)} al ${fechaLarga(est.fin)}` : "fechas por confirmar",
     firma: store.firma || FIRMA_INICIAL,
   };
 }
@@ -38,20 +40,23 @@ export const rellenar = (texto, v) => String(texto || "").replace(/\{(\w+)\}/g, 
 function aplicable(p, c) {
   if (p.uso === "entrevista") return !!entrevistaPara(c);
   if (p.uso === "estudiante") return !!estudianteDe(c.id);
+  if (p.uso === "centro") return !!centroDe(c.centroId)?.email;
   return true;
 }
 
 function abrir(canal, c, p) {
   const v = variables(c);
   const texto = p ? rellenar(p.texto, v) : "";
+  if (canal === "whatsapp" && p?.destino === "centro") return toast("Esta plantilla es para el correo del centro.", "error");
   if (canal === "whatsapp") {
     const url = urlWhatsApp(c.tel, texto);
     if (!url) return toast("Esta persona no tiene un teléfono válido en su ficha.", "error");
     window.open(url, "_blank", "noopener");
   } else {
-    if (!c.email) return toast("Esta persona no tiene correo en su ficha.", "error");
+    const aCentro = p?.destino === "centro", dest = aCentro ? centroDe(c.centroId)?.email : c.email;
+    if (!dest) return toast(aCentro ? "El centro no tiene correo en su ficha." : "Esta persona no tiene correo en su ficha.", "error");
     // El correo se revisa antes de enviarlo: desde info@ (servidor) o con el correo de cada uno
-    Object.assign(redactor, { abierto: true, c, para: c.email, asunto: p ? rellenar(p.asunto, v) : "", texto, plantilla: p ? p.nombre : "", enviando: false, error: "" });
+    Object.assign(redactor, { abierto: true, c, para: dest, asunto: p ? rellenar(p.asunto, v) : "", texto, plantilla: p ? p.nombre : "", enviando: false, error: "" });
     return;
   }
   const que = p ? `«${p.nombre}»` : "mensaje en blanco";
