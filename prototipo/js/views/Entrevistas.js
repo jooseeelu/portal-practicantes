@@ -32,7 +32,11 @@ export default {
       if (grupo.length) cerrar();
       return out.map((g) => ({ ...g, top: ((g.ini - H0 * 60) / 60) * PX, alto: (DUR / 60) * PX - 3, izq: (g.carril / g.n) * 100, ancho: 100 / g.n }));
     }
-    const porDia = computed(() => dias.value.map((d) => ({ d, hoy: d === HOY_ISO, citas: colocar(filtradas.value.filter((e) => e.fecha === d)) })));
+    // Búsqueda en el calendario: filtra las citas de la semana y lista todas las que coinciden (de cualquier semana)
+    const coincide = (e) => { const n = normal(s.q); return !n || normal(nombreCompleto(candDe(e.candId))).includes(n); };
+    const encontradas = computed(() => (normal(s.q) ? filtradas.value.filter(coincide).sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora)).slice(0, 8) : []));
+    const irACita = (e) => { s.semana = lunesDe(e.fecha); sel.value = e; };
+    const porDia = computed(() => dias.value.map((d) => ({ d, hoy: d === HOY_ISO, citas: colocar(filtradas.value.filter((e) => e.fecha === d && coincide(e))) })));
     const tituloSemana = computed(() => `${fCorta(dias.value[0])} – ${fCorta(dias.value[4])}`);
     const mover = (n) => { s.semana = n === 0 ? lunesDe(HOY_ISO) : dia(n * 7, s.semana); };
 
@@ -94,7 +98,7 @@ export default {
     const clicHueco = (d, ev) => { const y = ev.offsetY; const m = Math.round(((y / PX) * 60) / 15) * 15 + H0 * 60; abrirNueva(d, deMin(Math.min(m, H1 * 60))); };
     const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); if (esFinde(nueva.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
 
-    return { filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    return { encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
@@ -116,6 +120,7 @@ export default {
         <button class="icon-btn" @click="mover(-1)" aria-label="Semana anterior"><Ic n="chevL" /></button><button class="icon-btn" @click="mover(1)" aria-label="Semana siguiente"><Ic n="chevR" /></button>
         <b>{{ tituloSemana }}</b>
         <div class="buscar cal-buscar"><Ic n="search" :s="15" /><input class="inp" v-model="s.q" placeholder="Buscar candidato…" /></div>
+        <div v-if="s.q" class="cal-resultados"><span v-if="!encontradas.length" class="sub">Nadie con ese nombre.</span><button v-for="e in encontradas" :key="e.id" class="pill" @click="irACita(e)">{{ nombreCompleto(candDe(e.candId)) }} · {{ fCorta(e.fecha) }} {{ e.hora }}</button></div>
         <span class="right leyenda"><span v-for="c in cuentas" :key="c.k"><i :style="{background: c.c}"></i>{{ c.k }}</span></span>
       </div>
       <div class="cal-grid">

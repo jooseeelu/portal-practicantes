@@ -240,3 +240,5 @@
   .cal-buscar { order: 5; flex-basis: 100%; max-width: none; }
   .cal-bar .leyenda { order: 6; gap: 8px; font-size: 11px; }
 }
+
+.cal-resultados { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; order: 5; }
