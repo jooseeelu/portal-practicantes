@@ -129,10 +129,9 @@ export default {
           <div class="cal-dhead"><small>{{ diaCorto(col.d) }}</small><b>{{ diaNum(col.d) }}</b><span v-if="col.citas.length">{{ col.citas.length }} citas</span></div>
           <div class="cal-cuerpo" :style="{height: (horas.length-1)*PX+'px'}" @click.self="clicHueco(col.d, $event)" title="Haz clic en un hueco para programar">
             <i v-for="h in horas.length-1" :key="h" class="cal-linea" :style="{top: (h-1)*PX+'px'}"></i>
-            <button v-for="x in col.citas" :key="x.e.id" class="cita" :class="'c-'+x.e.estado" :style="{top: x.top+'px', height: x.alto+'px', left: 'calc('+x.izq+'% + 3px)', width: 'calc('+x.ancho+'% - 6px)', '--c': ESTADOS_CITA[x.e.estado].c}" @click="sel=x.e" v-ctx="() => menuDe(x.e)">
+            <button v-for="x in col.citas" :key="x.e.id" class="cita" :title="x.e.hora + ' · ' + nombreCompleto(candDe(x.e.candId)) + ' · ' + (x.e.entrevistador || 'Sin asignar') + (candDe(x.e.candId)?.area ? ' · ' + candDe(x.e.candId).area : '')" :class="'c-'+x.e.estado" :style="{top: x.top+'px', height: x.alto+'px', left: 'calc('+x.izq+'% + 3px)', width: 'calc('+x.ancho+'% - 6px)', '--c': ESTADOS_CITA[x.e.estado].c}" @click="sel=x.e" v-ctx="() => menuDe(x.e)">
               <b>{{ x.e.hora }} · {{ nombreCompleto(candDe(x.e.candId)) }}</b>
-              <small><Ic :n="x.e.modalidad==='Online' ? 'video' : 'pin'" :s="11" />{{ x.e.entrevistador || "Sin asignar" }}</small>
-              <small v-if="candDe(x.e.candId)?.area" class="cita-area">{{ candDe(x.e.candId).area }}</small>
+              <small><Ic :n="x.e.modalidad==='Online' ? 'video' : 'pin'" :s="11" />{{ x.e.entrevistador || "Sin asignar" }}<template v-if="candDe(x.e.candId)?.area"> · <span class="cita-area">{{ candDe(x.e.candId).area.split("/")[0] }}</span></template></small>
             </button>
           </div>
         </div>
