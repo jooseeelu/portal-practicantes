@@ -1,4 +1,5 @@
 import { computed, reactive, ref, watch, onUnmounted } from "vue";
+import { abrirCertificado, CRITERIOS_EVAL } from "../certificado.js";
 import { DIAS_PAPELERA, store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, eliminarEntrevista, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
@@ -166,6 +167,13 @@ export default {
     // --- Notas internas ---
     const nuevaNota = ref("");
     const addNota = () => { if (!nuevaNota.value.trim()) return; store.notas.push({ id: nuevoId(), candId: c.value.id, autor: miNombre(), fecha: HOY_ISO, texto: nuevaNota.value.trim() }); addHist(c.value.id, "nota", "Nueva observación interna"); nuevaNota.value = ""; };
+
+    // --- Evaluación final y certificado ---
+    const ev = reactive({ abierta: false });
+    const evaluacion = computed(() => est.value?.evaluacion || { criterios: {}, comentario: "", resultado: "" });
+    const ponerEval = (campo, valor) => { const e = est.value; if (!e) return; const x = (e.evaluacion ||= { criterios: {}, comentario: "", resultado: "" }); if (campo === "criterio") x.criterios[valor[0]] = valor[1]; else x[campo] = valor; x.fecha = HOY_ISO; x.por = miNombre(); };
+    const mediaEval = computed(() => { const v = Object.values(evaluacion.value.criterios || {}).filter(Boolean); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : ""; });
+    const hacerCertificado = () => { if (!abrirCertificado(c.value, est.value, centroDe(c.value.centroId))) toast("El navegador bloqueó la ventana. Permite las ventanas emergentes.", "error"); else addHist(c.value.id, "nota", "Certificado de prácticas generado"); };
 
     // --- Faltas de asistencia (si se recupera el día, el fin se alarga un día laborable) ---
     const falta = reactive({ fecha: HOY_ISO, motivo: "", recupera: true });
@@ -355,7 +363,7 @@ export default {
       addHist(c.value.id, "nota", "Observación interna borrada");
       toast("Observación borrada");
     };
-    return { encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -428,6 +436,13 @@ export default {
             <b>Faltas de asistencia <span class="sub">({{ (est.faltas || []).length }})</span></b>
             <div v-for="x in est.faltas || []" :key="x.fecha" class="falta"><span><b>{{ fLarga(x.fecha) }}</b><template v-if="x.motivo"> · {{ x.motivo }}</template></span><Chip :texto="x.recupera ? 'Se recupera (+1 día)' : 'No se recupera'" :c="x.recupera ? 'var(--gold-500)' : 'var(--text-400)'" :cd="x.recupera ? 'var(--gold-700)' : 'var(--text-600)'" /><button class="btn btn-sm" @click="quitarFalta(x)">Quitar</button></div>
             <div class="falta-nueva"><input class="inp" type="date" v-model="falta.fecha" :min="est.inicio" :max="est.fin" /><input class="inp" v-model="falta.motivo" placeholder="Motivo (opcional)" @keydown.enter="addFalta" /><label class="check"><input type="checkbox" v-model="falta.recupera" /> Recupera el día (termina 1 día más tarde)</label><button class="btn" @click="addFalta"><Ic n="plus" :s="15" />Apuntar falta</button></div>
+          </div>
+          <div class="faltas">
+            <b>Evaluación final y certificado</b>
+            <div v-for="[k,t] in CRITERIOS_EVAL" :key="k" class="falta"><span>{{ t }}</span><span><button v-for="n in 5" :key="n" class="btn btn-sm" :class="{'btn-ink': (evaluacion.criterios[k]||0) >= n}" style="padding:2px 8px" @click="ponerEval('criterio',[k,n])">{{ n }}</button></span></div>
+            <p v-if="mediaEval" class="sub">Media: <b>{{ mediaEval }}</b> / 5</p>
+            <div class="grid2"><div class="fld"><label>Resultado</label><select class="inp" :value="evaluacion.resultado" @change="ponerEval('resultado',$event.target.value)"><option value="">Sin valorar</option><option>Apto</option><option>No apto</option></select></div><div class="fld"><label>Comentario (sale en el certificado)</label><input class="inp" :value="evaluacion.comentario" @input="ponerEval('comentario',$event.target.value)" placeholder="Opcional" /></div></div>
+            <div><button class="btn btn-sm" @click="hacerCertificado"><Ic n="download" :s="14" />Certificado de prácticas</button></div>
           </div>
         </div>
         <p class="sub"><Ic n="check" :s="13" /> Los cambios se guardan solos al escribir.</p>
