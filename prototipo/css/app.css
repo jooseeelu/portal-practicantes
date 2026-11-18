@@ -553,3 +553,15 @@ textarea.pc-txt { resize: none; overflow: hidden; field-sizing: content; white-s
 .chat-emojis button { border: 0; background: none; font-size: 20px; padding: 4px 0; cursor: pointer; border-radius: 6px; }
 .chat-emojis button:hover { background: var(--surface-alt); }
 .chat-msg.chat-resalta .chat-burbuja { outline: 2px solid var(--teal-500); }
+
+/* Chat: barra de escribir moderna (campo redondeado con iconos y botón de enviar redondo) */
+.chat-pie { padding: 8px 10px 10px; gap: 8px; align-items: flex-end; border-top: 1px solid var(--border); background: var(--surface); }
+.chat-campo { flex: 1; display: flex; align-items: flex-end; gap: 2px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 22px; padding: 3px 4px; min-width: 0; transition: border-color .15s, box-shadow .15s; }
+.chat-campo:focus-within { border-color: var(--teal-500); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal-500) 18%, transparent); }
+.chat-campo textarea { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-900); font: 14px/1.4 var(--font-base); resize: none; padding: 8px 4px; max-height: 120px; height: 36px; }
+.chat-ico { flex: 0 0 auto; width: 34px; height: 34px; border: 0; background: none; color: var(--text-600); border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.chat-ico:hover, .chat-ico.on { background: color-mix(in srgb, var(--text-400) 18%, transparent); color: var(--text-900); }
+.chat-enviar { flex: 0 0 auto; width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--teal-500); color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-sm); transition: transform .12s, opacity .15s; }
+.chat-enviar:not(:disabled):hover { transform: scale(1.06); }
+.chat-enviar:disabled { opacity: .4; cursor: default; box-shadow: none; }
+.chat-enviar svg { margin-left: -2px; }
