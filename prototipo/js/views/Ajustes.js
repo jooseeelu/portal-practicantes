@@ -306,7 +306,7 @@ export default {
           <div class="row"><input class="inp grow" v-model="p.nombre" style="font-weight:700" /><button class="icon-btn" @click="quitarPlantilla(i)" title="Quitar plantilla"><Ic n="trash" :s="16" /></button></div>
           <div class="fld"><label>Asunto del correo</label><input class="inp" v-model="p.asunto" /></div>
           <div class="plantilla-edicion"><div class="fld"><label>Texto</label><textarea class="inp plantilla-texto" v-model="p.texto" rows="12"></textarea></div><div class="fld"><label>Así se verá</label><div class="plantilla-vista">{{ vistaPrevia(p.texto) }}</div></div></div>
-          <div class="fld"><label>Se puede usar</label><select class="inp" v-model="p.uso"><option value="general">Con cualquier persona</option><option value="entrevista">Solo si tiene entrevista</option><option value="estudiante">Solo si está en prácticas</option></select></div>
+          <div class="fld"><label>Se puede usar</label><select class="inp" v-model="p.uso"><option value="general">Con cualquier persona</option><option value="entrevista">Solo si tiene entrevista</option><option value="estudiante">Solo si está en prácticas</option><option value="centro">Correo al centro (necesita su email)</option></select></div>
         </div>
         <div class="row wrap"><button class="btn btn-sm" @click="nuevaPlantilla"><Ic n="plus" :s="14" />Nueva plantilla</button><button class="btn btn-sm" @click="restaurarPlantillas">Restaurar textos originales</button></div>
       </div>
