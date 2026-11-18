@@ -242,3 +242,8 @@
 }
 
 .cal-resultados { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; order: 5; }
+
+/* Área en las citas del calendario y botón de fechas que muestra el texto entero */
+.cita .cita-area { display: block; font-size: 10px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barra-filtros .sel-fechas, .sel-fechas { width: auto !important; max-width: none !important; flex: 0 0 auto; }
+@media (max-width: 640px) { .barra-filtros .sel-fechas { flex: 1 1 100%; justify-content: center; } }

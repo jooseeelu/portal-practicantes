@@ -132,6 +132,7 @@ export default {
             <button v-for="x in col.citas" :key="x.e.id" class="cita" :class="'c-'+x.e.estado" :style="{top: x.top+'px', height: x.alto+'px', left: 'calc('+x.izq+'% + 3px)', width: 'calc('+x.ancho+'% - 6px)', '--c': ESTADOS_CITA[x.e.estado].c}" @click="sel=x.e" v-ctx="() => menuDe(x.e)">
               <b>{{ x.e.hora }} · {{ nombreCompleto(candDe(x.e.candId)) }}</b>
               <small><Ic :n="x.e.modalidad==='Online' ? 'video' : 'pin'" :s="11" />{{ x.e.entrevistador || "Sin asignar" }}</small>
+              <small v-if="candDe(x.e.candId)?.area" class="cita-area">{{ candDe(x.e.candId).area }}</small>
             </button>
           </div>
         </div>

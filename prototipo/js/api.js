@@ -138,6 +138,21 @@ export async function subirArchivo(file, { candId, tipo = "", nombre = "" }) {
 
 // El fichero protegido solo se abre con un token temporal (dura unos minutos; se reutiliza 1 minuto).
 let tokenArchivos = { valor: "", hasta: 0 };
+/** Enlace temporal a un fichero protegido de cualquier colección (p. ej. las capturas del chat). */
+export async function urlFichero(coleccion, id, nombre) {
+  if (Date.now() > tokenArchivos.hasta) { const d = await pedir("POST", "api/files/token"); tokenArchivos = { valor: d.token, hasta: Date.now() + 60000 }; }
+  return `api/files/${coleccion}/${id}/${encodeURIComponent(nombre)}?token=${tokenArchivos.valor}`;
+}
+/** Envía un formulario con archivos (FormData) a una colección. */
+export async function crearConArchivo(coleccion, fd) {
+  let r;
+  try { r = await fetch(`api/collections/${coleccion}/records`, { method: "POST", headers: sesion.token ? { Authorization: sesion.token } : {}, body: fd }); }
+  catch { throw new ErrorApi(0, "No se pudo conectar con el servidor. Revisa tu conexión."); }
+  let datos = null;
+  try { datos = await r.json(); } catch { /* sin cuerpo */ }
+  if (!r.ok) throw new ErrorApi(r.status, mensajeDe(r.status, datos), datos);
+  return datos;
+}
 /** Enlace temporal para ver (o descargar) el archivo de un documento. */
 export async function urlArchivo(doc, { descargar = false } = {}) {
   if (Date.now() > tokenArchivos.hasta) {

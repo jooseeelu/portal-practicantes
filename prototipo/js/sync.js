@@ -138,7 +138,7 @@ async function traer(soloSiNadaCambia = false) {
   if (esAdmin() && Array.isArray(store.plantillas)) {
     const nuevas = plantillasIniciales();
     // Plantillas nuevas (convenio y anexo): se añaden a las guardadas si no están
-    nuevas.filter((n) => n.destino === "centro" && !store.plantillas.some((p) => p.id === n.id)).forEach((n) => store.plantillas.push({ ...n }));
+    nuevas.filter((n) => ["convenio-centro", "anexo-centro", "primer-contacto", "no-seleccionado"].includes(n.id) && !store.plantillas.some((p) => p.id === n.id)).forEach((n) => store.plantillas.push({ ...n }));
     store.plantillas.forEach((p, i) => { const n = nuevas.find((x) => x.id === p.id); if (n && PLANTILLAS_ANTIGUAS[p.id] && sinEspacios(PLANTILLAS_ANTIGUAS[p.id]) === sinEspacios(p.texto)) store.plantillas.splice(i, 1, { ...p, texto: n.texto, asunto: n.asunto }); });
   }
   // La papelera se vacía sola a los 30 días (lo hace un administrador al entrar; también se borran sus archivos)
