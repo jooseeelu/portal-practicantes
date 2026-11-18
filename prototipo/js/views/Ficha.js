@@ -1,5 +1,5 @@
 import { computed, reactive, ref, watch, onUnmounted } from "vue";
-import { store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, eliminarEntrevista, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
+import { DIAS_PAPELERA, store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, eliminarEntrevista, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
 import { ruta, go } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
@@ -335,11 +335,10 @@ export default {
     const abrirCorreo = (ev) => elegirMensaje("correo", c.value, ev);
     const borrarFicha = async () => {
       const nom = nombreCompleto(c.value);
-      if (!(await pedirConfirmacion({ titulo: "¿Borrar a " + nom + "?", texto: "Se borra su ficha con sus entrevistas, valoraciones, documentos (también los archivos), historial y notas. No se puede deshacer. Si solo no sigue en el proceso, mejor cambia su estado a «Cancelado» o «Candidatura retirada».", boton: "Borrar para siempre" }))) return;
-      const archivos = borrarCandidato(c.value);
-      if (enServidor()) archivos.forEach((a) => borrarArchivo(a).catch(() => {}));
-      registrar("Borró la ficha de un candidato", nom);
-      toast("Ficha de " + nom + " borrada");
+      if (!(await pedirConfirmacion({ titulo: "¿Mandar a " + nom + " a la papelera?", texto: "Se guarda su ficha entera (entrevistas, valoraciones, documentos, historial y notas) durante " + DIAS_PAPELERA + " días y se puede recuperar desde Ajustes → Papelera. Pasado ese tiempo se borra para siempre. Si solo no sigue en el proceso, mejor cambia su estado a «Cancelado» o «Candidatura retirada».", boton: "Mandar a la papelera" }))) return;
+      borrarCandidato(c.value);
+      registrar("Mandó a la papelera la ficha de un candidato", nom);
+      toast("Ficha de " + nom + " en la papelera");
       go("candidatos");
     };
     const deshacerHist = (h) => { if (deshacerCambio(h)) toast("Cambio deshecho"); };
@@ -432,7 +431,7 @@ export default {
           </div>
         </div>
         <p class="sub"><Ic n="check" :s="13" /> Los cambios se guardan solos al escribir.</p>
-        <div v-if="esAdmin()" class="zona-peligro"><div><b>Borrar esta ficha</b><span class="sub">Solo administración. Borra a la persona y todo lo suyo; no se puede deshacer.</span></div><button class="btn btn-peligro" @click="borrarFicha"><Ic n="trash" :s="15" />Borrar candidato</button></div>
+        <div v-if="esAdmin()" class="zona-peligro"><div><b>Mandar esta ficha a la papelera</b><span class="sub">Solo administración. Se guarda 30 días y se puede recuperar desde Ajustes → Papelera.</span></div><button class="btn btn-peligro" @click="borrarFicha"><Ic n="trash" :s="15" />Borrar candidato</button></div>
       </div>
 
       <!-- FORMACIÓN -->

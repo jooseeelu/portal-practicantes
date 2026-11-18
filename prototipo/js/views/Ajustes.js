@@ -1,7 +1,8 @@
 import { ref, reactive, computed, watch } from "vue";
-import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos, addHist, nombreCompleto } from "../store.js";
+import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos, addHist, nombreCompleto, estadoDe, DIAS_PAPELERA, borrarCandidato, restaurarDePapelera, vaciarDePapelera, diasEnPapelera, ESTADOS_SIN_PROCESO, candidaturasCaducadas, mantenerCandidatura, ultimoContacto } from "../store.js";
+import { exportarExcel, copiaCompleta } from "../exportar.js";
 import { recortarFoto } from "../cv.js";
-import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria, leerCurriculum, urlArchivo, registrar } from "../api.js";
+import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria, leerCurriculum, urlArchivo, registrar, borrarArchivo } from "../api.js";
 import { Ic, Chip, Avatar, Modal, pedirConfirmacion } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
 import { plantillasIniciales, FIRMA_INICIAL, VARIABLES } from "../mensajes.js";
@@ -14,7 +15,7 @@ export default {
   setup() {
     const tab = tabActual;
     // Por orden de importancia: lo estético (colores de los estados) al final
-    const tabs = [["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["mensajes", "Mensajes", "mail"], ["turnos", "Turnos y aforo", "clock"], ["integraciones", "Integraciones", "link"], ["datos", "Protección de datos", "shield"], ["estados", "Estados del proceso", "kanban"]];
+    const tabs = computed(() => [["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["mensajes", "Mensajes", "mail"], ["turnos", "Turnos y aforo", "clock"], ["integraciones", "Integraciones", "link"], ["datos", "Protección de datos", "shield"], ["estados", "Estados del proceso", "kanban"], ["papelera", "Papelera" + (store.papelera.length ? " (" + store.papelera.length + ")" : ""), "trash"]]);
     const usados = (k) => store.candidatos.filter((c) => c.estado === k).length;
     const mover = (i, d) => { const j = i + d; if (j < 0 || j >= store.estados.length) return; const a = store.estados; [a[i], a[j]] = [a[j], a[i]]; };
     const color = (e, col) => Object.assign(e, { col, c: COLORES[col].c, cd: COLORES[col].cd });
@@ -151,15 +152,53 @@ export default {
       Object.assign(lote, { activo: false, actual: "", terminado: true });
       toast(lote.conFoto + " fotos puestas");
     }
-    const caducan = computed(() => store.candidatos.filter((c) => ["no-seleccionado", "no-seleccionado-comunicado", "retirada", "cancelado"].includes(c.estado)).length);
+    const caducan = computed(() => store.candidatos.filter((c) => ESTADOS_SIN_PROCESO.includes(c.estado)).length);
     const demo = (m) => toast((enServidor.value ? "Todavía no disponible: " : "Demo: ") + m);
     const restaurarPlantillas = async () => { if (!(await pedirConfirmacion({ titulo: "¿Restaurar los textos originales?", texto: "Se perderán los cambios que hayas hecho en las plantillas.", boton: "Sí, restaurar" }))) return; store.plantillas = plantillasIniciales(); store.firma = FIRMA_INICIAL; toast("Plantillas restauradas"); };
     const nuevaPlantilla = () => store.plantillas.push({ id: "p" + Date.now().toString(36), nombre: "Nueva plantilla", uso: "general", asunto: "", texto: "Hola {nombre}, \n\n{firma}" });
     const quitarPlantilla = async (i) => { if (await pedirConfirmacion({ titulo: "¿Quitar esta plantilla?", texto: store.plantillas[i].nombre, boton: "Sí, quitar" })) store.plantillas.splice(i, 1); };
     // Vista previa de una plantilla con datos de ejemplo
     const EJEMPLO = { nombre: "Laura", apellidos: "García", centro: "Universidad", fecha: "lunes 24 de noviembre", hora: "10:30", donde: "Presencial · Calle General Álvarez de Castro 41", lugar: " en nuestra oficina", lugar_oficina: "Calle General Álvarez de Castro 41", entrevistador: "Vanesa", inicio: "lunes 1 de diciembre", horario: "10:00–15:00" };
-    const vistaPrevia = (t) => String(t || "").replace(/{(w+)}/g, (m, k) => (k === "firma" ? store.firma || "" : EJEMPLO[k] ?? m));
-    return { vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    const vistaPrevia = (t) => String(t || "").replace(/\{(\w+)\}/g, (m, k) => (k === "firma" ? store.firma || "" : EJEMPLO[k] ?? m));
+    // --- Exportar todo ---
+    const copia = reactive({ ocupado: false, hechos: 0, total: 0 });
+    const hacerExcel = () => { exportarExcel(); toast("Excel descargado"); };
+    const hacerCopia = async () => {
+      if (copia.ocupado) return;
+      Object.assign(copia, { ocupado: true, hechos: 0, total: 0 });
+      try { const r = await copiaCompleta((h, t) => Object.assign(copia, { hechos: h, total: t })); toast("Copia descargada: " + r.documentos + " documentos" + (r.fallos ? " (" + r.fallos + " no se pudieron bajar)" : ""), r.fallos ? "error" : "ok"); }
+      catch (e) { toast("No se pudo preparar la copia: " + e.message, "error"); }
+      finally { copia.ocupado = false; }
+    };
+    // --- Conservación de datos ---
+    const caducadas = computed(() => candidaturasCaducadas());
+    const proximasCad = computed(() => candidaturasCaducadas(30).length - caducadas.value.length);
+    const revision = reactive({ abierto: false, sel: {} });
+    const abrirRevision = () => { revision.sel = {}; revision.abierto = true; };
+    const seleccionadas = computed(() => caducadas.value.filter((c) => revision.sel[c.id]));
+    const mantener = (c) => { mantenerCandidatura(c); toast("Se mantiene la ficha de " + nombreCompleto(c) + " otros " + store.retencionMeses + " meses"); if (!caducadas.value.length) revision.abierto = false; };
+    const mandarSeleccion = async () => {
+      const l = seleccionadas.value; if (!l.length) return;
+      if (!(await pedirConfirmacion({ titulo: "¿Mandar " + l.length + " fichas a la papelera?", texto: "Se guardan " + DIAS_PAPELERA + " días en Ajustes → Papelera, por si alguna se manda por error. Pasado ese tiempo se borran para siempre.", boton: "Mandar a la papelera" }))) return;
+      l.forEach((c) => borrarCandidato(c));
+      registrar("Mandó a la papelera candidaturas caducadas", l.length + " fichas");
+      toast(l.length + " fichas en la papelera");
+      if (!caducadas.value.length) revision.abierto = false;
+    };
+    // --- Papelera ---
+    const papelera = computed(() => store.papelera.slice().sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora)));
+    const restaurar = (p) => { if (restaurarDePapelera(p)) { toast("Ficha de " + p.nombre + " restaurada"); registrar("Restauró una ficha de la papelera", p.nombre); } };
+    const borrarArchivos = (ids) => { if (sesion.modo === "servidor") ids.forEach((a) => borrarArchivo(a).catch(() => {})); };
+    const eliminarYa = async (p) => {
+      if (!(await pedirConfirmacion({ titulo: "¿Borrar para siempre a " + p.nombre + "?", texto: "Se borran su ficha y todos sus archivos. No se puede deshacer.", boton: "Borrar para siempre" }))) return;
+      borrarArchivos(vaciarDePapelera(p)); registrar("Borró para siempre una ficha de la papelera", p.nombre); toast("Ficha borrada para siempre");
+    };
+    const vaciarPapelera = async () => {
+      const n = store.papelera.length;
+      if (!(await pedirConfirmacion({ titulo: "¿Vaciar la papelera?", texto: "Se borran para siempre " + n + " fichas y todos sus archivos. No se puede deshacer.", boton: "Vaciar la papelera" }))) return;
+      store.papelera.slice().forEach((p) => borrarArchivos(vaciarDePapelera(p))); registrar("Vació la papelera", n + " fichas"); toast("Papelera vacía");
+    };
+    return { copia, hacerExcel, hacerCopia, caducadas, proximasCad, revision, abrirRevision, seleccionadas, mantener, mandarSeleccion, papelera, restaurar, eliminarYa, vaciarPapelera, DIAS_PAPELERA, diasEnPapelera, estadoDe, ultimoContacto, vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
@@ -273,21 +312,41 @@ export default {
       <div v-else-if="tab==='datos'" class="card-pad stack">
         <div class="grid2">
           <div class="caja"><div class="row"><Ic n="clock" /><h3>Conservación de candidaturas</h3></div>
-            <p class="sub">Los candidatos no seleccionados o retirados se conservan para futuras oportunidades durante el plazo indicado. Después se avisa para eliminarlos o pedir de nuevo el consentimiento.</p>
+            <p class="sub">Los candidatos no seleccionados, retirados o cancelados se conservan durante el plazo que indiques, contado desde el último contacto con ellos. Pasado el plazo aparecen aquí para que decidáis: mandarlos a la papelera o mantenerlos otro periodo.</p>
             <div class="row"><input class="inp" type="number" min="1" max="60" v-model.number="store.retencionMeses" style="width:90px" /><span>meses desde el último contacto</span></div>
-            <div class="aviso"><Ic n="info" :s="16" /><span>Ahora mismo hay <b>{{ caducan }}</b> candidaturas sujetas a este plazo. Plazo a confirmar con vuestro delegado de protección de datos.</span></div></div>
+            <div class="aviso" :class="{warn: caducadas.length}"><Ic :n="caducadas.length ? 'alert' : 'info'" :s="16" /><span v-if="caducadas.length" class="grow"><b>{{ caducadas.length }}</b> candidaturas han pasado el plazo y esperan una decisión.</span><span v-else class="grow">Ninguna candidatura ha pasado el plazo. Ahora mismo hay <b>{{ caducan }}</b> en un estado sin proceso<template v-if="proximasCad > 0"> y <b>{{ proximasCad }}</b> lo cumplen en el próximo mes</template>.</span><button v-if="caducadas.length && admin" class="btn btn-sm" @click="abrirRevision">Revisar ahora</button></div></div>
           <div class="caja"><div class="row"><Ic n="db" /><h3>Copias de seguridad y exportación</h3></div>
             <template v-if="!enServidor"><p class="sub">Copia automática diaria a las 03:00 en vuestro servidor, guardando las 7 últimas (igual que el CRM).</p>
             <div class="aviso ok"><Ic n="check" :s="16" /><span>Última copia: hoy a las 03:00 (simulado).</span></div></template>
             <div v-else class="aviso warn"><Ic n="alert" :s="16" /><span>Las copias de seguridad automáticas de este servidor todavía no están configuradas.</span></div>
-            <div class="row wrap"><button class="btn btn-sm" @click="demo('se descargaría todo en Excel')"><Ic n="download" :s="14" />Exportar todo a Excel</button><button class="btn btn-sm" @click="demo('se descargaría un ZIP con datos y documentos')"><Ic n="download" :s="14" />Copia completa (ZIP)</button></div></div>
+            <p class="sub">Excel: candidatos, entrevistas, estudiantes, centros, observaciones e historial, una hoja de cada. La copia completa añade los datos en JSON y todos los documentos ordenados por persona.</p>
+            <div class="row wrap"><button class="btn btn-sm" @click="hacerExcel"><Ic n="download" :s="14" />Exportar todo a Excel</button><button class="btn btn-sm" :disabled="copia.ocupado" @click="hacerCopia"><Ic n="download" :s="14" />{{ copia.ocupado ? 'Preparando ' + copia.hechos + ' de ' + copia.total + '…' : 'Copia completa (ZIP)' }}</button></div></div>
         </div>
+        <Modal v-if="revision.abierto" titulo="Candidaturas que han pasado el plazo" :ancho="760" @cerrar="revision.abierto=false">
+          <p class="sub">Marca las que quieras mandar a la papelera (se pueden recuperar durante {{ DIAS_PAPELERA }} días). Con «Mantener», la ficha se queda otros {{ store.retencionMeses }} meses.</p>
+          <div class="tbl-wrap"><table class="tbl sin-hover"><thead><tr><th></th><th>Persona</th><th>Estado</th><th>Último contacto</th><th></th></tr></thead><tbody>
+            <tr v-for="c in caducadas" :key="c.id"><td><input type="checkbox" v-model="revision.sel[c.id]" /></td><td><b>{{ nombreCompleto(c) }}</b></td><td>{{ estadoDe(c.estado).n }}</td><td class="nowrap">{{ fCompleta(ultimoContacto(c)) }}</td><td class="nowrap"><button class="btn btn-sm" @click="mantener(c)">Mantener</button></td></tr>
+          </tbody></table></div>
+          <template #pie><button class="btn" @click="revision.abierto=false">Cerrar</button><button class="btn btn-danger" :disabled="!seleccionadas.length" @click="mandarSeleccion">Mandar {{ seleccionadas.length }} a la papelera</button></template>
+        </Modal>
         <div v-if="puedeDemo" class="caja"><div class="row"><Ic n="sparkles" /><h3>Datos de demostración</h3></div>
           <p class="sub">Solo en el entorno de pruebas: rellena el portal con candidatos, centros y entrevistas inventados para probar, o déjalo vacío.</p>
           <div class="row wrap"><button class="btn btn-sm" @click="rellenarDemo" :disabled="store.candidatos.length>0" :title="store.candidatos.length>0 ? 'Vacía antes el entorno' : ''"><Ic n="plus" :s="14" />Cargar datos de demostración</button><button class="btn btn-sm btn-danger" @click="vaciarTodo"><Ic n="trash" :s="14" />Vaciar todos los datos</button></div></div>
         <div v-if="!enServidor || admin"><h3 style="margin-bottom:10px">Registro de acciones sensibles</h3>
           <p v-if="!registro.length" class="sub">Todavía no hay nada registrado.</p>
           <div v-else class="tbl-wrap"><table class="tbl sin-hover"><thead><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Qué hizo</th></tr></thead><tbody><tr v-for="(r,i) in registro" :key="i"><td class="nowrap">{{ r.f }}</td><td>{{ r.h }}</td><td><b>{{ r.q }}</b></td><td>{{ r.t }}</td></tr></tbody></table></div></div>
+      </div>
+
+      <div v-else-if="tab==='papelera'" class="card-pad stack">
+        <p class="sub">Las fichas que se borran no desaparecen del todo: se guardan aquí {{ DIAS_PAPELERA }} días con todo lo suyo (entrevistas, valoraciones, documentos, notas e historial). Puedes recuperarlas o borrarlas ya; pasado ese tiempo se borran solas.</p>
+        <div v-if="!admin" class="aviso"><Ic n="info" :s="16" /><span>Solo un administrador puede gestionar la papelera.</span></div>
+        <p v-else-if="!papelera.length" class="sub">La papelera está vacía.</p>
+        <template v-else>
+          <div class="tbl-wrap"><table class="tbl sin-hover"><thead><tr><th>Persona</th><th>Centro</th><th>Mandada a la papelera</th><th>Por</th><th>Se borra en</th><th></th></tr></thead><tbody>
+            <tr v-for="p in papelera" :key="p.id"><td><b>{{ p.nombre }}</b></td><td>{{ p.centro || 'Autopostulado' }}</td><td class="nowrap">{{ fCompleta(p.fecha) }}, {{ p.hora }}</td><td>{{ p.por }}</td><td class="nowrap">{{ Math.max(0, DIAS_PAPELERA - diasEnPapelera(p)) }} días</td><td class="nowrap"><button class="btn btn-sm" @click="restaurar(p)">Restaurar</button> <button class="btn btn-sm btn-danger" @click="eliminarYa(p)">Borrar ya</button></td></tr>
+          </tbody></table></div>
+          <div><button class="btn btn-sm btn-danger" @click="vaciarPapelera"><Ic n="trash" :s="14" />Vaciar la papelera</button></div>
+        </template>
       </div>
 
       <div v-else class="card-pad">

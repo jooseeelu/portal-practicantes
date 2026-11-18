@@ -3,14 +3,14 @@
 // Las vistas siguen trabajando sobre el store como siempre; aquí se detecta qué ha
 // cambiado y se envía. Si dos personas editan la misma ficha, gana el último guardado.
 import { watch } from "vue";
-import { store, toast, vaciarDatos, cargarDemo, ajustesPorDefecto } from "./store.js";
-import { sesion, pedir, esAdmin } from "./api.js";
+import { store, toast, vaciarDatos, cargarDemo, ajustesPorDefecto, caducadasEnPapelera, vaciarDePapelera } from "./store.js";
+import { sesion, pedir, esAdmin, borrarArchivo } from "./api.js";
 import { ESTADOS_INICIALES, plantillasIniciales, PLANTILLAS_ANTIGUAS, AREAS_UNIDAS } from "./data.js";
 const sinEspacios = (t) => String(t || "").replace(/[ \t\r\n]+/g, " ").trim();
 
 const COLECCIONES = {
   candidatos: (x) => x.id, centros: (x) => x.id, entrevistas: (x) => x.id, estudiantes: (x) => x.candId,
-  documentos: (x) => x.id, historial: (x) => x.id, notas: (x) => x.id,
+  documentos: (x) => x.id, historial: (x) => x.id, notas: (x) => x.id, papelera: (x) => x.id,
 };
 const AJUSTES = ["estados", "aforo", "turnosDef", "retencionMeses", "personas", "plantillas", "firma"];
 const K_AJUSTES = "ajustes/general";
@@ -139,6 +139,8 @@ async function traer(soloSiNadaCambia = false) {
     const nuevas = plantillasIniciales();
     store.plantillas.forEach((p, i) => { const n = nuevas.find((x) => x.id === p.id); if (n && PLANTILLAS_ANTIGUAS[p.id] && sinEspacios(PLANTILLAS_ANTIGUAS[p.id]) === sinEspacios(p.texto)) store.plantillas.splice(i, 1, { ...p, texto: n.texto, asunto: n.asunto }); });
   }
+  // La papelera se vacía sola a los 30 días (lo hace un administrador al entrar; también se borran sus archivos)
+  if (esAdmin()) for (const p of caducadasEnPapelera()) vaciarDePapelera(p).forEach((a) => borrarArchivo(a).catch(() => {}));
   // «Mañana o tarde» se quitó por confundirse con «Disponibilidad completa»
   store.candidatos.forEach((c) => {
     if (c.turno === "Mañana o tarde") { c.turno = "Disponibilidad completa"; c.disponibilidad = c.turno; }
