@@ -131,12 +131,12 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
   if (r.statusCode !== 200) throw new BadRequestError("Gentrivo no respondió (" + r.statusCode + ").");
 
   const hhmm = (v) => (v ? String(v).slice(0, 5) : "");
-  const personas = ((r.json && r.json.users) || []).filter((u) => u.is_intern).map((u) => {
+  const personas = ((r.json && r.json.users) || []).filter((u) => u.is_intern || u.active !== false).map((u) => {
     const h = pedir("GET", "/users/" + u.id + "/schedule", null, token);
     const d = h.statusCode === 200 && h.json ? h.json : {};
     const ef = d.effective || null;
     return {
-      nombre: u.name || "", email: String(u.email || "").toLowerCase(), activo: !!u.active, fin: u.ends_on || "",
+      nombre: u.name || "", email: String(u.email || "").toLowerCase(), activo: !!u.active, practicante: !!u.is_intern, fin: u.ends_on || "",
       semanal: (d.weekly || []).map((w) => ({ dia: w.weekday, trabaja: !!w.is_working, ini: hhmm(w.start_time), fin: hhmm(w.end_time), pausa: w.break_minutes || 0 })),
       cambios: (d.exceptions || []).map((x) => ({ fecha: String(x.date || "").slice(0, 10), tipo: x.kind, ini: hhmm(x.start_time), fin: hhmm(x.end_time), motivo: x.reason || "" })),
       hoy: ef ? { tipo: ef.kind, ini: hhmm(ef.start), fin: hhmm(ef.end), motivo: ef.reason || "", origen: ef.source || "" } : null,
