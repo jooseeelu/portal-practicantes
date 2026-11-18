@@ -198,7 +198,9 @@ export default {
       if (!(await pedirConfirmacion({ titulo: "¿Vaciar la papelera?", texto: "Se borran para siempre " + n + " fichas y todos sus archivos. No se puede deshacer.", boton: "Vaciar la papelera" }))) return;
       store.papelera.slice().forEach((p) => borrarArchivos(vaciarDePapelera(p))); registrar("Vació la papelera", n + " fichas"); toast("Papelera vacía");
     };
-    return { fCompleta, nombreCompleto, copia, hacerExcel, hacerCopia, caducadas, proximasCad, revision, abrirRevision, seleccionadas, mantener, mandarSeleccion, papelera, restaurar, eliminarYa, vaciarPapelera, DIAS_PAPELERA, diasEnPapelera, estadoDe, ultimoContacto, vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    const ver = reactive({ p: null });
+    const abrirDoc = async (d) => { if (!d.archivoId) return toast("Este documento no tiene archivo guardado.", "error"); try { window.open(await urlArchivo(d), "_blank", "noopener"); } catch (e) { toast("No se pudo abrir: " + e.message, "error"); } };
+    return { ver, abrirDoc, fCompleta, nombreCompleto, copia, hacerExcel, hacerCopia, caducadas, proximasCad, revision, abrirRevision, seleccionadas, mantener, mandarSeleccion, papelera, restaurar, eliminarYa, vaciarPapelera, DIAS_PAPELERA, diasEnPapelera, estadoDe, ultimoContacto, vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
@@ -338,12 +340,20 @@ export default {
       </div>
 
       <div v-else-if="tab==='papelera'" class="card-pad stack">
+        <Modal v-if="ver.p" :titulo="ver.p.nombre" :ancho="640" @cerrar="ver.p=null">
+          <p class="sub">{{ ver.p.datos.cand.email || 'Sin correo' }}<template v-if="ver.p.datos.cand.tel"> · {{ ver.p.datos.cand.tel }}</template> · {{ ver.p.datos.cand.titulacion || 'Sin titulación' }} · {{ ver.p.centro || 'Autopostulado' }}</p>
+          <p class="sub">{{ ver.p.datos.entrevistas.length }} entrevistas · {{ ver.p.datos.notas.length }} notas · {{ ver.p.datos.historial.length }} movimientos en el historial<template v-if="ver.p.datos.estudiantes.length"> · con prácticas registradas</template></p>
+          <h4>Documentos ({{ ver.p.datos.documentos.length }})</h4>
+          <p v-if="!ver.p.datos.documentos.length" class="sub">No tiene documentos.</p>
+          <div v-for="d in ver.p.datos.documentos" :key="d.id" class="row" style="justify-content:space-between;padding:6px 0"><span><b>{{ d.nombre }}</b> <span class="sub">· {{ d.tipo }}</span></span><button class="btn btn-sm" @click="abrirDoc(d)"><Ic n="eye" :s="14" />Ver</button></div>
+          <template #pie><button class="btn" @click="ver.p=null">Cerrar</button></template>
+        </Modal>
         <p class="sub">Las fichas que se borran no desaparecen del todo: se guardan aquí {{ DIAS_PAPELERA }} días con todo lo suyo (entrevistas, valoraciones, documentos, notas e historial). Puedes recuperarlas o borrarlas ya; pasado ese tiempo se borran solas.</p>
         <div v-if="!admin" class="aviso"><Ic n="info" :s="16" /><span>Solo un administrador puede gestionar la papelera.</span></div>
         <p v-else-if="!papelera.length" class="sub">La papelera está vacía.</p>
         <template v-else>
           <div class="tbl-wrap"><table class="tbl sin-hover"><thead><tr><th>Persona</th><th>Centro</th><th>Mandada a la papelera</th><th>Por</th><th>Se borra en</th><th></th></tr></thead><tbody>
-            <tr v-for="p in papelera" :key="p.id"><td><b>{{ p.nombre }}</b></td><td>{{ p.centro || 'Autopostulado' }}</td><td class="nowrap">{{ fCompleta(p.fecha) }}, {{ p.hora }}</td><td>{{ p.por }}</td><td class="nowrap">{{ Math.max(0, DIAS_PAPELERA - diasEnPapelera(p)) }} días</td><td class="nowrap"><button class="btn btn-sm" @click="restaurar(p)">Restaurar</button> <button class="btn btn-sm btn-danger" @click="eliminarYa(p)">Borrar ya</button></td></tr>
+            <tr v-for="p in papelera" :key="p.id"><td><b>{{ p.nombre }}</b></td><td>{{ p.centro || 'Autopostulado' }}</td><td class="nowrap">{{ fCompleta(p.fecha) }}, {{ p.hora }}</td><td>{{ p.por }}</td><td class="nowrap">{{ Math.max(0, DIAS_PAPELERA - diasEnPapelera(p)) }} días</td><td class="nowrap"><button class="btn btn-sm btn-ghost" title="Ver lo que hay guardado" @click="ver.p=p"><Ic n="eye" :s="15" /></button> <button class="btn btn-sm" @click="restaurar(p)">Restaurar</button> <button class="btn btn-sm btn-danger" @click="eliminarYa(p)">Borrar ya</button></td></tr>
           </tbody></table></div>
           <div><button class="btn btn-sm btn-danger" @click="vaciarPapelera"><Ic n="trash" :s="14" />Vaciar la papelera</button></div>
         </template>
