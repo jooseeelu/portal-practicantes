@@ -9,7 +9,7 @@ import { AREAS_UNIDAS, TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
 import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
-export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
+export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", mes: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
 
 const COLS = [
   { k: "nombre", t: "Candidato" }, { k: "centro", t: "Centro educativo" }, { k: "titulacion", t: "Titulación" }, { k: "turno", t: "Turno" },
@@ -31,6 +31,7 @@ export default {
         if (f.centro && c.centroId !== f.centro) return false;
         if (f.turno && c.turno !== f.turno) return false;
         if (f.area === "__otras" ? (!c.area || AREAS.includes(c.area)) : f.area && (c.area || "") !== f.area) return false;
+        if (f.mes && !((fechaEnt(c) || "").startsWith(f.mes) || (c.creado || "").startsWith(f.mes))) return false;
         if (f.notaMin && !(c.nota != null && c.nota >= Number(f.notaMin))) return false;
         if (f.rapido === "sinvalorar" && !(c.nota == null && entrevistaDe(c.id)?.estado === "Realizada")) return false;
         if (f.rapido === "semana") { const d = fechaEnt(c); if (!(d >= HOY_ISO && d <= dia(7))) return false; }
@@ -55,8 +56,8 @@ export default {
       registrar("Exportó candidatos a Excel", filas.length + " fichas"); toast(filas.length + " candidatos exportados");
     };
     const areasFiltro = AREAS;
-    const hayFiltros = computed(() => f.q || f.estado || f.centro || f.turno || f.area || f.notaMin || f.rapido);
-    const limpiar = () => Object.assign(f, { q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", rapido: "" });
+    const hayFiltros = computed(() => f.q || f.estado || f.centro || f.turno || f.area || f.notaMin || f.mes || f.rapido);
+    const limpiar = () => Object.assign(f, { q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", mes: "", rapido: "" });
     const rapido = (k) => { f.rapido = f.rapido === k ? "" : k; };
     // Filtros: hoja en móvil y etiquetas de los filtros puestos (cada una con su x)
     const hoja = ref(false);
@@ -67,6 +68,7 @@ export default {
       if (f.area) out.push({ k: "area", t: "Área: " + (f.area === "__otras" ? "Otra" : f.area), quitar: () => (f.area = "") });
       if (f.turno) out.push({ k: "turno", t: "Turno: " + etiquetaTurno(f.turno), quitar: () => (f.turno = "") });
       if (f.centro) out.push({ k: "centro", t: "Centro: " + (centroDe(f.centro)?.nombre || "—"), quitar: () => (f.centro = "") });
+      if (f.mes) out.push({ k: "mes", t: "Mes: " + new Date(f.mes + "-15").toLocaleDateString("es-ES", { month: "long", year: "numeric" }), quitar: () => (f.mes = "") });
       if (f.notaMin) out.push({ k: "nota", t: "Nota " + f.notaMin + " o más", quitar: () => (f.notaMin = "") });
       if (f.rapido) out.push({ k: "rapido", t: RAPIDOS.find((r) => r.k === f.rapido)?.t || f.rapido, quitar: () => (f.rapido = "") });
       return out;
@@ -171,7 +173,7 @@ export default {
         <select class="inp fsel solo-esc" :class="{on: f.area}" v-model="f.area" aria-label="Área de interés"><option value="">Área</option><option v-for="a in areasFiltro" :key="a" :value="a">{{ a }}</option><option value="__otras">Otra (texto libre)</option></select>
         <select class="inp fsel solo-esc" :class="{on: f.turno}" v-model="f.turno" aria-label="Turno"><option value="">Turno</option><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select>
         <div class="fsel-centro solo-esc" :class="{on: f.centro}"><SelectBuscable v-model="f.centro" :opciones="opCentros" etiqueta-todos="Centro" /></div>
-        <select class="inp fsel solo-esc" :class="{on: f.notaMin}" v-model="f.notaMin" aria-label="Valoración mínima"><option value="">Valoración</option><option v-for="v in NOTAS" :key="v" :value="v">Nota {{ v }} o más</option></select>
+        <input type="month" class="inp fsel solo-esc" :class="{on: f.mes}" v-model="f.mes" title="Mes de la entrevista o del registro" aria-label="Mes" style="width:150px" /><select class="inp fsel solo-esc" :class="{on: f.notaMin}" v-model="f.notaMin" aria-label="Valoración mínima"><option value="">Valoración</option><option v-for="v in NOTAS" :key="v" :value="v">Nota {{ v }} o más</option></select>
         <button class="btn btn-ink btn-filtros solo-movil" @click="hoja = true"><Ic n="filtros" :s="17" />Filtros<span v-if="chips.length" class="badge">{{ chips.length }}</span></button>
         <div class="seg seg-iconos right solo-movil" role="group" aria-label="Vista">
           <button :class="{on: f.vista==='tabla'}" @click="f.vista='tabla'" title="Tabla" aria-label="Vista en tabla"><Ic n="tabla" :s="16" /></button>

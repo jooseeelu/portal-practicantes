@@ -5,6 +5,7 @@ import { arrancarSync, pararSync, guardarAhora } from "./sync.js";
 import { ruta, go } from "./router.js";
 import { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, MenuCtx, vCtx, vAlto, pedirConfirmacion } from "./ui.js";
 import { RedactorCorreo } from "./mensajes.js";
+import { ChatEquipo } from "./chat.js";
 import { normal, HOY_ISO, dia, fLarga } from "./util.js";
 import Inicio from "./views/Inicio.js";
 import Candidatos from "./views/Candidatos.js";
@@ -18,7 +19,7 @@ import Ajustes from "./views/Ajustes.js";
 const VISTAS = { inicio: Inicio, candidatos: Candidatos, candidato: Ficha, entrevistas: Entrevistas, estudiantes: Estudiantes, centros: Centros, documentos: Documentos, ajustes: Ajustes };
 
 const App = {
-  components: { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, MenuCtx, RedactorCorreo },
+  components: { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, MenuCtx, RedactorCorreo, ChatEquipo },
   setup() {
     // --- Sesión ---
     const acceso = reactive({ email: "", clave: "", error: "", ocupado: false });
@@ -205,6 +206,7 @@ const App = {
     <Confirmacion />
     <MenuCtx />
     <RedactorCorreo />
+    <ChatEquipo v-if="dentro" />
     <Toasts />
   </div>`,
 };

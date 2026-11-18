@@ -78,7 +78,7 @@ export default {
     const porCentro = computed(() => {
       const m = {};
       cands.value.forEach((c) => { const k = c.centroId || "_"; (m[k] ||= { id: k, nombre: centroDe(c.centroId)?.nombre || "Autopostulados", total: 0, activos: 0 }).total++; });
-      ests.value.filter((e) => estadoPracticas(e) === "En curso").forEach((e) => { if (m[e.centroId]) m[e.centroId].activos++; });
+      ests.value.filter((e) => estadoPracticas(e) === "En curso").forEach((e) => { const k = e.centroId || "_"; if (m[k]) m[k].activos++; });
       const l = Object.values(m).sort((a, b) => b.total - a.total).slice(0, 7); const max = l[0]?.total || 1;
       return l.map((x) => ({ ...x, w: (x.total / max) * 100, wa: (x.activos / max) * 100 }));
     });
@@ -132,12 +132,12 @@ export default {
       </section>
 
       <section class="card ancho">
-        <div class="card-head"><h3>Colaboración por centro</h3><span class="sub right">Candidatos totales · <span style="color:var(--cyan-dark);font-weight:600">en prácticas ahora</span></span></div>
+        <div class="card-head"><h3>Colaboración por centro</h3><span class="sub right"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--navy-300)"></span> candidatos totales · <a @click="go('estudiantes')" style="cursor:pointer;color:var(--cyan-dark);font-weight:600"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--cyan-dark)"></span> en prácticas ahora</a></span></div>
         <div class="barras centros">
           <button v-for="c in porCentro" :key="c.id" class="barra" @click="c.id==='_' ? irCands('') : go('centros/'+c.id)">
             <span class="barra-n">{{ c.nombre }}</span>
             <span class="barra-pista"><i :style="{width: c.w+'%', background: 'var(--navy-300)'}"></i><i class="sobre" :style="{width: c.wa+'%'}"></i></span>
-            <b>{{ c.total }}</b>
+            <b :title="c.activos + ' en prácticas ahora de ' + c.total + ' candidatos'">{{ c.total }}<span v-if="c.activos" style="color:var(--cyan-dark)"> · {{ c.activos }}</span></b>
           </button>
         </div>
       </section>
@@ -158,7 +158,7 @@ export default {
         <div class="card-head"><h3>Hoy en la oficina</h3><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
         <div class="turnos-hoy">
           <div v-for="t in hoyTurnos" :key="t.t" class="turno-hoy">
-            <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span><span class="right aforo" :class="{lleno: t.n>=t.aforo, pasa: t.n>t.aforo}">{{ t.n }} / {{ t.aforo }}</span></div>
+            <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span><span class="right aforo" :class="{lleno: t.n>=t.aforo, pasa: t.n>t.aforo}">{{ t.n }} de {{ t.aforo }} plazas</span></div>
             <div class="medidor"><i v-for="k in t.aforo" :key="k" :class="{on: k<=t.n}"></i></div>
             <div class="row wrap" style="gap:6px">
               <a v-for="c in t.l" :key="c.id" class="persona" @click="go('candidato/'+c.id)"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="22" />{{ c.nombre }}</a>
