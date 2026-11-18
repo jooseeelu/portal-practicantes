@@ -158,7 +158,7 @@ export default {
         <div class="card-head"><h3>Hoy en la oficina</h3><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
         <div class="turnos-hoy">
           <div v-for="t in hoyTurnos" :key="t.t" class="turno-hoy">
-            <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span><span class="right aforo" :class="{lleno: t.n>=t.aforo, pasa: t.n>t.aforo}">{{ t.n }} de {{ t.aforo }} plazas</span></div>
+            <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span><span class="right aforo" title="Practicantes que vienen hoy en este turno y cuántos se pueden atender a la vez (se cambia en Ajustes → Turnos y aforo)" :class="{lleno: t.n>=t.aforo, pasa: t.n>t.aforo}">{{ t.n }} {{ t.n === 1 ? 'practicante' : 'practicantes' }} · caben {{ t.aforo }}</span></div>
             <div class="medidor"><i v-for="k in t.aforo" :key="k" :class="{on: k<=t.n}"></i></div>
             <div class="row wrap" style="gap:6px">
               <a v-for="c in t.l" :key="c.id" class="persona" @click="go('candidato/'+c.id)"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="22" />{{ c.nombre }}</a>
