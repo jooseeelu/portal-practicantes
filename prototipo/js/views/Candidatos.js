@@ -39,7 +39,7 @@ export default {
       });
     });
     const valor = (c, k) => ({
-      nombre: normal(c.apellidos + c.nombre), centro: normal(centroDe(c.centroId)?.nombre || "zz"), titulacion: normal(c.titulacion), turno: c.turno, horas: c.horas,
+      nombre: normal(c.nombre + " " + c.apellidos), centro: normal(centroDe(c.centroId)?.nombre || "zz"), titulacion: normal(c.titulacion), turno: c.turno, horas: c.horas,
       entrevista: fechaEnt(c) || (f.desc ? "0" : "9"), estado: store.estados.findIndex((e) => e.k === c.estado), nota: c.nota ?? (f.desc ? -1 : 99), creado: c.creado,
     })[k];
     const lista = computed(() => {
