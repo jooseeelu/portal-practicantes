@@ -212,3 +212,31 @@
   .page-head .acciones > .btn { width: 100%; justify-content: center; }
   .page-head .acciones > .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
+
+/* Selector de fechas (filtro de Candidatos) */
+.sel-fechas { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; color: var(--text-700); }
+.sel-fechas.on { color: var(--text-900); font-weight: 600; }
+.sf-anio { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 6px 0 10px; }
+.sf-anio b { font-size: 18px; min-width: 60px; text-align: center; }
+.sf-meses { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sf-meses button { border: 1px solid var(--border); background: var(--surface); color: var(--text-900); border-radius: 10px; padding: 12px 0; font: 600 14px var(--font-base); cursor: pointer; }
+.sf-meses button.hoy { border-color: var(--teal-500); }
+.sf-meses button.on { background: var(--navy-900); color: #fff; border-color: transparent; }
+:root[data-theme="dark"] .sf-meses button.on { background: var(--navy-500); }
+.sf-tramo { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.sf-tramo > b { display: block; margin-bottom: 8px; }
+/* Buscador dentro del calendario de entrevistas */
+.cal-buscar { flex: 1 1 180px; max-width: 260px; }
+.txt-corto { display: none; }
+@media (max-width: 640px) {
+  /* Agenda en móvil: cabecera compacta para que se vea más calendario */
+  .page-head .acciones.acciones-agenda { grid-template-columns: 1fr auto; }
+  .page-head .acciones.acciones-agenda > .seg { grid-column: 1; }
+  .page-head .acciones.acciones-agenda > .btn, .page-head .acciones.acciones-agenda > .btn:last-child:nth-child(odd) { width: auto; grid-column: 2; }
+  .acciones-agenda .txt-largo { display: none; }
+  .acciones-agenda .txt-corto { display: inline; }
+  .cal-bar { padding: 10px; gap: 6px; }
+  .cal-bar > b { font-size: 15px; }
+  .cal-buscar { order: 5; flex-basis: 100%; max-width: none; }
+  .cal-bar .leyenda { order: 6; gap: 8px; font-size: 11px; }
+}

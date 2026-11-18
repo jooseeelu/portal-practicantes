@@ -101,11 +101,11 @@ export default {
   <div class="page">
     <div v-if="filtrosC.area" class="chip-area-global"><span class="chip-filtro" @click="filtrosC.area = ''" role="button" tabindex="0">Área: {{ filtrosC.area === '__otras' ? 'Otra' : filtrosC.area }}<Ic n="x" :s="14" /></span><span class="sub">Solo se ve lo de esta área (elegida en Inicio o en Candidatos).</span></div>
     <div class="page-head">
-      <div><h1>Entrevistas</h1><p>Agenda común del equipo, de lunes a viernes.</p></div>
-      <div class="acciones">
+      <div><h1>Entrevistas</h1><p class="solo-esc">Agenda común del equipo, de lunes a viernes.</p></div>
+      <div class="acciones acciones-agenda">
         <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><option v-if="miAgenda" :value="miAgenda">Mi agenda</option><OpcionesPersonas prefijo="Agenda de " /><option value="_ninguno">Sin responsable asignado</option></select>
         <div class="seg"><button :class="{on: s.vista==='calendario'}" @click="s.vista='calendario'"><Ic n="calendario" :s="15" />Calendario</button><button :class="{on: s.vista==='lista'}" @click="s.vista='lista'"><Ic n="tabla" :s="15" />Listado</button></div>
-        <button class="btn btn-accent" @click="abrirNueva()"><Ic n="plus" :s="16" />Nueva entrevista</button>
+        <button class="btn btn-accent" @click="abrirNueva()"><Ic n="plus" :s="16" /><span class="txt-largo">Nueva entrevista</span><span class="txt-corto">Nueva</span></button>
       </div>
     </div>
 
@@ -115,6 +115,7 @@ export default {
         <button class="btn btn-sm" @click="mover(0)">Hoy</button>
         <button class="icon-btn" @click="mover(-1)" aria-label="Semana anterior"><Ic n="chevL" /></button><button class="icon-btn" @click="mover(1)" aria-label="Semana siguiente"><Ic n="chevR" /></button>
         <b>{{ tituloSemana }}</b>
+        <div class="buscar cal-buscar"><Ic n="search" :s="15" /><input class="inp" v-model="s.q" placeholder="Buscar candidato…" /></div>
         <span class="right leyenda"><span v-for="c in cuentas" :key="c.k"><i :style="{background: c.c}"></i>{{ c.k }}</span></span>
       </div>
       <div class="cal-grid">
