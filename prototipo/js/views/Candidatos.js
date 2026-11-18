@@ -1,5 +1,5 @@
 import { computed, reactive, ref } from "vue";
-import { store, etiquetaTurno, centroDe, entrevistaDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
+import { store, etiquetaTurno, centroDe, entrevistaDe, entrevistasDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
 import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir, miNombre } from "../api.js";
 import { recortarFoto } from "../cv.js";
@@ -148,7 +148,8 @@ export default {
     }
 
     // Observaciones del listado: las de la última entrevista (o las antiguas de la ficha)
-    const obsDe = (c) => entrevistaDe(c.id)?.obs || c.obs || "";
+    // Si tiene varias entrevistas con observaciones, salen todas numeradas («1.ª: … · 2.ª: …»)
+    const obsDe = (c) => { const l = entrevistasDe(c.id).slice().reverse(); const con = l.map((e, i) => [i, e.obs]).filter(([, o]) => o); if (!con.length) return c.obs || ""; if (con.length === 1) return con[0][1]; return con.map(([i, o]) => (i + 1) + ".ª: " + o).join(" · "); };
     const menuCand = (c) => ({ titulo: nombreCompleto(c), items: [
       { t: "Abrir la ficha", i: "user", f: () => go("candidato/" + c.id) },
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },

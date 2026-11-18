@@ -1,7 +1,8 @@
 import { computed, reactive } from "vue";
-import { store, candDe, centroDe, nombreCompleto, estadoPracticas, turnoEstudiante, etiquetaTurno } from "../store.js";
+import { store, candDe, centroDe, nombreCompleto, estadoPracticas, turnoEstudiante, etiquetaTurno, TURNOS_OFICINA } from "../store.js";
+import { SelectorFechas } from "../fechas.js";
 import { ruta, go } from "../router.js";
-import { Ic, Chip, Avatar, Vacio } from "../ui.js";
+import { Ic, Chip, Avatar, Vacio, SelectBuscable } from "../ui.js";
 import { registrar } from "../api.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
@@ -11,10 +12,10 @@ import { AREAS } from "../data.js";
 import { cumpleArea, urlWhatsApp, HOY_ISO, dia, lunesDe, fCorta, fCompleta, diaCorto, diaNum, difDias, relativo } from "../util.js";
 
 const COLOR = { "En curso": ["var(--cyan)", "var(--cyan-dark)"], Prevista: ["var(--gold-500)", "var(--gold-700)"], Finalizada: ["var(--text-400)", "var(--text-600)"] };
-const estado = reactive({ semana: lunesDe(HOY_ISO), filtro: "activos" });
+const estado = reactive({ semana: lunesDe(HOY_ISO), filtro: "activos", centro: "", turno: "", desde: "", hasta: "" });
 
 export default {
-  components: { Ic, Chip, Avatar, Vacio },
+  components: { Ic, Chip, Avatar, Vacio, SelectBuscable, SelectorFechas },
   setup() {
     const s = estado;
     cargarGentrivo();
@@ -24,6 +25,8 @@ export default {
       const total = Math.max(1, difDias(e.fin, e.inicio)), hecho = Math.min(total, Math.max(0, difDias(HOY_ISO, e.inicio)));
       return { e, c, est, g: enGentrivo(c), turno: turnoEstudiante(e), pct: est === "Finalizada" ? 100 : est === "Prevista" ? 0 : Math.round((hecho / total) * 100), quedan: difDias(e.fin, HOY_ISO) };
     }).filter((f) => s.filtro === "todos" || (s.filtro === "activos" ? f.est !== "Finalizada" : f.est === "Finalizada"))
+      .filter((f) => (!s.centro || (s.centro === "_" ? !f.e.centroId : String(f.e.centroId || f.c?.centroId) === String(s.centro))) && (!s.turno || f.turno === s.turno)
+        && (!s.desde || f.e.fin >= s.desde) && (!s.hasta || f.e.inicio <= s.hasta))
       .sort((a, b) => a.e.fin.localeCompare(b.e.fin)));
 
     // Cuadrante: tres semanas, por día y turno
@@ -42,7 +45,10 @@ export default {
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { filtrosC, gentrivo, cargarGentrivo, textoHoy, hoyEsCambio, menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
+    const opCentros = computed(() => [{ valor: "_", etiqueta: "Autopostulados" }, ...store.centros.filter((c) => !c.archivado).map((c) => ({ valor: c.id, etiqueta: c.nombre })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))]);
+    const hayFiltrosE = computed(() => s.centro || s.turno || s.desde || s.hasta || filtrosC.area);
+    const limpiarE = () => { Object.assign(s, { centro: "", turno: "", desde: "", hasta: "" }); filtrosC.area = ""; };
+    return { opCentros, hayFiltrosE, limpiarE, TURNOS_OFICINA, AREAS, filtrosC, gentrivo, cargarGentrivo, textoHoy, hoyEsCambio, menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
   },
   template: `
   <div class="page">
@@ -58,6 +64,13 @@ export default {
         <button class="pill" :class="{on: s.filtro==='finalizados'}" @click="s.filtro='finalizados'">Finalizadas</button>
         <button class="pill" :class="{on: s.filtro==='todos'}" @click="s.filtro='todos'">Todas</button>
         <span class="sub right">Para incorporar a alguien, abre su ficha y pulsa «Convertir en estudiante».</span>
+      </div>
+      <div class="barra-filtros filtros-est">
+        <div class="fsel-centro" :class="{on: s.centro}"><SelectBuscable v-model="s.centro" :opciones="opCentros" etiqueta-todos="Centro" /></div>
+        <select class="inp fsel" :class="{on: filtrosC.area}" v-model="filtrosC.area" aria-label="Área"><option value="">Área</option><option v-for="a in AREAS" :key="a" :value="a">{{ a }}</option></select>
+        <select class="inp fsel" :class="{on: s.turno}" v-model="s.turno" aria-label="Turno"><option value="">Turno</option><option v-for="t in TURNOS_OFICINA" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select>
+        <SelectorFechas v-model:desde="s.desde" v-model:hasta="s.hasta" />
+        <button v-if="hayFiltrosE" class="btn-link" @click="limpiarE">Quitar filtros</button>
         <span v-if="gentrivo.configurado" class="sub gentrivo-estado"><Ic n="clock" :s="13" /> Horario de hoy según Gentrivo<template v-if="gentrivo.actualizado"> · {{ new Date(gentrivo.actualizado).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'}) }}</template> <button class="btn-link" :disabled="gentrivo.cargando" @click="cargarGentrivo(true)">{{ gentrivo.cargando ? 'Actualizando…' : 'Actualizar' }}</button></span>
         <span v-else-if="gentrivo.error" class="sub" style="color:var(--err-dark)">Gentrivo: {{ gentrivo.error }}</span>
       </div>

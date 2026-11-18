@@ -70,7 +70,13 @@ export default {
     // Valoración en BORRADOR: lo que se toca aquí no se guarda hasta pulsar «Guardar valoración» (o se descarta)
     const vacioCrit = () => Object.fromEntries(CRITERIOS.map(([k]) => [k, { n: null, t: "" }]));
     const bor = reactive({ criterios: vacioCrit(), obs: "", nota: null, de: null });
-    const original = () => ({ criterios: JSON.parse(JSON.stringify(ent.value?.criterios || vacioCrit())), obs: ent.value?.obs || "", nota: c.value?.nota ?? null });
+    const esPrimera = () => !!ent.value && ents.value[0]?.id === ent.value.id;
+    const notaDe = (e) => (e && e.nota !== undefined ? e.nota : e && ents.value[0]?.id === e.id ? c.value?.nota ?? null : null);
+    // La nota de la ficha es la de la entrevista más reciente que tenga nota
+    // Antes de tocar la ficha, la 1.ª entrevista se queda con lo que era suyo (fichas de antes de separar por entrevista)
+    const fijarPrimera = () => { const p = ents.value[0]; if (!p) return; if (p.nota === undefined) p.nota = c.value.nota ?? null; for (const t of ["pros", "contras"]) if (!Array.isArray(p[t])) p[t] = [...(c.value[t] || [])]; };
+    const sincronizarNota = () => { fijarPrimera(); const l = ents.value.slice().reverse().map(notaDe).find((n) => n != null); c.value.nota = l ?? null; };
+    const original = () => ({ criterios: JSON.parse(JSON.stringify(ent.value?.criterios || vacioCrit())), obs: ent.value?.obs || "", nota: notaDe(ent.value) });
     function cargarBorrador() { const o = original(); Object.assign(bor, { ...o, de: ent.value?.id ?? null }); }
     watch(() => ent.value && ent.value.id, cargarBorrador, { immediate: true });
     const cambiosVal = computed(() => {
@@ -95,7 +101,7 @@ export default {
       const copia = { criterios: JSON.parse(JSON.stringify(ent.value.criterios)), obs: ent.value.obs, nota: c.value.nota };
       ent.value.criterios = vacioCrit();
       const tenia = c.value.nota;
-      c.value.nota = null;
+      ent.value.nota = null; sincronizarNota();
       if (tenia != null) addHist(c.value.id, "valoracion", "Valoración borrada", miNombre(), { cambio: { campo: "nota", antes: tenia, despues: null } });
       cargarBorrador();
       const e = ent.value;
@@ -104,15 +110,19 @@ export default {
     const media = computed(() => { const v = CRITERIOS.map(([k]) => bor.criterios[k]?.n).filter((x) => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 2) / 2 : null; });
     const notaFinal = computed({ get: () => bor.nota, set: (v) => { bor.nota = v === "" || v == null ? null : Number(v); } });
     const guardarValoracion = () => {
+      const cancelada = ent.value.estado === "Cancelada";
       const v = bor.nota ?? media.value;
-      if (v == null) return toast("Elige una nota del 1 al 10.", "error");
+      // Una cita cancelada se puede comentar sin poner nota
+      if (v == null && !cancelada) return toast("Elige una nota del 1 al 10.", "error");
       const antes = c.value.nota ?? null;
       ent.value.criterios = JSON.parse(JSON.stringify(bor.criterios));
       ent.value.obs = bor.obs;
-      c.value.nota = Number(v);
-      ent.value.estado = "Realizada";
-      addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || miNombre(), { cambio: { campo: "nota", antes, despues: Number(v) } });
-      if (["entrevista-programada", "entrevistado", "pendiente-entrevista"].includes(c.value.estado)) cambiarEstado(c.value, "en-valoracion", { silencioso: true });
+      ent.value.nota = v == null ? null : Number(v);
+      sincronizarNota();
+      if (!cancelada) ent.value.estado = "Realizada";
+      if (v != null) addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || miNombre(), { cambio: { campo: "nota", antes, despues: c.value.nota } });
+      else addHist(c.value.id, "nota", "Comentario en la entrevista cancelada");
+      if (!cancelada && ["entrevista-programada", "entrevistado", "pendiente-entrevista"].includes(c.value.estado)) cambiarEstado(c.value, "en-valoracion", { silencioso: true });
       cargarBorrador();
       toast("Valoración guardada");
     };
@@ -220,19 +230,24 @@ export default {
     const demo = (m) => toast("Demo: " + m);
     // Puntos a favor y en contra
     const nuevo = reactive({ pros: "", contras: "" });
+    // A favor / en contra de CADA entrevista. Fichas antiguas: lo que había en la ficha cuenta como de la 1.ª entrevista.
+    const pcDe = (tipo) => { const e = ent.value; if (!e) return c.value[tipo] || []; if (Array.isArray(e[tipo])) return e[tipo]; return esPrimera() ? c.value[tipo] || [] : []; };
+    const pcEditable = (tipo) => { const e = ent.value; if (!e) return (c.value[tipo] ||= []); if (!Array.isArray(e[tipo])) e[tipo] = esPrimera() ? [...(c.value[tipo] || [])] : []; return e[tipo]; };
+    // La ficha guarda los de la entrevista más reciente que tenga alguno (para el contador y los listados)
+    const sincronizarPC = () => { fijarPrimera(); for (const t of ["pros", "contras"]) { const e = ents.value.slice().reverse().find((x) => Array.isArray(x[t]) && x[t].length); if (e) c.value[t] = [...e[t]]; else if (ents.value.some((x) => Array.isArray(x[t]))) c.value[t] = []; } };
     const addPC = (tipo) => {
       const t = nuevo[tipo].trim(); if (!t) return;
-      const l = (c.value[tipo] ||= []);
-      if (l.some((x) => x.toLowerCase() === t.toLowerCase())) return toast("Ese punto ya está anotado.", "error");
-      l.push(t); nuevo[tipo] = "";
+      const l = pcEditable(tipo);
+      if (l.includes(t)) return toast("Ese punto ya está apuntado.", "error");
+      l.push(t); nuevo[tipo] = ""; sincronizarPC();
       addHist(c.value.id, "nota", (tipo === "pros" ? "Punto a favor: " : "Punto en contra: ") + t);
     };
-    const quitarPC = (tipo, i) => c.value[tipo].splice(i, 1);
+    const quitarPC = (tipo, i) => { pcEditable(tipo).splice(i, 1); sincronizarPC(); };
     const editarPC = (tipo, i, ev) => {
-      const t = ev.target.value.trim(), antes = c.value[tipo][i];
-      if (!t) { ev.target.value = antes; return; }
+      const t = String(ev.target.value || "").trim(); const l = pcEditable(tipo); const antes = l[i];
+      if (!t) { l.splice(i, 1); sincronizarPC(); return; }
       if (t === antes) return;
-      c.value[tipo][i] = t;
+      l[i] = t; sincronizarPC();
       addHist(c.value.id, "nota", (tipo === "pros" ? "Punto a favor cambiado: " : "Punto en contra cambiado: ") + antes + " → " + t);
     };
     // Foto de la persona (se recorta en cuadrado al subirla)
@@ -375,7 +390,7 @@ export default {
       addHist(c.value.id, "nota", "Observación interna borrada");
       toast("Observación borrada");
     };
-    return { motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { pcDe, motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -554,15 +569,15 @@ export default {
         <template v-if="!ent"><Vacio icono="calendario" titulo="Sin entrevista programada" texto="Programa la entrevista para poder ponerle nota después."><button class="btn btn-primary" style="margin-top:8px" @click="prog.abierto=true"><Ic n="calendario" :s="16" />Programar entrevista</button></Vacio>
           <div class="pc-grid">
             <div class="pc-col pro">
-              <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ (c.pros || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
-              <p v-if="!(c.pros || []).length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
+              <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ pcDe('pros').length }}</span></div>
+              <ul><li v-for="(p, i) in pcDe('pros')" :key="p"><Ic n="check" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!pcDe('pros').length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
             <div class="pc-col con">
-              <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ (c.contras || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
-              <p v-if="!(c.contras || []).length" class="sub">Lo que te frena o hay que confirmar.</p>
+              <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ pcDe('contras').length }}</span></div>
+              <ul><li v-for="(p, i) in pcDe('contras')" :key="p"><Ic n="alert" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!pcDe('contras').length" class="sub">Lo que te frena o hay que confirmar.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
           </div></template>
@@ -585,15 +600,15 @@ export default {
           <div class="ent-valor">
           <div class="pc-grid">
             <div class="pc-col pro">
-              <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ (c.pros || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.pros || [])" :key="p"><Ic n="check" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
-              <p v-if="!(c.pros || []).length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
+              <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ pcDe('pros').length }}</span></div>
+              <ul><li v-for="(p, i) in pcDe('pros')" :key="p"><Ic n="check" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!pcDe('pros').length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
             <div class="pc-col con">
-              <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ (c.contras || []).length }}</span></div>
-              <ul><li v-for="(p, i) in (c.contras || [])" :key="p"><Ic n="alert" :s="15" /><input class="pc-txt grow" :value="p" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
-              <p v-if="!(c.contras || []).length" class="sub">Lo que te frena o hay que confirmar.</p>
+              <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ pcDe('contras').length }}</span></div>
+              <ul><li v-for="(p, i) in pcDe('contras')" :key="p"><Ic n="alert" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <p v-if="!pcDe('contras').length" class="sub">Lo que te frena o hay que confirmar.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
           </div>
