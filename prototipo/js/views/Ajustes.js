@@ -15,7 +15,7 @@ export default {
   setup() {
     const tab = tabActual;
     // Por orden de importancia: lo estético (colores de los estados) al final
-    const tabs = computed(() => [["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["mensajes", "Mensajes", "mail"], ["turnos", "Turnos y aforo", "clock"], ["integraciones", "Integraciones", "link"], ["datos", "Protección de datos", "shield"], ["estados", "Estados del proceso", "kanban"], ["papelera", "Papelera" + (store.papelera.length ? " (" + store.papelera.length + ")" : ""), "trash"]]);
+    const tabs = computed(() => [["equipo", "Equipo y permisos", "candidatos"], ["personas", "Personas", "user"], ["mensajes", "Mensajes", "mail"], ["turnos", "Turnos", "clock"], ["integraciones", "Integraciones", "link"], ["datos", "Protección de datos", "shield"], ["estados", "Estados del proceso", "kanban"], ["papelera", "Papelera" + (store.papelera.length ? " (" + store.papelera.length + ")" : ""), "trash"]]);
     const usados = (k) => store.candidatos.filter((c) => c.estado === k).length;
     const mover = (i, d) => { const j = i + d; if (j < 0 || j >= store.estados.length) return; const a = store.estados; [a[i], a[j]] = [a[j], a[i]]; };
     const color = (e, col) => Object.assign(e, { col, c: COLORES[col].c, cd: COLORES[col].cd });
@@ -225,11 +225,11 @@ export default {
       </div>
 
       <div v-else-if="tab==='turnos'" class="card-pad stack">
-        <p class="sub">Horario habitual y número máximo de estudiantes que podéis supervisar a la vez. Cada estudiante puede tener además su propio horario.</p>
+        <p class="sub">Horario habitual de cada turno. Cada estudiante puede tener además su propio horario.</p>
         <div class="grid2">
           <div v-for="t in TURNOS_OFICINA" :key="t" class="turno-conf">
             <h3>{{ t === 'Mañana' ? 'Turno de mañana' : t === 'Tarde' ? 'Turno de tarde 1' : 'Turno de tarde 2' }}</h3>
-            <div class="grid3"><div class="fld"><label>Entrada</label><input class="inp" type="time" v-model="store.turnosDef[t].ini" /></div><div class="fld"><label>Salida</label><input class="inp" type="time" v-model="store.turnosDef[t].fin" /></div><div class="fld"><label>Aforo</label><input class="inp" type="number" min="1" max="20" v-model.number="store.aforo[t]" /></div></div>
+            <div class="grid2"><div class="fld"><label>Entrada</label><input class="inp" type="time" v-model="store.turnosDef[t].ini" /></div><div class="fld"><label>Salida</label><input class="inp" type="time" v-model="store.turnosDef[t].fin" /></div></div>
           </div>
         </div>
         <div class="row"><b>Aspecto</b><div class="seg"><button :class="{on: store.tema==='claro'}" @click="setTema('claro')"><Ic n="sun" :s="15" />Claro</button><button :class="{on: store.tema==='oscuro'}" @click="setTema('oscuro')"><Ic n="moon" :s="15" />Oscuro</button></div></div>

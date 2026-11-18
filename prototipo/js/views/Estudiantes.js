@@ -31,7 +31,7 @@ export default {
     const celda = (d, turno) => {
       const l = store.estudiantes.filter((e) => e.inicio <= d && e.fin >= d && turnoEstudiante(e) === turno).map((e) => ({ e, c: candDe(e.candId), nuevo: e.inicio === d, ultimo: e.fin === d, previsto: e.inicio > HOY_ISO }));
       const aforo = store.aforo[turno];
-      return { l, n: l.length, aforo, pasa: l.length > aforo, lleno: l.length === aforo };
+      return { l, n: l.length, aforo, pasa: false, lleno: false };
     };
     const cuadrante = computed(() => diasCuad.value.map((d) => ({ d, hoy: d === HOY_ISO, lunes: diaCorto(d) === "Lun", M: celda(d, "Mañana"), T: celda(d, "Tarde"), T2: celda(d, "Tarde 2") })));
     const excesos = computed(() => cuadrante.value.filter((f) => f.M.pasa || f.T.pasa || f.T2.pasa).length);
@@ -82,15 +82,14 @@ export default {
         <button class="btn btn-sm" @click="mover(0)">Hoy</button>
         <button class="icon-btn" @click="mover(-1)"><Ic n="chevL" /></button><button class="icon-btn" @click="mover(1)"><Ic n="chevR" /></button>
         <b>{{ fCorta(diasCuad[0]) }} – {{ fCorta(diasCuad[diasCuad.length-1]) }}</b>
-        <span v-if="excesos" class="aviso err" style="padding:4px 10px"><Ic n="alert" :s="14" /><b>{{ excesos }} día{{ excesos>1?'s':'' }} por encima del aforo</b></span>
-        <span class="right leyenda"><span><i style="background:var(--cyan)"></i>En curso</span><span><i class="dash"></i>Incorporación prevista</span><span class="sub">Aforo: {{ store.aforo['Mañana'] }} mañana · {{ store.aforo['Tarde'] }} tarde 1 · {{ store.aforo['Tarde 2'] }} tarde 2 (editable en Ajustes)</span></span>
+        <span class="right leyenda"><span><i style="background:var(--cyan)"></i>En curso</span><span><i class="dash"></i>Incorporación prevista</span></span>
       </div>
       <div class="cuad">
         <div class="cuad-head"><span></span><span>Mañana <small>{{ store.turnosDef['Mañana'].ini }}–{{ store.turnosDef['Mañana'].fin }}</small></span><span>Tarde <small>{{ store.turnosDef['Tarde'].ini }}–{{ store.turnosDef['Tarde'].fin }}</small></span><span>Tarde <small>{{ store.turnosDef['Tarde 2'].ini }}–{{ store.turnosDef['Tarde 2'].fin }}</small></span></div>
         <div v-for="f in cuadrante" :key="f.d" class="cuad-fila" :class="{hoy: f.hoy, lunes: f.lunes}">
           <div class="cuad-dia"><small>{{ diaCorto(f.d) }}</small><b>{{ diaNum(f.d) }}</b><span v-if="f.hoy">hoy</span></div>
           <div v-for="t in [f.M, f.T, f.T2]" class="cuad-celda" :class="{pasa: t.pasa, lleno: t.lleno}">
-            <span class="aforo" :class="{pasa: t.pasa, lleno: t.lleno}">{{ t.n }} / {{ t.aforo }}</span>
+            <span class="aforo" :title="t.n + (t.n === 1 ? ' persona' : ' personas') + ' en este turno'">{{ t.n }}</span>
             <a v-for="x in t.l" :key="x.e.candId" class="persona" :class="{previsto: x.previsto}" @click="go('candidato/'+x.e.candId)" :title="x.e.horaIni + '–' + x.e.horaFin + (x.e.tutor ? ' · tutor: ' + x.e.tutor : ' · sin tutor')">
               <Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :s="22" />{{ x.c.nombre }} {{ x.c.apellidos.split(' ')[0] }}<em v-if="x.nuevo">empieza</em><em v-else-if="x.ultimo" class="fin">último día</em>
             </a>
