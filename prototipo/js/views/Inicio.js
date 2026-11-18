@@ -79,7 +79,7 @@ export default {
       const m = {};
       cands.value.forEach((c) => { const k = c.centroId || "_"; (m[k] ||= { id: k, nombre: centroDe(c.centroId)?.nombre || "Autopostulados", total: 0, activos: 0 }).total++; });
       ests.value.filter((e) => estadoPracticas(e) === "En curso").forEach((e) => { const k = e.centroId || "_"; if (m[k]) m[k].activos++; });
-      const l = Object.values(m).sort((a, b) => b.total - a.total).slice(0, 7); const max = l[0]?.total || 1;
+      const l = Object.values(m).sort((a, b) => b.activos - a.activos || b.total - a.total).slice(0, 7); const max = l[0]?.total || 1;
       return l.map((x) => ({ ...x, w: (x.total / max) * 100, wa: (x.activos / max) * 100 }));
     });
     const hoyTurnos = computed(() => TURNOS_OFICINA.map((t) => {
@@ -135,9 +135,9 @@ export default {
         <div class="card-head"><h3>Colaboración por centro</h3><span class="sub right"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--navy-300)"></span> candidatos totales · <a @click="go('estudiantes')" style="cursor:pointer;color:var(--cyan-dark);font-weight:600"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--cyan-dark)"></span> en prácticas ahora</a></span></div>
         <div class="barras centros">
           <button v-for="c in porCentro" :key="c.id" class="barra" @click="c.id==='_' ? irCands('') : go('centros/'+c.id)">
-            <span class="barra-n">{{ c.nombre }}</span>
+            <span class="barra-n">{{ c.nombre }}<small v-if="c.activos" style="display:block;color:var(--cyan-dark);font-weight:600;font-size:11px;line-height:1.2">{{ c.activos }} en prácticas ahora</small></span>
             <span class="barra-pista"><i :style="{width: c.w+'%', background: 'var(--navy-300)'}"></i><i class="sobre" :style="{width: c.wa+'%'}"></i></span>
-            <b :title="c.activos + ' en prácticas ahora de ' + c.total + ' candidatos'">{{ c.total }}<span v-if="c.activos" style="color:var(--cyan-dark)"> · {{ c.activos }}</span></b>
+            <b :title="c.activos + ' en prácticas ahora de ' + c.total + ' candidatos'">{{ c.total }}</b>
           </button>
         </div>
       </section>
