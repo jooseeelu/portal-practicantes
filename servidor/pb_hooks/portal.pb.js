@@ -128,7 +128,18 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
   if (!token) entrar();
   // Si la sesión del usuario de servicio caduca a mitad (o se abrió otra), se vuelve a entrar y se repite
   let fallos = 0;
-  const leer = (ruta) => { let x = pedir("GET", ruta, null, token); if (x.statusCode === 401) { entrar(); x = pedir("GET", ruta, null, token); } if (x.statusCode !== 200) fallos++; return x; };
+  // Gentrivo limita las peticiones por segundo: se espera un poco entre lecturas y, si responde «espera» (429/503), se reintenta
+  const leer = (ruta) => {
+    let x = null;
+    for (let i = 0; i < 5; i++) {
+      sleep(i ? 600 * i : 120);
+      x = pedir("GET", ruta, null, token);
+      if (x.statusCode === 401) { entrar(); x = pedir("GET", ruta, null, token); }
+      if (x.statusCode !== 429 && x.statusCode !== 503) break;
+    }
+    if (x.statusCode !== 200) fallos++;
+    return x;
+  };
   let r = pedir("GET", "/users", null, token);
   if (r.statusCode === 401) { entrar(); r = pedir("GET", "/users", null, token); }
   if (r.statusCode !== 200) throw new BadRequestError("Gentrivo no respondió (" + r.statusCode + ").");
