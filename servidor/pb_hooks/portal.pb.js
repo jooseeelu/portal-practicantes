@@ -137,7 +137,8 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
       if (x.statusCode === 401) { entrar(); x = pedir("GET", ruta, null, token); }
       if (x.statusCode !== 429 && x.statusCode !== 503) break;
     }
-    if (x.statusCode !== 200) fallos++;
+    // «No encontrado» (p. ej. alguien sin horario) es una respuesta válida; solo cuentan como fallo los errores de verdad
+    if (x.statusCode !== 200 && x.statusCode !== 404) fallos++;
     return x;
   };
   let r = pedir("GET", "/users", null, token);
