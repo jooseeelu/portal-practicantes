@@ -103,7 +103,7 @@ onRecordAuthWithPasswordRequest((e) => {
 routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
   const yo = e.auth;
   if (!yo || yo.collection().name !== "users" || !yo.getBool("activo")) throw new ForbiddenError("Sin permiso.");
-  const base = ($os.getenv("GENTRIVO_URL") || "https://gentrivo.gestoriainnova.com/api").replace(/\/+$/, "");
+  const base = ($os.getenv("GENTRIVO_URL") || "https://app.gentrivo.com/api").replace(/\/+$/, "");
   let cfg = null;
   try { cfg = JSON.parse(toString($os.readFile($os.getenv("GENTRIVO_CREDENCIALES") || "/pb/pb_data/gentrivo.json"))); } catch (_) { cfg = null; }
   if (!cfg || !cfg.email || !cfg.clave) return e.json(200, { configurado: false, personas: [] });
