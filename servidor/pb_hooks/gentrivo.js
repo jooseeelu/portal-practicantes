@@ -15,7 +15,7 @@ function config() {
 function api(app, metodo, ruta, cuerpo) {
   const cfg = config();
   if (!cfg || !cfg.email || !cfg.clave) return null;
-  const base = ($os.getenv("GENTRIVO_URL") || "https://gentrivo.gestoriainnova.com/api").replace(/\/+$/, "");
+  const base = ($os.getenv("GENTRIVO_URL") || "https://app.gentrivo.com/api").replace(/\/+$/, "");
   const almacen = app.store();
   const enviar = (token) => {
     const cab = { "content-type": "application/json" };
