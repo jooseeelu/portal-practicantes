@@ -1,6 +1,6 @@
 // Chat interno del equipo: una ventana flotante con un único canal de mensajes.
 // Se consulta cada pocos segundos mientras está abierta (y cada medio minuto cerrada, para el aviso de no leídos).
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { sesion, pedir, esAdmin, urlFichero, crearConArchivo } from "./api.js";
 import { Ic, Avatar } from "./ui.js";
 
@@ -44,17 +44,30 @@ export const ChatEquipo = {
     let miVisto = null;
     async function cargarVistos() { try { const d = await pedir("GET", "api/collections/chat_visto/records?perPage=100&skipTotal=1"); estado.vistos = d.items; miVisto = d.items.find((v) => v.usuario === yo.value) || miVisto; } catch (_) { /* sin «visto» */ } }
     async function guardarVisto(ultimo) {
+      if (!miVisto) await cargarVistos();
       if (!ultimo || (miVisto && miVisto.ultimo >= ultimo)) return;
       const datos = { usuario: yo.value, nombre: sesion.usuario.name || sesion.usuario.email, ultimo };
       try { miVisto = miVisto ? await pedir("PATCH", `api/collections/chat_visto/records/${miVisto.id}`, { ultimo }) : await pedir("POST", "api/collections/chat_visto/records", datos); }
-      catch (_) { await cargarVistos(); }
+      catch (_) { await cargarVistos(); if (miVisto && miVisto.ultimo < ultimo) { try { miVisto = await pedir("PATCH", `api/collections/chat_visto/records/${miVisto.id}`, { ultimo }); } catch (_) { /* otro intento luego */ } } }
     }
     // Quién ha visto cada uno de mis mensajes (se enseña solo en el último mío)
     const ultimoMio = computed(() => [...estado.mensajes].reverse().find((m) => m.autor === yo.value)?.id);
     const vistoPor = (m) => estado.vistos.filter((v) => v.usuario !== yo.value && v.ultimo >= m.created).map((v) => String(v.nombre || "").split(" ")[0]);
+    const textoVisto = (m) => { const l = vistoPor(m), otros = estado.vistos.filter((v) => v.usuario !== yo.value).length; return l.length && l.length === otros && otros > 1 ? "Visto por todos" : "Visto por " + l.join(", "); };
     const yo = computed(() => sesion.usuario?.id);
     const noLeidos = computed(() => estado.mensajes.filter((m) => m.created > estado.visto && m.autor !== yo.value).length);
     let t = null;
+    const avisos = ref(typeof Notification !== "undefined" ? Notification.permission : "no");
+    const pedirAvisos = async () => { if (typeof Notification === "undefined") return; avisos.value = await Notification.requestPermission(); if (avisos.value === "granted") notificar("Avisos activados", "Te avisaremos cuando llegue un mensaje al chat del equipo."); };
+    const sonar = () => { try { const a = new (window.AudioContext || window.webkitAudioContext)(); const o = a.createOscillator(), g = a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value = 880; g.gain.setValueAtTime(0.12, a.currentTime); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.35); o.start(); o.stop(a.currentTime + 0.35); } catch (_) { /* sin sonido */ } };
+    async function notificar(titulo, cuerpo) {
+      if (avisos.value !== "granted") return;
+      const op = { body: cuerpo, icon: "img/icono-192.png", badge: "img/favicon-32.png", tag: "chat-equipo", renotify: true };
+      try { const r = await navigator.serviceWorker?.getRegistration(); if (r) { r.showNotification(titulo, op); return; } } catch (_) { /* sin service worker */ }
+      try { const n = new Notification(titulo, op); n.onclick = () => { window.focus(); if (!abierto.value) alternar(); n.close(); }; } catch (_) { /* sin avisos */ }
+    }
+    const tituloBase = document.title;
+    let primeraCarga = true;
     const bajar = () => nextTick(() => { const el = lista.value; if (el) el.scrollTop = el.scrollHeight; });
     const marcarVisto = () => { const u = estado.mensajes[estado.mensajes.length - 1]; if (u) { estado.visto = u.created; ponerVisto(u.created); guardarVisto(u.created); } };
     async function cargar() {
@@ -63,12 +76,22 @@ export const ChatEquipo = {
         const d = await pedir("GET", "api/collections/chat/records?perPage=200&sort=-created&skipTotal=1");
         const nuevos = d.items.reverse();
         const antes = estado.mensajes.length ? estado.mensajes[estado.mensajes.length - 1].id : "";
+        // Mensajes nuevos de otras personas: aviso si el chat está cerrado o la pestaña no se está mirando
+        if (!primeraCarga) {
+          const conocidos = new Set(estado.mensajes.map((m) => m.id));
+          const nuevosOtros = nuevos.filter((m) => !conocidos.has(m.id) && m.autor !== yo.value);
+          if (nuevosOtros.length && (!abierto.value || document.hidden)) {
+            const u = nuevosOtros[nuevosOtros.length - 1];
+            sonar(); notificar(u.nombre + " · Chat del equipo", u.texto || (u.archivo ? "📷 Ha enviado una captura" : "Nuevo mensaje"));
+          }
+        }
+        primeraCarga = false;
         estado.mensajes = nuevos; error.value = "";
         if (abierto.value) { cargarUrls(); cargarVistos(); }
         if (abierto.value) { marcarVisto(); if (antes !== (nuevos[nuevos.length - 1]?.id || "")) bajar(); }
       } catch (e) { error.value = "No se pudo cargar el chat."; }
     }
-    const programar = () => { clearTimeout(t); t = setTimeout(async () => { if (!document.hidden) await cargar(); programar(); }, abierto.value ? 4000 : 30000); };
+    const programar = () => { clearTimeout(t); t = setTimeout(async () => { if (!document.hidden) await cargar(); programar(); }, abierto.value ? 4000 : 15000); };
     const alternar = async () => { abierto.value = !abierto.value; if (abierto.value) { await cargar(); marcarVisto(); bajar(); } programar(); };
     async function enviar() {
       const x = texto.value.trim(); if ((!x && !adjunto.value) || enviando.value) return;
@@ -89,13 +112,15 @@ export const ChatEquipo = {
     const teclas = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } else if (e.key === "Escape") { respondiendo.value = null; emojis.value = false; } };
     const hora = (iso) => { const d = new Date(String(iso).replace(" ", "T")); const hoy = new Date().toDateString() === d.toDateString(); return (hoy ? "" : d.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) + " · ") + d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); };
     const partes = (n) => { const p = String(n || "?").split(" "); return { nombre: p[0], apellidos: p.slice(1).join(" ") }; };
+    // Contador de no leídos en el título de la pestaña
+    watch(noLeidos, (n) => { document.title = (n && !abierto.value ? `(${n}) ` : "") + tituloBase; });
     onMounted(() => { cargar(); programar(); });
     onUnmounted(() => clearTimeout(t));
-    return { crecer, EMOJIS, respondiendo, emojis, caja, porId, resumen, responder, irA, ponerEmoji, ultimoMio, vistoPor, bajar, adjunto, vistaAdj, entradaArchivo, urls, esImagen, quitarAdjunto, elegirArchivo, pegar, abierto, texto, lista, enviando, error, estado, yo, noLeidos, alternar, enviar, borrar, teclas, hora, partes, esAdmin, sesion };
+    return { textoVisto, avisos, pedirAvisos, crecer, EMOJIS, respondiendo, emojis, caja, porId, resumen, responder, irA, ponerEmoji, ultimoMio, vistoPor, bajar, adjunto, vistaAdj, entradaArchivo, urls, esImagen, quitarAdjunto, elegirArchivo, pegar, abierto, texto, lista, enviando, error, estado, yo, noLeidos, alternar, enviar, borrar, teclas, hora, partes, esAdmin, sesion };
   },
   template: `<div v-if="sesion.modo === 'servidor' && sesion.usuario" class="chat-eq">
     <div v-if="abierto" class="chat-panel">
-      <div class="chat-cab"><Ic n="chat" :s="18" /><b>Chat del equipo</b><button class="chat-cerrar" title="Cerrar" @click="alternar">×</button></div>
+      <div class="chat-cab"><Ic n="chat" :s="18" /><b>Chat del equipo</b><button v-if="avisos === 'default' || avisos === 'denied'" class="chat-avisos" :title="avisos === 'denied' ? 'El navegador tiene bloqueados los avisos de esta página: actívalos en el candado de la barra de direcciones' : 'Avisarme cuando llegue un mensaje'" @click="pedirAvisos">🔔 {{ avisos === 'denied' ? 'Avisos bloqueados' : 'Activar avisos' }}</button><span v-else-if="avisos === 'granted'" class="chat-avisos on" title="Te avisamos cuando llega un mensaje">🔔</span><button class="chat-cerrar" title="Cerrar" @click="alternar">×</button></div>
       <div ref="lista" class="chat-lista">
         <p v-if="!estado.mensajes.length" class="sub" style="text-align:center;margin-top:30px">Todavía no hay mensajes. Escribe el primero.</p>
         <div v-for="m in estado.mensajes" :key="m.id" :data-id="m.id" class="chat-msg" :class="{mio: m.autor === yo}">
@@ -106,7 +131,7 @@ export const ChatEquipo = {
             <a v-if="m.archivo && esImagen(m.archivo) && urls[m.id]" :href="urls[m.id]" target="_blank" rel="noopener" class="chat-img"><img :src="urls[m.id]" alt="Captura" @load="bajar" /></a>
             <a v-else-if="m.archivo" :href="urls[m.id] || '#'" target="_blank" rel="noopener" class="chat-file"><Ic n="documentos" :s="15" />{{ m.archivo.replace(/_[a-z0-9]{10}(\.[a-z0-9]+)$/i, "$1") }}</a>
             <div v-if="m.texto" class="chat-texto">{{ m.texto }}</div>
-            <div v-if="m.id === ultimoMio && vistoPor(m).length" class="chat-visto">✓✓ Visto por {{ vistoPor(m).join(", ") }}</div>
+            <div v-if="m.id === ultimoMio && vistoPor(m).length" class="chat-visto" :title="vistoPor(m).join(', ')"><svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l3 3 6-7"/><path d="M7 8.5l1 .5 6-7"/></svg>{{ textoVisto(m) }}</div>
           </div>
         </div>
       </div>

@@ -565,3 +565,9 @@ textarea.pc-txt { resize: none; overflow: hidden; field-sizing: content; white-s
 .chat-enviar:not(:disabled):hover { transform: scale(1.06); }
 .chat-enviar:disabled { opacity: .4; cursor: default; box-shadow: none; }
 .chat-enviar svg { margin-left: -2px; }
+
+.chat-visto { display: flex; align-items: center; justify-content: flex-end; gap: 3px; color: #53bdeb; opacity: 1; font-weight: 600; }
+.chat-msg:not(.mio) .chat-visto { color: var(--teal-500); }
+.chat-avisos { margin-left: auto; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text-700); border-radius: 999px; padding: 3px 10px; font: 600 12px var(--font-base); cursor: pointer; }
+.chat-avisos.on { border: 0; background: none; padding: 0 4px; cursor: default; }
+.chat-avisos + .chat-cerrar, .chat-avisos.on + .chat-cerrar { margin-left: 6px; }
