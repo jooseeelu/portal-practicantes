@@ -126,13 +126,16 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
     almacen.set("gentrivo_token", token);
   };
   if (!token) entrar();
+  // Si la sesión del usuario de servicio caduca a mitad (o se abrió otra), se vuelve a entrar y se repite
+  let fallos = 0;
+  const leer = (ruta) => { let x = pedir("GET", ruta, null, token); if (x.statusCode === 401) { entrar(); x = pedir("GET", ruta, null, token); } if (x.statusCode !== 200) fallos++; return x; };
   let r = pedir("GET", "/users", null, token);
   if (r.statusCode === 401) { entrar(); r = pedir("GET", "/users", null, token); }
   if (r.statusCode !== 200) throw new BadRequestError("Gentrivo no respondió (" + r.statusCode + ").");
 
   const hhmm = (v) => (v ? String(v).slice(0, 5) : "");
   const personas = ((r.json && r.json.users) || []).filter((u) => u.is_intern || u.active !== false).map((u) => {
-    const h = pedir("GET", "/users/" + u.id + "/schedule", null, token);
+    const h = leer("/users/" + u.id + "/schedule");
     const d = h.statusCode === 200 && h.json ? h.json : {};
     const ef = d.effective || null;
     // Faltas y ausencias según los fichajes de Gentrivo (últimos 90 días, sin hoy): «Falta sin justificar», permisos…
@@ -140,7 +143,7 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
     if (u.is_intern) {
       const hoy = new Date(), desde = new Date(hoy.getTime() - 90 * 86400000), ayer = new Date(hoy.getTime() - 86400000);
       const iso = (x) => x.toISOString().slice(0, 10);
-      const rp = pedir("GET", "/reports/person?user_id=" + u.id + "&from=" + iso(desde) + "&to=" + iso(ayer), null, token);
+      const rp = leer("/reports/person?user_id=" + u.id + "&from=" + iso(desde) + "&to=" + iso(ayer));
       const NORMALES = ["worked", "off", "holiday", "no_schedule", "before_start", "pending", "after_end"];
       if (rp.statusCode === 200 && rp.json && rp.json.days) faltas = rp.json.days.filter((x) => x.status && NORMALES.indexOf(x.status) < 0).map((x) => ({ fecha: String(x.date).slice(0, 10), tipo: x.status, etiqueta: x.status_label || x.status }));
     }
@@ -153,7 +156,8 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
     };
   });
   const datos = { configurado: true, actualizado: new Date().toISOString(), personas: personas };
-  almacen.set("gentrivo_cache", { cuando: Date.now(), datos: datos });
+  // Si algo falló, no se guarda 10 minutos: se vuelve a intentar en la siguiente carga
+  if (!fallos) almacen.set("gentrivo_cache", { cuando: Date.now(), datos: datos });
   return e.json(200, datos);
 }, $apis.requireAuth("users"));
 
