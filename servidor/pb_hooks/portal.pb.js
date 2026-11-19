@@ -129,7 +129,7 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
   // Si la sesión del usuario de servicio caduca a mitad (o se abrió otra), se vuelve a entrar y se repite
   let fallos = 0;
   // Gentrivo limita las peticiones por segundo: se espera un poco entre lecturas y, si responde «espera» (429/503), se reintenta
-  const leer = (ruta) => {
+  const leer = (ruta, cuenta) => {
     let x = null;
     for (let i = 0; i < 5; i++) {
       sleep(i ? 600 * i : 120);
@@ -138,7 +138,7 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
       if (x.statusCode !== 429 && x.statusCode !== 503) break;
     }
     // «No encontrado» (p. ej. alguien sin horario) es una respuesta válida; solo cuentan como fallo los errores de verdad
-    if (x.statusCode !== 200 && x.statusCode !== 404) fallos++;
+    if (cuenta !== false && x.statusCode !== 200 && x.statusCode !== 404) fallos++;
     return x;
   };
   let r = pedir("GET", "/users", null, token);
@@ -155,7 +155,9 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
     if (u.is_intern) {
       const hoy = new Date(), desde = new Date(hoy.getTime() - 90 * 86400000), ayer = new Date(hoy.getTime() - 86400000);
       const iso = (x) => x.toISOString().slice(0, 10);
-      const rp = leer("/reports/person?user_id=" + u.id + "&from=" + iso(desde) + "&to=" + iso(ayer));
+      // El informe de faltas es un extra: si Gentrivo falla con 90 días se prueba con 30, y su error no impide guardar el resto
+      let rp = leer("/reports/person?user_id=" + u.id + "&from=" + iso(desde) + "&to=" + iso(ayer), false);
+      if (rp.statusCode !== 200) rp = leer("/reports/person?user_id=" + u.id + "&from=" + iso(new Date(hoy.getTime() - 30 * 86400000)) + "&to=" + iso(ayer), false);
       const NORMALES = ["worked", "off", "holiday", "no_schedule", "before_start", "pending", "after_end"];
       if (rp.statusCode === 200 && rp.json && rp.json.days) faltas = rp.json.days.filter((x) => x.status && NORMALES.indexOf(x.status) < 0).map((x) => ({ fecha: String(x.date).slice(0, 10), tipo: x.status, etiqueta: x.status_label || x.status }));
     }
