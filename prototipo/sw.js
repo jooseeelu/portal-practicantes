@@ -18,3 +18,12 @@ self.addEventListener("fetch", (e) => {
     }).catch(() => caches.match(r).then((m) => m || (r.mode === "navigate" ? caches.match("./") : Response.error())))
   );
 });
+
+// Aviso del chat del equipo: al pulsarlo, se abre (o se trae al frente) el portal
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((l) => {
+    const w = l.find((c) => "focus" in c);
+    return w ? w.focus() : self.clients.openWindow("./");
+  }));
+});
