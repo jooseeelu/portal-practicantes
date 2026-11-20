@@ -279,3 +279,18 @@ routerAdd("POST", "/api/portal/notion/entrada", (e) => {
   }
   return e.json(200, cuenta);
 });
+
+// Recordatorios automáticos de entrevista (ver recordatorios.js). Se comprueba cada 10 minutos; solo envía
+// una vez al día, a partir de la hora elegida en Ajustes, y solo si está encendido.
+cronAdd("recordatorios_entrevista", "*/10 * * * *", () => {
+  try { const r = require(`${__hooks}/recordatorios.js`).enviar($app, "auto"); if (r.hecho) console.log("Recordatorios enviados: " + r.enviados); }
+  catch (err) { console.log("Recordatorios: " + err); }
+});
+
+// Botón «Enviar prueba» de Ajustes: manda los recordatorios de mañana SOLO al correo de prueba (solo administradores)
+routerAdd("POST", "/api/portal/recordatorios/probar", (e) => {
+  const yo = e.auth;
+  if (!yo || yo.collection().name !== "users" || !yo.getBool("activo") || yo.getString("rol") !== "admin") throw new ForbiddenError("Solo un administrador puede hacer la prueba.");
+  const r = require(`${__hooks}/recordatorios.js`).enviar(e.app, "prueba");
+  return e.json(200, r);
+}, $apis.requireAuth("users"));
