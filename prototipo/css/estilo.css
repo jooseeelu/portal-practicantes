@@ -248,3 +248,5 @@
 .cita .cita-area { opacity: .8; }
 .barra-filtros .sel-fechas, .sel-fechas { width: auto !important; max-width: none !important; flex: 0 0 auto; }
 @media (max-width: 640px) { .barra-filtros .sel-fechas { flex: 1 1 100%; justify-content: center; } }
+
+.cita-ronda { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 4px; margin-right: 3px; border-radius: 4px; background: color-mix(in srgb, var(--c, #888) 30%, transparent); }
