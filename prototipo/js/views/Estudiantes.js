@@ -48,7 +48,11 @@ export default {
     const opCentros = computed(() => [{ valor: "_", etiqueta: "Autopostulados" }, ...store.centros.filter((c) => !c.archivado).map((c) => ({ valor: c.id, etiqueta: c.nombre })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))]);
     const hayFiltrosE = computed(() => s.centro || s.turno || s.desde || s.hasta || filtrosC.area);
     const limpiarE = () => { Object.assign(s, { centro: "", turno: "", desde: "", hasta: "" }); filtrosC.area = ""; };
-    return { opCentros, hayFiltrosE, limpiarE, TURNOS_OFICINA, AREAS, filtrosC, gentrivo, cargarGentrivo, textoHoy, hoyEsCambio, menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
+    // Campaña de la renta (abril–junio): quién estuvo de prácticas en algún momento entre finales de marzo y julio
+    const anioRenta = new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+    const campanaRenta = () => Object.assign(s, { filtro: "todos", desde: anioRenta + "-03-25", hasta: anioRenta + "-07-31" });
+    const enCampana = computed(() => s.desde === anioRenta + "-03-25" && s.hasta === anioRenta + "-07-31");
+    return { anioRenta, campanaRenta, enCampana, opCentros, hayFiltrosE, limpiarE, TURNOS_OFICINA, AREAS, filtrosC, gentrivo, cargarGentrivo, textoHoy, hoyEsCambio, menuCand, etiquetaTurno, store, s, vista, filas, cuadrante, excesos, mover, go, centroDe, nombreCompleto, COLOR, fCorta, fCompleta, diaCorto, diaNum, relativo, diasCuad };
   },
   template: `
   <div class="page">
@@ -69,7 +73,7 @@ export default {
         <div class="fsel-centro" :class="{on: s.centro}"><SelectBuscable v-model="s.centro" :opciones="opCentros" etiqueta-todos="Centro" /></div>
         <select class="inp fsel" :class="{on: filtrosC.area}" v-model="filtrosC.area" aria-label="Área"><option value="">Área</option><option v-for="a in AREAS" :key="a" :value="a">{{ a }}</option></select>
         <select class="inp fsel" :class="{on: s.turno}" v-model="s.turno" aria-label="Turno"><option value="">Turno</option><option v-for="t in TURNOS_OFICINA" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select>
-        <SelectorFechas v-model:desde="s.desde" v-model:hasta="s.hasta" />
+        <SelectorFechas v-model:desde="s.desde" v-model:hasta="s.hasta" /><button class="pill" :class="{on: enCampana}" title="Quién estuvo de prácticas en algún momento entre el 25 de marzo y el 31 de julio (aunque empezara antes o acabara después)" @click="campanaRenta">Campaña de renta {{ anioRenta }}</button>
         <button v-if="hayFiltrosE" class="btn-link" @click="limpiarE">Quitar filtros</button>
         <span v-if="gentrivo.configurado" class="sub gentrivo-estado"><Ic n="clock" :s="13" /> Horario de hoy según Gentrivo<template v-if="gentrivo.actualizado"> · {{ new Date(gentrivo.actualizado).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'}) }}</template> <button class="btn-link" :disabled="gentrivo.cargando" @click="cargarGentrivo(true)">{{ gentrivo.cargando ? 'Actualizando…' : 'Actualizar' }}</button></span>
         <span v-else-if="gentrivo.error" class="sub" style="color:var(--err-dark)">Gentrivo: {{ gentrivo.error }}</span>
