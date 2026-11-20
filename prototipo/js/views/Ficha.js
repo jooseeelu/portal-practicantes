@@ -114,18 +114,18 @@ export default {
     const media = computed(() => { const v = CRITERIOS.map(([k]) => bor.criterios[k]?.n).filter((x) => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 2) / 2 : null; });
     const notaFinal = computed({ get: () => bor.nota, set: (v) => { bor.nota = v === "" || v == null ? null : Number(v); } });
     const guardarValoracion = () => {
-      const cancelada = ent.value.estado === "Cancelada";
+      // Una cita cancelada o reprogramada se puede comentar sin poner nota, y su estado no cambia
+      const cancelada = ["Cancelada", "Reprogramada"].includes(ent.value.estado);
       const v = bor.nota ?? media.value;
-      // Una cita cancelada se puede comentar sin poner nota
       if (v == null && !cancelada) return toast("Elige una nota del 1 al 10.", "error");
       const antes = c.value.nota ?? null;
       ent.value.criterios = JSON.parse(JSON.stringify(bor.criterios));
       ent.value.obs = bor.obs;
       ent.value.nota = v == null ? null : Number(v);
       sincronizarNota();
-      if (!cancelada) ent.value.estado = "Realizada";
+      if (["Pendiente", "Confirmada"].includes(ent.value.estado)) ent.value.estado = "Realizada";
       if (v != null) addHist(c.value.id, "valoracion", `Valoración final: ${String(v).replace(".", ",")}/10`, ent.value.entrevistador || miNombre(), { cambio: { campo: "nota", antes, despues: c.value.nota } });
-      else addHist(c.value.id, "nota", "Comentario en la entrevista cancelada");
+      else addHist(c.value.id, "nota", "Comentario en la entrevista " + ent.value.estado.toLowerCase());
       if (!cancelada && ["entrevista-programada", "entrevistado", "pendiente-entrevista"].includes(c.value.estado)) cambiarEstado(c.value, "en-valoracion", { silencioso: true });
       cargarBorrador();
       toast("Valoración guardada");

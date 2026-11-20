@@ -151,7 +151,7 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
     const d = h.statusCode === 200 && h.json ? h.json : {};
     const ef = d.effective || null;
     // Faltas y ausencias según los fichajes de Gentrivo (últimos 90 días, sin hoy): «Falta sin justificar», permisos…
-    let faltas = [];
+    let faltas = [], fichajeHoy = null;
     if (u.is_intern) {
       const hoy = new Date(), desde = new Date(hoy.getTime() - 90 * 86400000), ayer = new Date(hoy.getTime() - 86400000);
       const iso = (x) => x.toISOString().slice(0, 10);
@@ -159,13 +159,17 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
       let rp = leer("/reports/person?user_id=" + u.id + "&from=" + iso(desde) + "&to=" + iso(ayer), false);
       if (rp.statusCode !== 200) rp = leer("/reports/person?user_id=" + u.id + "&from=" + iso(new Date(hoy.getTime() - 30 * 86400000)) + "&to=" + iso(ayer), false);
       const NORMALES = ["worked", "off", "holiday", "no_schedule", "before_start", "pending", "after_end"];
+      // Fichaje de hoy (para «Hoy en la oficina»: quién ha entrado de verdad)
+      const rh = leer("/reports/person?user_id=" + u.id + "&from=" + iso(hoy) + "&to=" + iso(hoy), false);
+      const dh = rh.statusCode === 200 && rh.json && rh.json.days && rh.json.days[0];
+      if (dh && dh.first_in) fichajeHoy = { entrada: dh.first_in, salida: dh.last_out || "" };
       if (rp.statusCode === 200 && rp.json && rp.json.days) faltas = rp.json.days.filter((x) => x.status && NORMALES.indexOf(x.status) < 0).map((x) => ({ fecha: String(x.date).slice(0, 10), tipo: x.status, etiqueta: x.status_label || x.status }));
     }
     return {
       nombre: u.name || "", email: String(u.email || "").toLowerCase(), activo: !!u.active, practicante: !!u.is_intern, fin: u.ends_on || "",
       semanal: (d.weekly || []).map((w) => ({ dia: w.weekday, trabaja: !!w.is_working, ini: hhmm(w.start_time), fin: hhmm(w.end_time), pausa: w.break_minutes || 0 })),
       cambios: (d.exceptions || []).map((x) => ({ fecha: String(x.date || "").slice(0, 10), tipo: x.kind, ini: hhmm(x.start_time), fin: hhmm(x.end_time), motivo: x.reason || "" })),
-      faltas: faltas,
+      faltas: faltas, fichajeHoy: fichajeHoy,
       hoy: ef ? { tipo: ef.kind, ini: hhmm(ef.start), fin: hhmm(ef.end), motivo: ef.reason || "", origen: ef.source || "" } : null,
     };
   });

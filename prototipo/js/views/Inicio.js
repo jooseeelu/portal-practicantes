@@ -1,6 +1,7 @@
 import { computed, ref } from "vue";
 import { store, centroDe, candDe, nombreCompleto, estadoPracticas, turnoEstudiante, TURNOS_OFICINA, etiquetaTurno } from "../store.js";
 import { miNombre } from "../api.js";
+import { gentrivo, cargarGentrivo, enGentrivo } from "../gentrivo.js";
 import { normal } from "../util.js";
 
 // «Requiere tu atención»: por defecto solo lo de quien ha entrado; «Equipo» enseña lo de todos
@@ -82,11 +83,14 @@ export default {
       const l = Object.values(m).sort((a, b) => b.activos - a.activos || b.total - a.total).slice(0, 7); const max = l[0]?.total || 1;
       return l.map((x) => ({ ...x, w: (x.total / max) * 100, wa: (x.activos / max) * 100 }));
     });
+    // Hoy en la oficina: solo quien ha fichado hoy en Gentrivo (no quien debería venir)
+    cargarGentrivo();
+    const fichado = (c) => enGentrivo(c)?.fichajeHoy || null;
     const hoyTurnos = computed(() => TURNOS_OFICINA.map((t) => {
-      const l = enCurso.value.filter((e) => turnoEstudiante(e) === t);
-      return { t, def: store.turnosDef[t], l: l.map((e) => candDe(e.candId)), n: l.length, aforo: store.aforo[t] };
+      const l = enCurso.value.filter((e) => turnoEstudiante(e) === t).map((e) => candDe(e.candId)).filter((c) => c && fichado(c));
+      return { t, def: store.turnosDef[t], l: l.map((c) => ({ c, f: fichado(c) })), n: l.length };
     }));
-    return { verEquipo, fArea, areas, kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
+    return { gentrivo, verEquipo, fArea, areas, kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
   },
   template: `
   <div class="page">
@@ -155,13 +159,13 @@ export default {
       </section>
 
       <section class="card">
-        <div class="card-head"><h3>Hoy en la oficina</h3><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
+        <div class="card-head"><h3>Hoy en la oficina</h3><span v-if="gentrivo.configurado" class="sub" style="margin-left:8px">según los fichajes de Gentrivo</span><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
         <div class="turnos-hoy">
           <div v-for="t in hoyTurnos" :key="t.t" class="turno-hoy">
             <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span></div>
             <div class="row wrap" style="gap:6px">
-              <a v-for="c in t.l" :key="c.id" class="persona" @click="go('candidato/'+c.id)"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="22" />{{ c.nombre }}</a>
-              <span v-if="!t.l.length" class="muted">Nadie en este turno</span>
+              <a v-for="x in t.l" :key="x.c.id" class="persona" :title="x.f.salida ? 'Entró a las ' + x.f.entrada + ' y salió a las ' + x.f.salida : 'Dentro desde las ' + x.f.entrada" @click="go('candidato/'+x.c.id)"><Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :foto="x.c.foto" :s="22" />{{ x.c.nombre }} <span class="sub">{{ x.f.salida ? 'salió ' + x.f.salida : 'desde ' + x.f.entrada }}</span></a>
+              <span v-if="!t.l.length" class="muted">Nadie ha fichado en este turno</span>
             </div>
           </div>
           <div v-if="previstas.length" class="aviso gold"><Ic n="calendario" :s="16" /><span><b>{{ previstas.length }} incorporaciones previstas</b> el {{ fCorta(previstas[0].inicio) }}: {{ previstas.map(e => candDe(e.candId).nombre + ' (' + etiquetaTurno(turnoEstudiante(e)).toLowerCase() + ')').join(', ') }}.</span></div>
