@@ -2,7 +2,7 @@ import { ref, reactive, computed, watch } from "vue";
 import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos, addHist, nombreCompleto, estadoDe, DIAS_PAPELERA, borrarCandidato, restaurarDePapelera, vaciarDePapelera, diasEnPapelera, ESTADOS_SIN_PROCESO, candidaturasCaducadas, mantenerCandidatura, ultimoContacto } from "../store.js";
 import { exportarExcel, copiaCompleta } from "../exportar.js";
 import { recortarFoto } from "../cv.js";
-import { sesion, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria, leerCurriculum, urlArchivo, registrar, borrarArchivo } from "../api.js";
+import { sesion, pedir, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria, leerCurriculum, urlArchivo, registrar, borrarArchivo } from "../api.js";
 import { Ic, Chip, Avatar, Modal, pedirConfirmacion } from "../ui.js";
 import { COLORES, ASESORES, ENTREVISTADORES } from "../data.js";
 import { plantillasIniciales, FIRMA_INICIAL, VARIABLES } from "../mensajes.js";
@@ -200,7 +200,16 @@ export default {
     };
     const ver = reactive({ p: null });
     const abrirDoc = async (d) => { if (!d.archivoId) return toast("Este documento no tiene archivo guardado.", "error"); try { window.open(await urlArchivo(d), "_blank", "noopener"); } catch (e) { toast("No se pudo abrir: " + e.message, "error"); } };
-    return { ver, abrirDoc, fCompleta, nombreCompleto, copia, hacerExcel, hacerCopia, caducadas, proximasCad, revision, abrirRevision, seleccionadas, mantener, mandarSeleccion, papelera, restaurar, eliminarYa, vaciarPapelera, DIAS_PAPELERA, diasEnPapelera, estadoDe, ultimoContacto, vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
+    // --- Recordatorios automáticos ---
+    const rec = reactive({ probando: false, resultado: "" });
+    const probarRecordatorios = async () => {
+      if (!store.recordatorios.prueba) return toast("Escribe primero un correo de prueba.", "error");
+      rec.probando = true; rec.resultado = "";
+      try { await new Promise((r) => setTimeout(r, 1500)); const d = await pedir("POST", "api/portal/recordatorios/probar"); rec.resultado = d.hecho ? `Prueba enviada: ${d.enviados} recordatorio${d.enviados === 1 ? "" : "s"} de las citas pendientes del ${d.destino} a ${store.recordatorios.prueba}.` + (d.sinCorreo?.length ? ` Sin correo: ${d.sinCorreo.join(", ")}.` : "") : d.motivo; }
+      catch (e) { rec.resultado = "No se pudo hacer la prueba: " + e.message; }
+      finally { rec.probando = false; }
+    };
+    return { rec, probarRecordatorios, ver, abrirDoc, fCompleta, nombreCompleto, copia, hacerExcel, hacerCopia, caducadas, proximasCad, revision, abrirRevision, seleccionadas, mantener, mandarSeleccion, papelera, restaurar, eliminarYa, vaciarPapelera, DIAS_PAPELERA, diasEnPapelera, estadoDe, ultimoContacto, vistaPrevia, pendientesFoto, lote, fotosDesdeCurriculums, VARIABLES, restaurarPlantillas, nuevaPlantilla, quitarPlantilla, GRUPOS, nuevaP, addPersona, quitarPersona, pasarA, TURNOS_OFICINA, store, tab, tabs, usados, mover, color, nuevo, addEstado, equipo, errEquipo, registro, caducan, demo, COLORES, setTema,
       sesion, enServidor, admin, ROLES, accesoDe, caducada, permisos, form, nuevaPersona, editar, guardarPersona, entrega, nuevaClave, copiar, cerrarEntrega, puedeDemo, rellenarDemo, vaciarTodo, claveAleatoria };
   },
   template: `
@@ -299,6 +308,19 @@ export default {
       </div>
 
       <div v-else-if="tab==='mensajes'" class="card-pad stack">
+        <div class="caja"><div class="row"><Ic n="clock" /><h3>Recordatorios automáticos de entrevista</h3></div>
+          <p class="sub">Cada día laborable, a la hora que elijas, se envía la plantilla «Recordatorio de entrevista» desde info@ a quien tiene entrevista el día siguiente y la cita sigue <b>Pendiente</b> (sin confirmar). Los viernes se recuerdan las del lunes. Cada envío queda en el historial de la ficha y en el chat del equipo sale un resumen.</p>
+          <div class="row wrap" style="gap:14px">
+            <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" v-model="store.recordatorios.activo" :disabled="!admin" /><b>{{ store.recordatorios.activo ? 'Encendido' : 'Apagado' }}</b></label>
+            <label class="row" style="gap:8px">Hora de envío <input class="inp" type="time" v-model="store.recordatorios.hora" :disabled="!admin" style="width:120px" /></label>
+          </div>
+          <div class="row wrap" style="gap:8px;align-items:flex-end">
+            <div class="fld grow"><label>Correo de prueba (opcional)</label><input class="inp" type="email" v-model.trim="store.recordatorios.prueba" :disabled="!admin" placeholder="tucorreo@gestoriaemadrid.com" /></div>
+            <button class="btn btn-sm" :disabled="rec.probando || !admin || !enServidor" @click="probarRecordatorios">{{ rec.probando ? 'Enviando…' : 'Enviar prueba ahora' }}</button>
+          </div>
+          <p class="sub">«Enviar prueba ahora» manda los recordatorios de las citas pendientes del próximo día laborable <b>solo al correo de prueba</b> (no a los candidatos), para ver cómo quedan.</p>
+          <div v-if="rec.resultado" class="aviso"><Ic n="info" :s="16" /><span>{{ rec.resultado }}</span></div>
+        </div>
         <div class="caja"><div class="row"><Ic n="whatsapp" /><h3>Plantillas de WhatsApp y correo</h3></div>
           <p class="sub">Al pulsar WhatsApp o Correo en una ficha se abre tu WhatsApp o tu correo con el mensaje ya escrito; tú lo revisas y lo envías. Salen desde la cuenta que tengas abierta en ese aparato. Variables disponibles: <b v-for="v in VARIABLES" :key="v" style="margin-right:6px">{{ '{' + v + '}' }}</b></p>
           <div class="fld"><label>Firma ({firma})</label><input class="inp" v-model="store.firma" /></div></div>

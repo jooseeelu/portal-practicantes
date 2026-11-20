@@ -12,6 +12,8 @@ export const ajustesPorDefecto = () => ({
   aforo: { Mañana: 4, Tarde: 4, "Tarde 2": 4 },
   turnosDef: { Mañana: { ini: "10:00", fin: "15:00" }, Tarde: { ini: "15:00", fin: "20:00" }, "Tarde 2": { ini: "16:00", fin: "21:00" } },
   retencionMeses: 12,
+  // Recordatorios automáticos de entrevista (los envía el servidor; apagados hasta que se encienden)
+  recordatorios: { activo: false, hora: "10:00", prueba: "" },
   plantillas: plantillasIniciales(),
   firma: FIRMA_INICIAL,
   // Quién puede entrevistar, ser tutor o llevar un centro (se edita en Ajustes → Personas)
