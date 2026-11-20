@@ -20,8 +20,8 @@ export default {
     const filtradas = computed(() => store.entrevistas.filter((e) => cumpleArea(candDe(e.candId)?.area, filtrosC.area, AREAS)).filter((e) => !s.fQuien || (s.fQuien === "_ninguno" ? !e.entrevistador : e.entrevistador === s.fQuien)));
 
     // Reparto en carriles de las citas que se pisan
-    // 1.ª, 2.ª, 3.ª entrevista de cada persona (solo se enseña si tiene más de una)
-    const ronda = (e) => { const l = entrevistasDe(e.candId).slice().sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)); return l.length > 1 ? l.findIndex((x) => x.id === e.id) + 1 : 0; };
+    // 1.ª, 2.ª, 3.ª entrevista de cada persona
+    const ronda = (e) => { const l = entrevistasDe(e.candId).slice().sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)); return l.findIndex((x) => x.id === e.id) + 1; };
     function colocar(evs) {
       const l = evs.map((e) => ({ e, ini: aMin(e.hora), fin: aMin(e.hora) + DUR })).sort((a, b) => a.ini - b.ini);
       const out = []; let grupo = [], fin = -1;
