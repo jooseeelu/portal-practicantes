@@ -250,3 +250,8 @@
 @media (max-width: 640px) { .barra-filtros .sel-fechas { flex: 1 1 100%; justify-content: center; } }
 
 .cita-ronda { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 4px; margin-right: 3px; border-radius: 4px; background: color-mix(in srgb, var(--c, #888) 30%, transparent); }
+
+.cita-estado { display: block; width: fit-content; margin-top: 2px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+
+/* Marca Impulsa: «eMadrid» se escribe así, sin mayúsculas forzadas */
+.brand span { text-transform: none; letter-spacing: .01em; }

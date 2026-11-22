@@ -1,7 +1,7 @@
 // Service worker del portal: permite instalarlo y abrirlo aunque falle la conexión.
 // Siempre intenta primero la red (así nunca se queda con una versión vieja) y solo
 // tira de la copia guardada si no hay conexión. Los datos (/api/) nunca se guardan aquí.
-const CACHE = "portal-v1";
+const CACHE = "portal-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {

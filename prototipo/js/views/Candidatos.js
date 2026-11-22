@@ -7,7 +7,7 @@ import { RecorteFoto } from "../recorte.js";
 import { SelectorFechas, textoTramo } from "../fechas.js";
 import { elegirMensaje } from "../mensajes.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas, SelectArea } from "../ui.js";
-import { AREAS_UNIDAS, TURNOS, AREAS, ORIGENES, ASESORES } from "../data.js";
+import { AREAS_UNIDAS, TURNOS, AREAS, ORIGENES, ASESORES, ESTADOS_CITA } from "../data.js";
 import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
@@ -155,7 +155,7 @@ export default {
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { ESTADOS_CITA, obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       hoja, NOTAS, RAPIDOS, chips, alta, n, lee, adjuntar, quitarArchivo, recorteAlta, usarRecorteAlta, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -228,7 +228,7 @@ export default {
               <td><div class="cell-clip" :title="c.titulacion">{{ c.titulacion }}</div></td>
               <td class="nowrap">{{ etiquetaTurno(c.turno) }}</td>
               <td class="nowrap">{{ c.horas ? c.horas + ' h' : '—' }}</td>
-              <td class="nowrap"><template v-if="fechaEnt(c)">{{ fCorta(fechaEnt(c)) }} <span class="sub">{{ entrevistaDe(c.id).hora }}</span></template><span v-else class="muted">—</span></td>
+              <td class="nowrap"><template v-if="fechaEnt(c)">{{ fCorta(fechaEnt(c)) }} <span class="sub">{{ entrevistaDe(c.id).hora }}</span><span class="cita-estado" :style="{'--c': ESTADOS_CITA[entrevistaDe(c.id).estado]?.c || '#888'}" :title="'Estado de la cita: ' + entrevistaDe(c.id).estado">{{ entrevistaDe(c.id).estado }}</span></template><span v-else class="muted">—</span></td>
               <td><Chip :k="c.estado" /></td>
               <td><Nota :v="c.nota" /></td>
               <td><span :class="c.cv ? 'ico-ok' : 'ico-no'" :title="c.cv ? 'Currículum adjunto' : 'Sin currículum'"><Ic :n="c.cv ? 'documentos' : 'minus'" :s="16" /></span></td>

@@ -162,7 +162,7 @@ routerAdd("GET", "/api/portal/gentrivo/horarios", (e) => {
       // Fichaje de hoy (para «Hoy en la oficina»: quién ha entrado de verdad)
       const rh = leer("/reports/person?user_id=" + u.id + "&from=" + iso(hoy) + "&to=" + iso(hoy), false);
       const dh = rh.statusCode === 200 && rh.json && rh.json.days && rh.json.days[0];
-      if (dh && dh.first_in) fichajeHoy = { entrada: dh.first_in, salida: dh.last_out || "" };
+      if (dh && dh.first_in) fichajeHoy = { entrada: dh.first_in, salida: dh.last_out || "", corregido: (dh.events || []).some((ev) => ev.source === "correction" && !ev.ignored) };
       if (rp.statusCode === 200 && rp.json && rp.json.days) faltas = rp.json.days.filter((x) => x.status && NORMALES.indexOf(x.status) < 0).map((x) => ({ fecha: String(x.date).slice(0, 10), tipo: x.status, etiqueta: x.status_label || x.status }));
     }
     return {
@@ -251,6 +251,8 @@ routerAdd("POST", "/api/portal/notion/entrada", (e) => {
     if (x.modalidad) cambios.modalidad = /video|online|llamada/i.test(x.modalidad) ? "Online" : "Presencial";
     const mapa = mapas.find((m) => N.datosDe(m).pageId === x.pageId);
     let ent = mapa ? N.buscar($app, "entrevistas", mapa.getString("clave")) : null;
+    // Cita que ya estuvo vinculada a una entrevista que alguien ELIMINÓ en el portal: no se vuelve a crear
+    if (mapa && !ent) { cuenta.omitida++; continue; }
     if (ent) {
       const d = N.datosDe(ent);
       const nuevo = Object.assign({}, d, cambios);

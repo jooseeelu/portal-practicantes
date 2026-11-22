@@ -171,7 +171,16 @@ export default {
       urlVisor.value = ""; errorVisor.value = "";
       const d = cvActual.value;
       if (!d || !d.archivoId || !enServidor()) return;
-      try { urlVisor.value = await urlArchivo(d); } catch (e) { errorVisor.value = e.message; }
+      // Se descarga el archivo y se muestra desde memoria: si el enlace temporal ya no vale (404), se pide otro y se reintenta
+      try {
+        let r = await fetch(await urlArchivo(d));
+        if (r.status === 404 || r.status === 401 || r.status === 403) r = await fetch(await urlArchivo(d, { nuevo: true }));
+        if (!r.ok) throw new Error(r.status === 404 ? "No se encuentra el archivo en el servidor." : "Error " + r.status);
+        const b = await r.blob();
+        if (cvActual.value !== d) return;
+        if (urlVisor.value.startsWith("blob:")) URL.revokeObjectURL(urlVisor.value);
+        urlVisor.value = URL.createObjectURL(d.ext === "pdf" ? new Blob([b], { type: "application/pdf" }) : b);
+      } catch (e) { errorVisor.value = e.message; }
     }, { immediate: true });
     async function abrirArchivo(d, descargar = false) {
       try { window.open(await urlArchivo(d, { descargar }), "_blank", "noopener"); }
@@ -594,7 +603,7 @@ export default {
             <div class="fecha-b grande"><small>{{ fLarga(ent.fecha).split(' ')[0] }}</small><b>{{ fCorta(ent.fecha) }}</b></div>
             <div class="grid3 grow">
               <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="ent.fecha" /></div>
-              <div class="fld"><label>Hora</label><select class="inp" v-model="ent.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>
+              <div class="fld"><label>Hora</label><input class="inp" type="time" step="60" min="08:00" max="21:30" v-model="ent.hora" /></div>
               <div class="fld"><label>Modalidad</label><select class="inp" v-model="ent.modalidad"><option>Presencial</option><option>Online</option></select></div>
               <div class="fld"><label>Entrevistador/a (opcional)</label><select class="inp" v-model="ent.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="ent.entrevistador" /></select></div>
               <div class="fld"><label>Estado de la cita</label><select class="inp" v-model="ent.estado"><option v-for="(v,k) in ESTADOS_CITA" :key="k">{{ k }}</option></select></div>
@@ -691,7 +700,7 @@ export default {
       <p v-if="prog.otra" class="sub">La entrevista anterior y su valoración se conservan. Elige quién hace esta (por ejemplo, dirección).</p>
       <div class="grid2">
         <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="prog.fecha" /></div>
-        <div class="fld"><label>Hora</label><select class="inp" v-model="prog.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>
+        <div class="fld"><label>Hora</label><input class="inp" type="time" step="60" min="08:00" max="21:30" v-model="prog.hora" /></div>
         <div class="fld"><label>Modalidad</label><select class="inp" v-model="prog.modalidad"><option>Presencial</option><option>Online</option></select></div>
         <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="prog.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="prog.entrevistador" /></select></div>
       </div>
