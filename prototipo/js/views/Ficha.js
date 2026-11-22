@@ -1,7 +1,7 @@
 import { computed, reactive, ref, watch, onUnmounted } from "vue";
 import { htmlCertificado, CRITERIOS_EVAL } from "../certificado.js";
 import { DIAS_PAPELERA, store, etiquetaTurno, candDe, centroDe, entrevistaDe, entrevistasDe, rondaDe, borrarCandidato, eliminarEntrevista, estudianteDe, docsDe, histDe, cambiarEstado, incorporar, programarEntrevista, addHist, toast, quitarToast, sePuedeDeshacer, deshacerCambio, nuevoId, nombreCompleto, estadoPracticas } from "../store.js";
-import { ruta, go } from "../router.js";
+import { ruta, go, origenFicha } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
 import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar, esAdmin } from "../api.js";
@@ -403,13 +403,16 @@ export default {
       addHist(c.value.id, "nota", "Observación interna borrada");
       toast("Observación borrada");
     };
-    return { apuntarTodasG, pcDe, motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    const VOLVER = { candidatos: "Candidatos", estudiantes: "Estudiantes en prácticas", entrevistas: "Entrevistas", centros: "Centros educativos", documentos: "Documentos", inicio: "Inicio", informes: "Informes" };
+    const volverA = computed(() => (VOLVER[origenFicha.value] ? origenFicha.value : "candidatos"));
+    const volverTxt = computed(() => VOLVER[volverA.value]);
+    return { volverA, volverTxt, apuntarTodasG, pcDe, motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
   template: `
   <div class="page" v-if="c">
-    <a class="volver" @click="go('candidatos')"><Ic n="chevL" :s="15" />Candidatos</a>
+    <a class="volver" @click="go(volverA)"><Ic n="chevL" :s="15" />{{ volverTxt }}</a>
 
     <div class="card ficha-head">
       <div class="foto-col">
