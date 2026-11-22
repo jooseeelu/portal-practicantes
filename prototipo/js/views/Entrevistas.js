@@ -100,7 +100,9 @@ export default {
     const clicHueco = (d, ev) => { const y = ev.offsetY; const m = Math.round(((y / PX) * 60) / 15) * 15 + H0 * 60; abrirNueva(d, deMin(Math.min(m, H1 * 60))); };
     const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); if (esFinde(nueva.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
 
-    return { entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    // Tarjeta partida (dos citas casi a la vez): primero el nombre corto, para saber quién viene de un vistazo
+    const corto = (c) => { if (!c) return "—"; const ap = String(c.apellidos || "").trim(); return String(c.nombre || "").trim().split(/\s+/)[0] + (ap ? " " + ap[0].toUpperCase() + "." : ""); };
+    return { corto, entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
@@ -132,8 +134,12 @@ export default {
           <div class="cal-cuerpo" :style="{height: (horas.length-1)*PX+'px'}" @click.self="clicHueco(col.d, $event)" title="Haz clic en un hueco para programar">
             <i v-for="h in horas.length-1" :key="h" class="cal-linea" :style="{top: (h-1)*PX+'px'}"></i>
             <button v-for="x in col.citas" :key="x.e.id" class="cita" :title="x.e.hora + ' · ' + nombreCompleto(candDe(x.e.candId)) + ' · ' + (x.e.entrevistador || 'Sin asignar') + (candDe(x.e.candId)?.area ? ' · ' + candDe(x.e.candId).area : '')" :class="'c-'+x.e.estado" :style="{top: x.top+'px', height: x.alto+'px', left: 'calc('+x.izq+'% + 3px)', width: 'calc('+x.ancho+'% - 6px)', '--c': ESTADOS_CITA[x.e.estado].c}" @click="sel=x.e" v-ctx="() => menuDe(x.e)">
-              <b>{{ x.e.hora }} · <span v-if="ronda(x.e)" class="cita-ronda">{{ ronda(x.e) }}.ª</span>{{ nombreCompleto(candDe(x.e.candId)) }}</b>
-              <small><Ic :n="x.e.modalidad==='Online' ? 'video' : 'pin'" :s="11" />{{ x.e.entrevistador || "Sin asignar" }}<template v-if="candDe(x.e.candId)?.area"> · <span class="cita-area">{{ candDe(x.e.candId).area.split("/")[0] }}</span></template></small>
+              <template v-if="x.n > 1">
+                <b>{{ corto(candDe(x.e.candId)) }}</b>
+                <small>{{ x.e.hora }} · {{ ronda(x.e) }}.ª<template v-if="candDe(x.e.candId)?.area"> · {{ candDe(x.e.candId).area.split("/")[0] }}</template></small>
+              </template>
+              <template v-else><b>{{ x.e.hora }} · <span v-if="ronda(x.e)" class="cita-ronda">{{ ronda(x.e) }}.ª</span>{{ nombreCompleto(candDe(x.e.candId)) }}</b>
+              <small><Ic :n="x.e.modalidad==='Online' ? 'video' : 'pin'" :s="11" />{{ x.e.entrevistador || "Sin asignar" }}<template v-if="candDe(x.e.candId)?.area"> · <span class="cita-area">{{ candDe(x.e.candId).area.split("/")[0] }}</span></template></small></template>
             </button>
           </div>
         </div>
