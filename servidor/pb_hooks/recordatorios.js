@@ -1,6 +1,7 @@
 // Recordatorios automáticos de entrevista por correo (desde info@, con copia oculta a info@).
 // Cada día laborable, a la hora elegida en Ajustes, se envía la plantilla «Recordatorio de entrevista» a quien
-// tiene entrevista el siguiente día laborable y la cita sigue «Pendiente» (sin confirmar). Los viernes, las del lunes.
+// tiene entrevista el siguiente día laborable y la cita sigue «Pendiente» o «Reprogramada» (sin confirmar). Los viernes, las del lunes.
+// Cada cita lleva apuntado para qué día y hora se mandó: si se reprograma, a la fecha nueva se le vuelve a mandar.
 // Está APAGADO hasta que un administrador lo enciende en Ajustes → Mensajes. Con «correo de prueba» puesto,
 // todo se manda a ese correo en vez de a los candidatos.
 // El correo sale por el mismo flujo de n8n que usa el portal, con la sesión de un administrador activo.
@@ -31,6 +32,11 @@ function siguienteLaborable(d) {
   const x = new Date(d.getTime());
   do { x.setUTCDate(x.getUTCDate() + 1); } while (x.getUTCDay() === 0 || x.getUTCDay() === 6);
   return x;
+}
+// ¿Ya se le mandó el recordatorio para ESTA fecha y hora? (los de antes de apuntar la fecha: si se mandó hace menos de 4 días)
+function yaEnviado(d) {
+  if (d.recordatorioPara) return d.recordatorioPara === d.fecha + " " + (d.hora || "");
+  return !!d.recordatorioAuto && Date.now() - new Date(d.recordatorioAuto).getTime() < 4 * 86400000;
 }
 function fechaLarga(iso) { const [a, m, d] = iso.split("-").map(Number); const x = new Date(Date.UTC(a, m - 1, d)); return DIAS[x.getUTCDay()] + " " + d + " " + MESES[m - 1]; }
 const rellenar = (t, v) => String(t || "").replace(/\{(\w+)\}/g, (m, k) => (v[k] !== undefined ? v[k] : m));
@@ -63,7 +69,8 @@ function enviar(app, modo) {
 
   const citas = app.findRecordsByFilter("registros", "tipo = 'entrevistas'", "", 0, 0)
     .map((r) => ({ r, d: datosDe(r) }))
-    .filter((x) => x.d.fecha === destino && x.d.estado === "Pendiente" && (modo === "prueba" || !x.d.recordatorioAuto));
+    .filter((x) => x.d.fecha === destino && (x.d.estado === "Pendiente" || x.d.estado === "Reprogramada") && (modo === "prueba" || !yaEnviado(x.d)))
+    .filter((x, i, l) => l.findIndex((y) => y.d.candId === x.d.candId) === i); // una sola vez por persona y día
   const enviados = [], sinCorreo = [], fallos = [];
   for (const x of citas) {
     const cr = buscar(app, "candidatos", x.d.candId);
@@ -84,6 +91,7 @@ function enviar(app, modo) {
     enviados.push(nombre);
     if (modo === "auto") {
       x.d.recordatorioAuto = new Date().toISOString();
+      x.d.recordatorioPara = x.d.fecha + " " + (x.d.hora || "");
       x.r.set("datos", x.d); app.save(x.r);
       // En el historial de la ficha
       const h = new Record(app.findCollectionByNameOrId("registros"));
