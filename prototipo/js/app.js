@@ -2,7 +2,7 @@ import { createApp, computed, ref, reactive, watch, onMounted, onUnmounted } fro
 import { store, setTema, centroDe, nombreCompleto, cargarDemo, vaciarDatos, toast } from "./store.js";
 import { sesion, iniciar, entrar, cerrarSesion, cambiarMiClave, miNombre, miRol } from "./api.js";
 import { arrancarSync, pararSync, guardarAhora } from "./sync.js";
-import { ruta, go } from "./router.js";
+import { ruta, go, origenFicha } from "./router.js";
 import { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, MenuCtx, vCtx, vAlto, pedirConfirmacion } from "./ui.js";
 import { RedactorCorreo } from "./mensajes.js";
 import { ChatEquipo } from "./chat.js";
@@ -71,7 +71,7 @@ const App = {
     };
 
     const vista = computed(() => VISTAS[ruta.value.nombre] || Inicio);
-    const activo = computed(() => (ruta.value.nombre === "candidato" ? "candidatos" : VISTAS[ruta.value.nombre] ? ruta.value.nombre : "inicio"));
+    const activo = computed(() => (ruta.value.nombre === "candidato" ? (VISTAS[origenFicha.value] && origenFicha.value !== "candidato" ? origenFicha.value : "candidatos") : VISTAS[ruta.value.nombre] ? ruta.value.nombre : "inicio"));
     const porRevisar = computed(() => store.candidatos.filter((c) => c.estado === "pendiente-revision").length);
     const proximas = computed(() => store.entrevistas.filter((e) => e.fecha >= HOY_ISO && e.fecha <= dia(7) && ["Pendiente", "Confirmada", "Reprogramada"].includes(e.estado)).length);
     const nav = computed(() => [

@@ -100,7 +100,7 @@ export default {
     const clicHueco = (d, ev) => { const y = ev.offsetY; const m = Math.round(((y / PX) * 60) / 15) * 15 + H0 * 60; abrirNueva(d, deMin(Math.min(m, H1 * 60))); };
     const crear = () => { const c = candDe(nueva.candId); if (!c) return toast("Elige un candidato.", "error"); if (esFinde(nueva.fecha)) return toast("Ese día es fin de semana. Elige un día de lunes a viernes.", "error"); programarEntrevista(c, nueva); nueva.abierto = false; };
 
-    return { ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    return { entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
@@ -163,7 +163,7 @@ export default {
       </div>
     </div>
 
-    <Modal v-if="sel" titulo="Entrevista" :ancho="520" @cerrar="sel=null">
+    <Modal v-if="sel" :titulo="ronda(sel) + '.ª entrevista' + (entrevistasDe(sel.candId).length > 1 ? ' de ' + entrevistasDe(sel.candId).length : '')" :ancho="520" @cerrar="sel=null">
       <div class="who" style="cursor:pointer" @click="go('candidato/'+selCand.id)"><Avatar :nombre="selCand.nombre" :apellidos="selCand.apellidos" :s="46" /><div><b style="font-size:16px">{{ nombreCompleto(selCand) }}</b><small>{{ selCand.titulacion }} · {{ centroDe(selCand.centroId)?.nombre || 'Autopostulado' }}</small></div></div>
       <div class="datos">
         <div><span>Cuándo</span><b style="text-transform:capitalize">{{ fLarga(sel.fecha) }} · {{ sel.hora }}</b></div><div><span>Modalidad</span><b>{{ sel.modalidad }}</b></div>

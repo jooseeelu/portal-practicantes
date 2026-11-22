@@ -5,6 +5,9 @@ const parse = () => {
   return { nombre: p[0] || "inicio", id: p[1] || "" };
 };
 export const ruta = ref(parse());
+// De dónde se abrió la ficha (Estudiantes, Entrevistas…): «Volver» lleva ahí y el menú lo deja marcado
+const leerOrigen = () => { try { return sessionStorage.getItem("origenFicha"); } catch { return null; } };
+export const origenFicha = ref(leerOrigen() || "candidatos");
 
 // Al volver de una ficha al listado, se recupera la posición donde estaba (página y tabla).
 const ZONAS = ".tbl-scroll, .kanban, .tbl-wrap";
@@ -26,6 +29,7 @@ window.addEventListener("hashchange", () => {
   const antes = ruta.value;
   if (antes.nombre !== "candidato") guardar(antes.nombre);
   ruta.value = parse();
+  if (ruta.value.nombre === "candidato" && antes.nombre !== "candidato") { origenFicha.value = antes.nombre || "candidatos"; try { sessionStorage.setItem("origenFicha", origenFicha.value); } catch {} }
   if (antes.nombre === "candidato" && ruta.value.nombre !== "candidato") recuperar(ruta.value.nombre);
   else window.scrollTo(0, 0);
 });

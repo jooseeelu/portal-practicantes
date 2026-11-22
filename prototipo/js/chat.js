@@ -42,7 +42,9 @@ export const ChatEquipo = {
     };
     // «Visto por»: cada persona guarda hasta qué mensaje ha visto
     let miVisto = null;
-    async function cargarVistos() { try { const d = await pedir("GET", "api/collections/chat_visto/records?perPage=100&skipTotal=1"); estado.vistos = d.items; miVisto = d.items.find((v) => v.usuario === yo.value) || miVisto; } catch (_) { /* sin «visto» */ } }
+    async function cargarVistos() { try { const d = await pedir("GET", "api/collections/chat_visto/records?perPage=100&skipTotal=1"); estado.vistos = d.items; miVisto = d.items.find((v) => v.usuario === yo.value) || miVisto;
+      // Lo leído se guarda en el servidor: así no vuelven a salir como nuevos al entrar desde otro navegador, la app o tras cerrar sesión
+      if (miVisto?.ultimo && miVisto.ultimo > estado.visto) { estado.visto = miVisto.ultimo; ponerVisto(miVisto.ultimo); } } catch (_) { /* sin «visto» */ } }
     async function guardarVisto(ultimo) {
       if (!miVisto) await cargarVistos();
       if (!ultimo || (miVisto && miVisto.ultimo >= ultimo)) return;
@@ -85,6 +87,7 @@ export const ChatEquipo = {
             sonar(); notificar(u.nombre + " · Chat del equipo", u.texto || (u.archivo ? "📷 Ha enviado una captura" : "Nuevo mensaje"));
           }
         }
+        if (primeraCarga) await cargarVistos();
         primeraCarga = false;
         estado.mensajes = nuevos; error.value = "";
         if (abierto.value) { cargarUrls(); cargarVistos(); }
