@@ -1,14 +1,14 @@
 {
-  "name": "Portal de prácticas · Gestoría eMadrid",
-  "short_name": "Prácticas",
-  "description": "Candidatos, entrevistas y estudiantes en prácticas de la Gestoría eMadrid.",
+  "name": "Impulsa · Talento eMadrid",
+  "short_name": "Impulsa",
+  "description": "Impulsa · Talento eMadrid: candidatos, entrevistas y prácticas de Gestoría eMadrid",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "lang": "es",
-  "background_color": "#0b1226",
+  "background_color": "#121C38",
   "theme_color": "#0b1226",
   "icons": [
     { "src": "img/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

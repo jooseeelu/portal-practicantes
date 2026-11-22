@@ -154,8 +154,8 @@ export async function crearConArchivo(coleccion, fd) {
   return datos;
 }
 /** Enlace temporal para ver (o descargar) el archivo de un documento. */
-export async function urlArchivo(doc, { descargar = false } = {}) {
-  if (Date.now() > tokenArchivos.hasta) {
+export async function urlArchivo(doc, { descargar = false, nuevo = false } = {}) {
+  if (nuevo || Date.now() > tokenArchivos.hasta) {
     const d = await pedir("POST", "api/files/token");
     tokenArchivos = { valor: d.token, hasta: Date.now() + 60000 };
   }

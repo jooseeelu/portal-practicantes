@@ -80,9 +80,18 @@ export async function recuadroFoto(pag, caja) {
     for (const zona of zonasDe(W, H, caja)) {
       const f = await caraEn(pag, zona);
       if (f) {
-        const l = Math.min(W, H, Math.max(f.w, f.h) * 2.3);
+        let l = Math.min(W, H, Math.max(f.w, f.h) * 2.3);
         const cx = f.x + f.w / 2, cy = f.y + f.h / 2 + f.h * 0.15; // un poco más de hombros que de cabeza
-        return { x: Math.max(0, Math.min(W - l, cx - l / 2)), y: Math.max(0, Math.min(H - l, cy - l / 2)), l, cara: true };
+        // Si la IA marcó dónde está la foto y la cara cae dentro, el recorte no se sale de ese marco (así no entra texto del CV)
+        let mx = 0, my = 0, MW = W, MH = H;
+        if (caja && caja.ancho > 0) {
+          const bx = caja.x * W, by = caja.y * H, bw = caja.ancho * W, bh = caja.alto * H;
+          if (cx >= bx && cx <= bx + bw && f.y + f.h / 2 >= by && f.y + f.h / 2 <= by + bh) {
+            l = Math.max(Math.max(f.w, f.h) * 1.25, Math.min(l, bw, bh));
+            mx = bx; my = by; MW = bx + bw; MH = by + bh;
+          }
+        }
+        return { x: Math.max(mx, Math.min(MW - l, cx - l / 2)), y: Math.max(my, Math.min(MH - l, cy - l / 2)), l, cara: true };
       }
     }
   } catch (_) { /* sin detector: se usa la IA */ }

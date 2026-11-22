@@ -170,7 +170,7 @@ export default {
         <div><span>Entrevistador/a</span><b v-if="sel.entrevistador">{{ sel.entrevistador }}</b><b v-else class="muted">Sin asignar</b></div><div><span>Estado</span><Chip :texto="sel.estado" :c="ESTADOS_CITA[sel.estado].c" :cd="ESTADOS_CITA[sel.estado].cd" /></div>
         <div><span>Turno que pide</span><b>{{ selCand.turno }}</b></div><div><span>Valoración</span><Nota :v="selCand.nota" /></div>
       </div>
-      <div v-if="reprog.abierto" class="grid2"><div class="fld"><label>Nueva fecha</label><input class="inp" type="date" v-model="reprog.fecha" /></div><div class="fld"><label>Nueva hora</label><select class="inp" v-model="reprog.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div></div>
+      <div v-if="reprog.abierto" class="grid2"><div class="fld"><label>Nueva fecha</label><input class="inp" type="date" v-model="reprog.fecha" /></div><div class="fld"><label>Nueva hora</label><input class="inp" type="time" step="60" min="08:00" max="21:30" v-model="reprog.hora" /></div></div>
       <div class="row wrap">
         <template v-if="reprog.abierto"><button class="btn btn-primary btn-sm" @click="guardarReprog">Guardar nueva fecha</button><button class="btn btn-sm" @click="reprog.abierto=false">Descartar</button></template>
         <template v-else-if="sel.estado!=='Realizada' && sel.estado!=='Cancelada'">
@@ -187,7 +187,7 @@ export default {
       <div class="fld"><label>Candidato (pendientes de entrevista)</label><SelectBuscable v-model="nueva.candId" :opciones="opCands" vacio="Elegir candidato…" /></div>
       <div class="grid2">
         <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="nueva.fecha" /></div>
-        <div class="fld"><label>Hora</label><select class="inp" v-model="nueva.hora"><option v-for="h in HORAS_ENTREVISTA" :key="h">{{ h }}</option></select></div>
+        <div class="fld"><label>Hora</label><input class="inp" type="time" step="60" min="08:00" max="21:30" v-model="nueva.hora" /></div>
         <div class="fld"><label>Modalidad</label><select class="inp" v-model="nueva.modalidad"><option>Presencial</option><option>Online</option></select></div>
         <div class="fld"><label>Quién hace la entrevista (opcional)</label><select class="inp" v-model="nueva.entrevistador"><option value="">Sin asignar</option><OpcionesPersonas :actual="nueva.entrevistador" /></select></div>
       </div>

@@ -90,7 +90,7 @@ export default {
       const l = enCurso.value.filter((e) => turnoEstudiante(e) === t).map((e) => candDe(e.candId)).filter((c) => c && fichado(c));
       return { t, def: store.turnosDef[t], l: l.map((c) => ({ c, f: fichado(c) })), n: l.length };
     }));
-    return { gentrivo, verEquipo, fArea, areas, kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
+    return { cargarGentrivo, gentrivo, verEquipo, fArea, areas, kpis, alertas, proximas, embudo, porCentro, hoyTurnos, previstas, go, irCands, candDe, centroDe, nombreCompleto, ESTADOS_CITA, fCorta, diaCorto, diaNum, relativo, turnoEstudiante, etiquetaTurno };
   },
   template: `
   <div class="page">
@@ -159,12 +159,12 @@ export default {
       </section>
 
       <section class="card">
-        <div class="card-head"><h3>Hoy en la oficina</h3><span v-if="gentrivo.configurado" class="sub" style="margin-left:8px">según los fichajes de Gentrivo</span><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
+        <div class="card-head"><h3>Hoy en la oficina</h3><span v-if="gentrivo.configurado" class="sub" style="margin-left:8px">según los fichajes de Gentrivo<template v-if="gentrivo.actualizado"> · {{ new Date(gentrivo.actualizado).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'}) }}</template></span><button v-if="gentrivo.configurado" class="btn-link" style="margin-left:6px" :disabled="gentrivo.cargando" title="Volver a leer los fichajes de Gentrivo" @click="cargarGentrivo(true)">{{ gentrivo.cargando ? 'Actualizando…' : 'Actualizar' }}</button><a class="right" @click="go('estudiantes/cuadrante')" style="cursor:pointer">Cuadrante</a></div>
         <div class="turnos-hoy">
           <div v-for="t in hoyTurnos" :key="t.t" class="turno-hoy">
             <div class="row"><b>{{ t.t === 'Mañana' ? t.t : 'Tarde' }}</b><span class="sub">{{ t.def.ini }}–{{ t.def.fin }}</span></div>
             <div class="row wrap" style="gap:6px">
-              <a v-for="x in t.l" :key="x.c.id" class="persona" :title="x.f.salida ? 'Entró a las ' + x.f.entrada + ' y salió a las ' + x.f.salida : 'Dentro desde las ' + x.f.entrada" @click="go('candidato/'+x.c.id)"><Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :foto="x.c.foto" :s="22" />{{ x.c.nombre }} <span class="sub">{{ x.f.salida ? 'salió ' + x.f.salida : 'desde ' + x.f.entrada }}</span></a>
+              <a v-for="x in t.l" :key="x.c.id" class="persona" :title="x.f.salida ? 'Entró a las ' + x.f.entrada + ' y salió a las ' + x.f.salida : 'Dentro desde las ' + x.f.entrada" @click="go('candidato/'+x.c.id)"><Avatar :nombre="x.c.nombre" :apellidos="x.c.apellidos" :foto="x.c.foto" :s="22" />{{ x.c.nombre }} <span class="sub">{{ x.f.salida ? 'salió ' + x.f.salida : 'desde ' + x.f.entrada }}<template v-if="x.f.corregido"> · corregido</template></span></a>
               <span v-if="!t.l.length" class="muted">Nadie ha fichado en este turno</span>
             </div>
           </div>

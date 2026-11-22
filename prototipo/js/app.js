@@ -111,13 +111,13 @@ const App = {
       instalada, esIOS, ayudaInstalar, instalar, sesion, dentro, acceso, login, cargando, errorCarga, cargarDatos, menuYo, yoRef, salir, clave, abrirClave, guardarClave, miNombre, miRol };
   },
   template: `
-  <div v-if="sesion.modo==='cargando'" class="acceso"><div class="acceso-espera"><img src="img/logo-g.svg" alt="" /><span>Cargando…</span></div></div>
+  <div v-if="sesion.modo==='cargando'" class="acceso"><div class="acceso-espera"><img src="img/logo-impulsa.svg" alt="" /><span>Cargando…</span></div></div>
 
   <div v-else-if="!dentro" class="acceso">
     <form class="acceso-caja" @submit.prevent="login">
-      <img class="acceso-logo" src="img/logo-g.svg" alt="" />
-      <h1>Gestoría eMadrid</h1>
-      <p class="acceso-sub">Portal de prácticas<span v-if="sesion.entorno==='pruebas'" class="tag">Entorno de pruebas</span></p>
+      <img class="acceso-logo" src="img/logo-impulsa.svg" alt="" />
+      <h1>Impulsa</h1>
+      <p class="acceso-sub">Talento · eMadrid<span v-if="sesion.entorno==='pruebas'" class="tag">Entorno de pruebas</span></p>
       <div class="fld"><label for="acc-email">Correo</label><input id="acc-email" class="inp" type="email" v-model="acceso.email" autocomplete="username" required autofocus /></div>
       <div class="fld"><label for="acc-clave">Contraseña</label><CampoClave id="acc-clave" v-model="acceso.clave" autocomplete="current-password" required /></div>
       <div v-if="acceso.error" class="aviso err"><Ic n="alert" :s="16" /><span>{{ acceso.error }}</span></div>
@@ -130,7 +130,7 @@ const App = {
   <div v-else class="shell">
     <div v-if="menu" class="side-velo" @click="menu=false" aria-hidden="true"></div>
     <aside class="side" :class="{open: menu}">
-      <div class="brand"><img class="brand-logo" src="img/logo-g.svg" alt="" /><div><b>Gestoría eMadrid</b><span>Portal de prácticas</span></div></div>
+      <div class="brand"><img class="brand-logo" src="img/logo-impulsa.svg" alt="" /><div><b>Impulsa</b><span>Talento · eMadrid</span></div></div>
       <nav class="nav">
         <a v-for="n in nav" :key="n.k" :class="{on: activo===n.k}" @click="ir(n.k)"><Ic :n="n.i" />{{ n.t }}<span v-if="n.b" class="badge" :class="{am: n.am}" :title="n.bt">{{ n.b }}</span></a>
         <div class="nav-label">Sistema</div>
