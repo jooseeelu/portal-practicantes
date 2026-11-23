@@ -1,6 +1,6 @@
 // Recordatorios automáticos de entrevista por correo (desde info@, con copia oculta a info@).
 // Cada día laborable, a la hora elegida en Ajustes, se envía la plantilla «Recordatorio de entrevista» a quien
-// tiene entrevista el siguiente día laborable y la cita sigue «Pendiente» o «Reprogramada» (sin confirmar). Los viernes, las del lunes.
+// tiene entrevista el siguiente día laborable y la cita sigue «Pendiente» (sin confirmar). Los viernes, las del lunes.
 // Cada cita lleva apuntado para qué día y hora se mandó: si se reprograma, a la fecha nueva se le vuelve a mandar.
 // Está APAGADO hasta que un administrador lo enciende en Ajustes → Mensajes. Con «correo de prueba» puesto,
 // todo se manda a ese correo en vez de a los candidatos.
@@ -69,7 +69,7 @@ function enviar(app, modo) {
 
   const citas = app.findRecordsByFilter("registros", "tipo = 'entrevistas'", "", 0, 0)
     .map((r) => ({ r, d: datosDe(r) }))
-    .filter((x) => x.d.fecha === destino && (x.d.estado === "Pendiente" || x.d.estado === "Reprogramada") && (modo === "prueba" || !yaEnviado(x.d)))
+    .filter((x) => x.d.fecha === destino && x.d.estado === "Pendiente" && (modo === "prueba" || !yaEnviado(x.d)))
     .filter((x, i, l) => l.findIndex((y) => y.d.candId === x.d.candId) === i); // una sola vez por persona y día
   const enviados = [], sinCorreo = [], fallos = [];
   for (const x of citas) {

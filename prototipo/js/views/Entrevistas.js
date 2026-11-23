@@ -1,5 +1,5 @@
 import { computed, reactive, ref } from "vue";
-import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast, eliminarEntrevista, entrevistasDe } from "../store.js";
+import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast, eliminarEntrevista, entrevistasDe, rondaDe, rondasDe } from "../store.js";
 import { go } from "../router.js";
 import { enviarPlantilla } from "../mensajes.js";
 import { miNombre, registrar } from "../api.js";
@@ -21,7 +21,7 @@ export default {
 
     // Reparto en carriles de las citas que se pisan
     // 1.ª, 2.ª, 3.ª entrevista de cada persona
-    const ronda = (e) => { const l = entrevistasDe(e.candId).slice().sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)); return l.findIndex((x) => x.id === e.id) + 1; };
+    const ronda = rondaDe;
     function colocar(evs) {
       const l = evs.map((e) => ({ e, ini: aMin(e.hora), fin: aMin(e.hora) + DUR })).sort((a, b) => a.ini - b.ini);
       const out = []; let grupo = [], fin = -1;
@@ -102,7 +102,7 @@ export default {
 
     // Tarjeta partida (dos citas casi a la vez): primero el nombre corto, para saber quién viene de un vistazo
     const corto = (c) => { if (!c) return "—"; const ap = String(c.apellidos || "").trim(); return String(c.nombre || "").trim().split(/\s+/)[0] + (ap ? " " + ap[0].toUpperCase() + "." : ""); };
-    return { corto, entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    return { corto, rondasDe, entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
@@ -169,7 +169,7 @@ export default {
       </div>
     </div>
 
-    <Modal v-if="sel" :titulo="ronda(sel) + '.ª entrevista' + (entrevistasDe(sel.candId).length > 1 ? ' de ' + entrevistasDe(sel.candId).length : '')" :ancho="520" @cerrar="sel=null">
+    <Modal v-if="sel" :titulo="ronda(sel) + '.ª entrevista' + (rondasDe(sel.candId) > 1 && ronda(sel) <= rondasDe(sel.candId) ? ' de ' + rondasDe(sel.candId) : '')" :ancho="520" @cerrar="sel=null">
       <div class="who" style="cursor:pointer" @click="go('candidato/'+selCand.id)"><Avatar :nombre="selCand.nombre" :apellidos="selCand.apellidos" :s="46" /><div><b style="font-size:16px">{{ nombreCompleto(selCand) }}</b><small>{{ selCand.titulacion }} · {{ centroDe(selCand.centroId)?.nombre || 'Autopostulado' }}</small></div></div>
       <div class="datos">
         <div><span>Cuándo</span><b style="text-transform:capitalize">{{ fLarga(sel.fecha) }} · {{ sel.hora }}</b></div><div><span>Modalidad</span><b>{{ sel.modalidad }}</b></div>

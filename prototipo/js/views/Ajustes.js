@@ -309,7 +309,7 @@ export default {
 
       <div v-else-if="tab==='mensajes'" class="card-pad stack">
         <div class="caja"><div class="row"><Ic n="clock" /><h3>Recordatorios automáticos de entrevista</h3></div>
-          <p class="sub">Cada día laborable, a la hora que elijas, se envía la plantilla «Recordatorio de entrevista» desde info@ a quien tiene entrevista el día siguiente y la cita sigue <b>Pendiente</b> o <b>Reprogramada</b> (sin confirmar; si se reprograma, se recuerda la fecha nueva). Los viernes se recuerdan las del lunes. Cada envío queda en el historial de la ficha y en el chat del equipo sale un resumen.</p>
+          <p class="sub">Cada día laborable, a la hora que elijas, se envía la plantilla «Recordatorio de entrevista» desde info@ a quien tiene entrevista el día siguiente y la cita sigue <b>Pendiente</b> (sin confirmar). Las confirmadas y las reprogramadas no. Los viernes se recuerdan las del lunes. Cada envío queda en el historial de la ficha y en el chat del equipo sale un resumen.</p>
           <div class="row wrap" style="gap:14px">
             <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" v-model="store.recordatorios.activo" :disabled="!admin" /><b>{{ store.recordatorios.activo ? 'Encendido' : 'Apagado' }}</b></label>
             <label class="row" style="gap:8px">Hora de envío <input class="inp" type="time" v-model="store.recordatorios.hora" :disabled="!admin" style="width:120px" /></label>
