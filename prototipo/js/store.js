@@ -206,11 +206,16 @@ export async function eliminarEntrevista(e) {
 }
 
 /** Número de entrevista de esa persona (1.ª, 2.ª…) por orden de fecha, sin contar las canceladas. */
+// Las canceladas y las reprogramadas (la cita vieja que Notion deja al moverla a otro día) no cuentan: la cita nueva sigue siendo la 1.ª
+const NO_CUENTA = ["Cancelada", "Reprogramada"];
+const ordenCitas = (candId) => store.entrevistas.filter((x) => x.candId === candId).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
 export function rondaDe(e) {
-  const l = store.entrevistas.filter((x) => x.candId === e.candId && x.estado !== "Cancelada").sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  const l = ordenCitas(e.candId);
   const i = l.findIndex((x) => x.id === e.id);
-  return i >= 0 ? i + 1 : 1;
+  return 1 + l.slice(0, i < 0 ? l.length : i).filter((x) => !NO_CUENTA.includes(x.estado)).length;
 }
+/** Cuántas entrevistas «de verdad» tiene (sin canceladas ni reprogramadas) */
+export const rondasDe = (candId) => ordenCitas(candId).filter((x) => !NO_CUENTA.includes(x.estado)).length;
 
 export function programarEntrevista(c, { fecha, hora, modalidad, entrevistador }) {
   const previas = store.entrevistas.filter((x) => x.candId === c.id && x.estado !== "Cancelada").length;
