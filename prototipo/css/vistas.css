@@ -234,3 +234,16 @@ input[type="range"].sin { opacity: .45; }
 .falta-nueva { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .falta-nueva .inp { flex: 1 1 160px; min-width: 0; width: auto; }
 .falta-nueva .check { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+
+/* Candidatos en pantalla completa: la tarjeta tapa el menú y ocupa toda la ventana */
+.btn-pantalla { width: 38px; height: 38px; flex: none; display: inline-grid; place-items: center; padding: 0; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--ink, inherit); cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+.btn-pantalla:hover { background: color-mix(in srgb, var(--teal-500) 12%, var(--surface)); border-color: var(--teal-500); }
+.btn-pantalla:active { transform: scale(.94); }
+.btn-pantalla.on { background: var(--teal-500); border-color: var(--teal-500); color: #fff; }
+.sep-pantalla { width: 1px; height: 24px; background: var(--border); flex: none; }
+body.sin-scroll { overflow: hidden; }
+.card.completa { position: fixed; inset: 0; z-index: 90; margin: 0; border-radius: 0; border: 0; display: flex; flex-direction: column; background: var(--surface); padding-top: env(safe-area-inset-top); animation: pantalla-entra .22s cubic-bezier(.2,.9,.3,1) both; }
+.card.completa > .tbl-wrap, .card.completa > .cands-grid, .card.completa > .kanban { flex: 1 1 auto; min-height: 0; max-height: none !important; overflow: auto; }
+.card.completa > .barra-filtros { padding-top: 12px; }
+@keyframes pantalla-entra { from { opacity: 0; transform: scale(.985); } }
+@media (prefers-reduced-motion: reduce) { .card.completa { animation: none; } }

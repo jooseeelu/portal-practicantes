@@ -1,4 +1,4 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, nextTick, onMounted, onUnmounted, watch } from "vue";
 import { store, etiquetaTurno, centroDe, entrevistaDe, entrevistasDe, estadoDe, cambiarEstado, incorporar, turnoEstudiante, nombreCompleto, addHist, toast, nuevoId } from "../store.js";
 import { ruta, go } from "../router.js";
 import { registrar, sesion, subirArchivo, borrarArchivo, leerCurriculum, pedir, miNombre } from "../api.js";
@@ -22,6 +22,13 @@ export default {
   components: { SelectorFechas, RecorteFoto, SelectArea, OpcionesPersonas, Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio },
   setup() {
     const f = filtros;
+    // Pantalla completa: la tarjeta de candidatos tapa el menú y ocupa toda la ventana (Esc para salir)
+    const pantalla = ref(false);
+    const alternarPantalla = () => { pantalla.value = !pantalla.value; };
+    watch(pantalla, (v) => { document.body.classList.toggle("sin-scroll", v); nextTick(() => { window.dispatchEvent(new Event("resize")); setTimeout(() => window.dispatchEvent(new Event("resize")), 120); }); });
+    const alPulsar = (e) => { if (e.key === "Escape" && pantalla.value && !document.querySelector(".modal-bg, .selbus-pop, .ctx-bg")) pantalla.value = false; };
+    onMounted(() => window.addEventListener("keydown", alPulsar));
+    onUnmounted(() => { window.removeEventListener("keydown", alPulsar); document.body.classList.remove("sin-scroll"); });
     const opCentros = computed(() => store.centros.filter((c) => !c.archivado).map((c) => ({ valor: c.id, etiqueta: c.nombre })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)));
     const fechaEnt = (c) => entrevistaDe(c.id)?.fecha || "";
 
@@ -155,7 +162,7 @@ export default {
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { ESTADOS_CITA, obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { pantalla, alternarPantalla, ESTADOS_CITA, obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       hoja, NOTAS, RAPIDOS, chips, alta, n, lee, adjuntar, quitarArchivo, recorteAlta, usarRecorteAlta, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -173,7 +180,7 @@ export default {
       <button v-for="e in fases" :key="e.k" class="pill" :class="{on: f.estado===e.k, cero: !e.cnt}" @click="f.estado = f.estado===e.k ? '' : e.k"><i class="punto" :style="{background: e.c}"></i>{{ e.n }} <b>{{ e.cnt }}</b></button>
     </div>
 
-    <div class="card">
+    <div class="card" :class="{completa: pantalla}">
       <div class="barra-filtros">
         <div class="buscar"><Ic n="search" :s="16" /><input class="inp" type="search" v-model="f.q" placeholder="Buscar por nombre, correo, teléfono, titulación…" aria-label="Buscar candidatos" /></div>
         <select class="inp fsel solo-esc" :class="{on: f.area}" v-model="f.area" aria-label="Área de interés"><option value="">Área</option><option v-for="a in areasFiltro" :key="a" :value="a">{{ a }}</option><option value="__otras">Otra (texto libre)</option></select>
@@ -186,6 +193,7 @@ export default {
           <button :class="{on: f.vista==='tarjetas'}" @click="f.vista='tarjetas'" title="Tarjetas" aria-label="Vista en tarjetas"><Ic n="tarjetas" :s="16" /></button>
           <button :class="{on: f.vista==='kanban'}" @click="f.vista='kanban'" title="Kanban" aria-label="Vista kanban"><Ic n="kanban" :s="16" /></button>
         </div>
+        <button class="btn-pantalla solo-movil" :class="{on: pantalla}" @click="alternarPantalla" :title="pantalla ? 'Salir de pantalla completa' : 'Ver en pantalla completa'" :aria-label="pantalla ? 'Salir de pantalla completa' : 'Ver en pantalla completa'"><Ic :n="pantalla ? 'contraer' : 'expandir'" :s="17" /></button>
       </div>
       <div class="barra-rapidos solo-esc">
         <div class="seg seg-iconos right orden-final" role="group" aria-label="Vista">
@@ -193,6 +201,8 @@ export default {
           <button :class="{on: f.vista==='tarjetas'}" @click="f.vista='tarjetas'" title="Tarjetas" aria-label="Vista en tarjetas"><Ic n="tarjetas" :s="16" /></button>
           <button :class="{on: f.vista==='kanban'}" @click="f.vista='kanban'" title="Kanban" aria-label="Vista kanban"><Ic n="kanban" :s="16" /></button>
         </div>
+        <span class="sep-pantalla orden-final" aria-hidden="true"></span>
+        <button class="btn-pantalla orden-final" :class="{on: pantalla}" @click="alternarPantalla" :title="pantalla ? 'Salir de pantalla completa (Esc)' : 'Ver en pantalla completa'" :aria-label="pantalla ? 'Salir de pantalla completa' : 'Ver en pantalla completa'"><Ic :n="pantalla ? 'contraer' : 'expandir'" :s="17" /></button>
         <button v-for="r in RAPIDOS" :key="r.k" class="pill pill-rapida" :class="{on: f.rapido===r.k}" @click="rapido(r.k)"><Ic :n="r.i" :s="13" />{{ r.t }}</button>
       </div>
       <div v-if="chips.length" class="filtros-activos">
