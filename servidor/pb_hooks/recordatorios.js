@@ -76,7 +76,13 @@ function enviar(app, modo) {
     const cr = buscar(app, "candidatos", x.d.candId);
     const c = cr ? datosDe(cr) : {};
     const nombre = [c.nombre, c.apellidos].filter(Boolean).join(" ").trim() || "Sin nombre";
-    if (!c.email) { sinCorreo.push(nombre); continue; }
+    if (!c.email) {
+      const marca = x.d.fecha + " " + (x.d.hora || "");
+      if (modo === "auto" && x.d.avisoSinCorreo === marca) continue; // ya se avisó en el chat de esta cita
+      sinCorreo.push(nombre);
+      if (modo === "auto") { x.d.avisoSinCorreo = marca; x.r.set("datos", x.d); app.save(x.r); }
+      continue;
+    }
     const v = {
       nombre: c.nombre || "", apellidos: c.apellidos || "", fecha: fechaLarga(x.d.fecha), hora: x.d.hora || "",
       donde: x.d.modalidad === "Online" ? "Online (te enviaremos el enlace)" : "Presencial · " + DIRECCION,
@@ -102,7 +108,8 @@ function enviar(app, modo) {
     }
     sleep(300);
   }
-  // Resumen en el chat del equipo
+  // Resumen en el chat del equipo (la tarea automática no escribe si no hay nada que contar)
+  if (modo === "auto" && !enviados.length && !sinCorreo.length && !fallos.length) return { hecho: true, destino, enviados: 0, sinCorreo, fallos };
   const partes = [];
   partes.push((modo === "prueba" ? "🧪 Prueba de recordatorios" : "⏰ Recordatorios automáticos") + " para el " + fechaLarga(destino) + ": " + (enviados.length ? enviados.length + " enviados" + (modo === "prueba" ? " a " + conf.prueba : "") : "ninguno que enviar") + ".");
   if (enviados.length) partes.push("✅ " + enviados.join(", "));

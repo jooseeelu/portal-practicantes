@@ -305,3 +305,11 @@ body.sin-scroll, html:has(body.sin-scroll) { overflow: hidden; overscroll-behavi
   .ent-valor .pc-col li > svg:first-child { display: none; }
   .ent-valor .pc-col li .icon-btn { flex: none; }
 }
+/* Móvil: los campos de la cita no se salen de la tarjeta; el entrevistador ocupa la fila entera */
+@media (max-width: 760px) {
+  .ent-cab .ent-campos .fld { min-width: 0; }
+  .ent-cab .ent-campos .inp { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; }
+  .ent-cab .ent-campos input[type="date"], .ent-cab .ent-campos input[type="time"] { -webkit-appearance: none; appearance: none; text-align: left; min-height: 44px; }
+  .ent-cab .ent-campos .fld:nth-child(5) { order: 4; }
+  .ent-cab .ent-campos .fld:nth-child(4) { order: 5; grid-column: 1 / -1; }
+}
