@@ -1,4 +1,5 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, onMounted, onUnmounted } from "vue";
+import { excelEntrevistas, pdfEntrevistas } from "../informeEntrevistas.js";
 import { store, candDe, centroDe, nombreCompleto, programarEntrevista, cambiarEstado, addHist, toast, eliminarEntrevista, entrevistasDe, rondaDe, rondasDe } from "../store.js";
 import { go } from "../router.js";
 import { enviarPlantilla } from "../mensajes.js";
@@ -22,6 +23,13 @@ export default {
     // Reparto en carriles de las citas que se pisan
     // 1.ª, 2.ª, 3.ª entrevista de cada persona
     const ronda = rondaDe;
+    // Exportar las entrevistas realizadas (Excel o PDF)
+    const menuExp = ref(false);
+    const hayRealizadas = computed(() => store.entrevistas.some((e) => e.estado === "Realizada"));
+    const exportarEnt = (tipo) => { menuExp.value = false; const n = tipo === "pdf" ? pdfEntrevistas() : excelEntrevistas(); toast(tipo === "pdf" ? "PDF preparado: en la ventana de imprimir elige «Guardar como PDF»" : n + " entrevistas exportadas a Excel"); };
+    const cierraExp = (e) => { if (menuExp.value && !e.target.closest?.(".menu-exp")) menuExp.value = false; };
+    onMounted(() => document.addEventListener("click", cierraExp));
+    onUnmounted(() => document.removeEventListener("click", cierraExp));
     function colocar(evs) {
       const l = evs.map((e) => ({ e, ini: aMin(e.hora), fin: aMin(e.hora) + DUR })).sort((a, b) => a.ini - b.ini);
       const out = []; let grupo = [], fin = -1;
@@ -102,7 +110,7 @@ export default {
 
     // Tarjeta partida (dos citas casi a la vez): primero el nombre corto, para saber quién viene de un vistazo
     const corto = (c) => { if (!c) return "—"; const ap = String(c.apellidos || "").trim(); return String(c.nombre || "").trim().split(/\s+/)[0] + (ap ? " " + ap[0].toUpperCase() + "." : ""); };
-    return { corto, rondasDe, entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    return { menuExp, hayRealizadas, exportarEnt, corto, rondasDe, entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
@@ -113,6 +121,8 @@ export default {
       <div class="acciones acciones-agenda">
         <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><option v-if="miAgenda" :value="miAgenda">Mi agenda</option><OpcionesPersonas prefijo="Agenda de " /><option value="_ninguno">Sin responsable asignado</option></select>
         <div class="seg"><button :class="{on: s.vista==='calendario'}" @click="s.vista='calendario'"><Ic n="calendario" :s="15" />Calendario</button><button :class="{on: s.vista==='lista'}" @click="s.vista='lista'"><Ic n="tabla" :s="15" />Listado</button></div>
+        <div class="menu-exp"><button class="btn" :class="{on: menuExp}" @click.stop="menuExp = !menuExp" :disabled="!hayRealizadas" :title="hayRealizadas ? 'Descargar las entrevistas realizadas' : 'Todavía no hay entrevistas realizadas'" aria-haspopup="menu" :aria-expanded="menuExp"><Ic n="download" :s="16" /><span>Exportar</span><Ic n="chevD" :s="14" /></button>
+          <div v-if="menuExp" class="menu-exp-pop" role="menu"><button role="menuitem" @click="exportarEnt('excel')"><Ic n="tabla" :s="16" /><span><b>Excel</b><small>Resumen y detalle, con filtros</small></span></button><button role="menuitem" @click="exportarEnt('pdf')"><Ic n="documentos" :s="16" /><span><b>PDF</b><small>Para imprimir o enviar</small></span></button></div></div>
         <button class="btn btn-accent" @click="abrirNueva()"><Ic n="plus" :s="16" /><span class="txt-largo">Nueva entrevista</span><span class="txt-corto">Nueva</span></button>
       </div>
     </div>

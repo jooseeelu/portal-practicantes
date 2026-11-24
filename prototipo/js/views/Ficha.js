@@ -233,13 +233,29 @@ export default {
     };
 
     // --- Convertir en estudiante ---
-    const inc = reactive({ abierto: false, inicio: dia(10), fin: dia(70), horaIni: "10:00", horaFin: "15:00", horas: 340, tutor: "", convenio: false });
+    const inc = reactive({ abierto: false, inicio: dia(10), fin: dia(70), horaIni: "10:00", horaFin: "15:00", horas: 340, tutor: "", convenio: false, gent: "" });
     const abrirInc = () => {
       const e = est.value, t = ["Tarde", "Tarde 2"].includes(c.value.turno) ? c.value.turno : "Mañana";
-      Object.assign(inc, { abierto: true, inicio: e?.inicio || dia(10), fin: e?.fin || dia(70), horaIni: e?.horaIni || store.turnosDef[t].ini, horaFin: e?.horaFin || store.turnosDef[t].fin, horas: e?.horas || c.value.horas || 340, tutor: e ? e.tutor : "", convenio: e?.convenio || false });
+      Object.assign(inc, { abierto: true, inicio: e?.inicio || dia(10), fin: e?.fin || dia(70), horaIni: e?.horaIni || store.turnosDef[t].ini, horaFin: e?.horaFin || store.turnosDef[t].fin, horas: e?.horas || c.value.horas || 340, tutor: e ? e.tutor : "", convenio: e?.convenio || false,
+        // Gentrivo: lo que ya se eligió a mano o, si no, la persona que se encuentra sola por correo o nombre
+        gent: c.value.gentrivo || enGentrivo({ ...c.value, gentrivo: "" })?.email || "" });
     };
+    // Al convertir en estudiante se pregunta por Gentrivo, para vincular a la persona que YA existe allí y no crear otra
+    const gentActiva = computed(() => sesion.modo === "servidor" && gentrivo.configurado && gentrivo.personas.length > 0);
+    const gentAuto = computed(() => (gentActiva.value && c.value ? enGentrivo({ ...c.value, gentrivo: "" }) : null));
+    const incFalta = computed(() => gentActiva.value && !est.value && !inc.gent);
     const ocupacion = computed(() => { const t = turnoDe(inc.horaIni); const n = store.estudiantes.filter((e) => e.candId !== c.value.id && e.inicio <= inc.inicio && e.fin >= inc.inicio && turnoDe(e.horaIni) === t).length; return { t, n, aforo: store.aforo[t], pasa: n + 1 > store.aforo[t] }; });
-    const guardarInc = () => { const { abierto, ...datos } = inc; incorporar(c.value, datos); inc.abierto = false; };
+    const guardarInc = () => {
+      const { abierto, gent, ...datos } = inc;
+      if (incFalta.value) return toast("Elige su persona en Gentrivo, o marca que todavía no está.", "error");
+      incorporar(c.value, datos);
+      if (gentActiva.value && gent && gent !== (c.value.gentrivo || "")) {
+        const pg = gentrivo.personas.find((x) => x.email === gent);
+        c.value.gentrivo = gent;
+        addHist(c.value.id, "nota", gent === "-" ? "Al incorporarlo se marcó que todavía no está en Gentrivo" : "Al incorporarlo se vinculó con Gentrivo: " + (pg ? pg.nombre : gent));
+      }
+      inc.abierto = false;
+    };
     const demo = (m) => toast("Demo: " + m);
     // Puntos a favor y en contra
     const nuevo = reactive({ pros: "", contras: "" });
@@ -406,7 +422,7 @@ export default {
     const VOLVER = { candidatos: "Candidatos", estudiantes: "Estudiantes en prácticas", entrevistas: "Entrevistas", centros: "Centros educativos", documentos: "Documentos", inicio: "Inicio", informes: "Informes" };
     const volverA = computed(() => (VOLVER[origenFicha.value] ? origenFicha.value : "candidatos"));
     const volverTxt = computed(() => VOLVER[volverA.value]);
-    return { volverA, volverTxt, apuntarTodasG, pcDe, motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { gentActiva, gentAuto, incFalta, opcionesG, volverA, volverTxt, apuntarTodasG, pcDe, motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -628,6 +644,15 @@ export default {
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
           </div>
+          <div class="ent-disp" :class="{falta: c.turno === 'Por confirmar' || !c.horas}">
+            <div class="ent-disp-cab"><b>Turno y duración</b><span class="sub">Son los mismos datos de «Información personal»: si los cambias aquí, se cambian allí también.</span></div>
+            <div class="ent-disp-grid">
+              <div class="fld"><label>Turno disponible</label><select class="inp" v-model="c.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
+              <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" inputmode="numeric" min="0" v-model="c.horas" placeholder="Ej.: 340" /></div>
+              <div v-if="c.turno==='Horario personalizado'" class="fld" style="grid-column:1/-1"><label>Horario personalizado</label><input class="inp" v-model="c.horarioLibre" placeholder="Ej.: lunes y miércoles de 9 a 13" /></div>
+            </div>
+            <p v-if="c.turno === 'Por confirmar' || !c.horas" class="ent-disp-aviso"><Ic n="alert" :s="14" />Falta rellenar {{ c.turno === 'Por confirmar' && !c.horas ? 'el turno y la duración' : c.turno === 'Por confirmar' ? 'el turno' : 'la duración' }}.</p>
+          </div>
           <div class="nota-final">
             <div class="nf-fila">
               <label class="nf-lbl" for="nota-exacta">Nota final<span class="nf-caja"><input id="nota-exacta" class="nf-input" type="number" min="0" max="10" step="0.25" inputmode="decimal" :value="bor.nota ?? ''" placeholder="—" @input="notaEscrita($event)" /><span class="nf-de">/ 10</span></span></label>
@@ -720,8 +745,13 @@ export default {
         <div class="fld"><label>Horas totales</label><input class="inp" type="number" v-model.number="inc.horas" /></div>
         <div class="fld"><label>Tutor en la gestoría (opcional)</label><select class="inp" v-model="inc.tutor"><option value="">Sin tutor asignado</option><OpcionesPersonas :actual="inc.tutor" /></select></div>
       </div>
+      <div v-if="gentActiva" class="inc-gent" :class="{falta: incFalta}">
+        <div class="fld"><label>Persona en Gentrivo</label>
+          <select class="inp" v-model="inc.gent"><option value="">Elige su persona en Gentrivo…</option><option v-for="p in opcionesG" :key="p.email" :value="p.email">{{ p.nombre }} · {{ p.email }}</option><option value="-">Todavía no está en Gentrivo</option></select></div>
+        <p class="sub"><template v-if="gentAuto && inc.gent === gentAuto.email"><Ic n="check" :s="13" /> Se ha encontrado sola: <b>{{ gentAuto.nombre }}</b>. </template>Si ya tiene usuario en Gentrivo, elígelo aquí: así se vincula con él y no hace falta crear otra persona nueva allí. Si todavía no existe, créala en Gentrivo y vuelve a vincularla desde su ficha.</p>
+      </div>
       <label class="row"><input type="checkbox" v-model="inc.convenio" /> Convenio de prácticas firmado</label>
-      <template #pie><button class="btn" @click="inc.abierto=false">Cancelar</button><button class="btn btn-accent" @click="guardarInc"><Ic n="estudiantes" :s="16" />{{ est ? 'Guardar' : 'Incorporar' }}</button></template>
+      <template #pie><button class="btn" @click="inc.abierto=false">Cancelar</button><button class="btn btn-accent" :disabled="incFalta" @click="guardarInc"><Ic n="estudiantes" :s="16" />{{ est ? 'Guardar' : 'Incorporar' }}</button></template>
     </Modal>
   </div>
   <div class="page" v-else><div class="card"><div class="vacio-box"><b>Candidato no encontrado</b><button class="btn" @click="go('candidatos')">Volver al listado</button></div></div></div>`,

@@ -14,7 +14,7 @@ import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util
 export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", desde: "", hasta: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
 
 const COLS = [
-  { k: "nombre", t: "Candidato" }, { k: "centro", t: "Centro educativo" }, { k: "titulacion", t: "Titulación" }, { k: "turno", t: "Turno" },
+  { k: "nombre", t: "Candidato" }, { k: "centro", t: "Centro educativo" }, { k: "area", t: "Área" }, { k: "turno", t: "Turno" },
   { k: "horas", t: "Duración" }, { k: "entrevista", t: "Entrevista" }, { k: "estado", t: "Estado" }, { k: "nota", t: "Valoración" },
 ];
 
@@ -49,7 +49,7 @@ export default {
       });
     });
     const valor = (c, k) => ({
-      nombre: normal(c.nombre + " " + c.apellidos), centro: normal(centroDe(c.centroId)?.nombre || "zz"), titulacion: normal(c.titulacion), turno: c.turno, horas: c.horas,
+      nombre: normal(c.nombre + " " + c.apellidos), centro: normal(centroDe(c.centroId)?.nombre || "zz"), area: normal(c.area || "zz"), turno: c.turno, horas: c.horas,
       entrevista: fechaEnt(c) || (f.desc ? "0" : "9"), estado: store.estados.findIndex((e) => e.k === c.estado), nota: c.nota ?? (f.desc ? -1 : 99), creado: c.creado,
     })[k];
     const lista = computed(() => {
@@ -235,7 +235,7 @@ export default {
             <tr v-for="c in lista" :key="c.id" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
               <td><div class="who"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" /><div><b>{{ c.nombre }} {{ c.apellidos }}</b><small>{{ c.email }} · {{ c.tel }}</small></div></div></td>
               <td>{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</td>
-              <td><div class="cell-clip" :title="c.titulacion">{{ c.titulacion }}</div></td>
+              <td><div class="cell-clip" :title="c.titulacion ? c.area + ' · ' + c.titulacion : c.area">{{ c.area || '—' }}</div></td>
               <td class="nowrap">{{ etiquetaTurno(c.turno) }}</td>
               <td class="nowrap">{{ c.horas ? c.horas + ' h' : '—' }}</td>
               <td class="nowrap"><template v-if="fechaEnt(c)">{{ fCorta(fechaEnt(c)) }} <span class="sub">{{ entrevistaDe(c.id).hora }}</span><span class="cita-estado" :style="{'--c': ESTADOS_CITA[entrevistaDe(c.id).estado]?.c || '#888'}" :title="'Estado de la cita: ' + entrevistaDe(c.id).estado">{{ entrevistaDe(c.id).estado }}</span></template><span v-else class="muted">—</span></td>
@@ -252,7 +252,7 @@ export default {
       <!-- TARJETAS -->
       <div v-else-if="f.vista==='tarjetas'" class="cands-grid">
         <button v-for="c in lista" :key="c.id" class="cand-card" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
-          <div class="row"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="44" /><div class="grow" style="text-align:left"><b>{{ c.nombre }} {{ c.apellidos }}</b><div class="sub">{{ c.titulacion }}</div></div></div>
+          <div class="row"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="44" /><div class="grow" style="text-align:left"><b>{{ c.nombre }} {{ c.apellidos }}</b><div class="sub">{{ c.area || c.titulacion }}</div></div></div>
           <div class="cand-meta"><span><Ic n="centros" :s="14" />{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</span><span><Ic n="clock" :s="14" />{{ etiquetaTurno(c.turno) }}{{ c.horas ? ' · ' + c.horas + ' h' : '' }}</span></div>
           <div v-if="(c.pros && c.pros.length) || (c.contras && c.contras.length)" class="pc-mini"><span class="pro" :title="(c.pros || []).join(' · ')"><Ic n="plus" :s="12" />{{ (c.pros || []).length }} a favor</span><span class="con" :title="(c.contras || []).join(' · ')"><Ic n="minus" :s="12" />{{ (c.contras || []).length }} en contra</span></div>
           <div class="row"><Chip :k="c.estado" /><span class="right"><Nota :v="c.nota" /></span></div>
