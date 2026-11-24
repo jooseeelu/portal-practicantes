@@ -277,3 +277,4 @@ body.sin-scroll, html:has(body.sin-scroll) { overflow: hidden; overscroll-behavi
   .menu-exp > .btn > span, .menu-exp > .btn > svg:last-child { display: none; }
   .menu-exp-pop { right: 0; left: auto; width: min(270px, calc(100vw - 32px)); }
 }
+.menu-exp-que { margin: 2px 12px 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; color: var(--muted, #6b7796); }
