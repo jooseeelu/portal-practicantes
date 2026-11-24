@@ -271,10 +271,14 @@ export default {
       l.push(t); nuevo[tipo] = ""; sincronizarPC();
       addHist(c.value.id, "nota", (tipo === "pros" ? "Punto a favor: " : "Punto en contra: ") + t);
     };
-    const quitarPC = (tipo, i) => { pcEditable(tipo).splice(i, 1); sincronizarPC(); };
+    // Al quitar un punto sale un aviso con «Deshacer» para recuperarlo en su sitio
+    const avisoQuitado = (tipo, i, texto) => toast("Punto " + (tipo === "pros" ? "a favor" : "en contra") + " quitado", "ok", { t: "Deshacer", f: () => {
+      const l = pcEditable(tipo); if (l.includes(texto)) return; l.splice(Math.min(i, l.length), 0, texto); sincronizarPC();
+    } });
+    const quitarPC = (tipo, i) => { const l = pcEditable(tipo); const [texto] = l.splice(i, 1); sincronizarPC(); if (texto) avisoQuitado(tipo, i, texto); };
     const editarPC = (tipo, i, ev) => {
       const t = String(ev.target.value || "").trim(); const l = pcEditable(tipo); const antes = l[i];
-      if (!t) { l.splice(i, 1); sincronizarPC(); return; }
+      if (!t) { l.splice(i, 1); sincronizarPC(); if (antes) avisoQuitado(tipo, i, antes); return; }
       if (t === antes) return;
       l[i] = t; sincronizarPC();
       addHist(c.value.id, "nota", (tipo === "pros" ? "Punto a favor cambiado: " : "Punto en contra cambiado: ") + antes + " → " + t);
@@ -602,13 +606,13 @@ export default {
           <div class="pc-grid">
             <div class="pc-col pro">
               <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ pcDe('pros').length }}</span></div>
-              <ul><li v-for="(p, i) in pcDe('pros')" :key="p"><Ic n="check" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in pcDe('pros')" :key="p"><Ic n="check" :s="15" /><textarea class="pc-txt grow" v-autoalto rows="1" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!pcDe('pros').length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
             <div class="pc-col con">
               <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ pcDe('contras').length }}</span></div>
-              <ul><li v-for="(p, i) in pcDe('contras')" :key="p"><Ic n="alert" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in pcDe('contras')" :key="p"><Ic n="alert" :s="15" /><textarea class="pc-txt grow" v-autoalto rows="1" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!pcDe('contras').length" class="sub">Lo que te frena o hay que confirmar.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
@@ -620,7 +624,7 @@ export default {
           </div>
           <div class="ent-cab">
             <div class="fecha-b grande"><small>{{ fLarga(ent.fecha).split(' ')[0] }}</small><b>{{ fCorta(ent.fecha) }}</b></div>
-            <div class="grid3 grow">
+            <div class="grid3 grow ent-campos">
               <div class="fld"><label>Fecha</label><input class="inp" type="date" v-model="ent.fecha" /></div>
               <div class="fld"><label>Hora</label><input class="inp" type="time" step="60" min="08:00" max="21:30" v-model="ent.hora" /></div>
               <div class="fld"><label>Modalidad</label><select class="inp" v-model="ent.modalidad"><option>Presencial</option><option>Online</option></select></div>
@@ -633,25 +637,24 @@ export default {
           <div class="pc-grid">
             <div class="pc-col pro">
               <div class="pc-head"><span class="pc-ico"><Ic n="plus" :s="16" /></span><h3>A favor</h3><span class="tag">{{ pcDe('pros').length }}</span></div>
-              <ul><li v-for="(p, i) in pcDe('pros')" :key="p"><Ic n="check" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in pcDe('pros')" :key="p"><Ic n="check" :s="15" /><textarea class="pc-txt grow" v-autoalto rows="1" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('pros', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('pros', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!pcDe('pros').length" class="sub">Lo que te ha gustado de la entrevista o del currículum.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.pros" placeholder="Añadir punto a favor…" @keydown.enter="addPC('pros')" /><button class="btn btn-sm" @click="addPC('pros')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
             <div class="pc-col con">
               <div class="pc-head"><span class="pc-ico"><Ic n="minus" :s="16" /></span><h3>En contra</h3><span class="tag">{{ pcDe('contras').length }}</span></div>
-              <ul><li v-for="(p, i) in pcDe('contras')" :key="p"><Ic n="alert" :s="15" /><textarea class="pc-txt grow" :rows="Math.max(1, Math.ceil(p.length / 36))" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
+              <ul><li v-for="(p, i) in pcDe('contras')" :key="p"><Ic n="alert" :s="15" /><textarea class="pc-txt grow" v-autoalto rows="1" :value="p" @input="$event.target.style.height='auto'; $event.target.style.height=$event.target.scrollHeight+'px'" :aria-label="'Editar: ' + p" title="Pulsa para editar" @change="editarPC('contras', i, $event)" @keydown.enter="$event.target.blur()" @keydown.esc="$event.target.value = p; $event.target.blur()" /><button class="icon-btn" @click="quitarPC('contras', i)" title="Quitar" aria-label="Quitar"><Ic n="x" :s="14" /></button></li></ul>
               <p v-if="!pcDe('contras').length" class="sub">Lo que te frena o hay que confirmar.</p>
               <div class="row pc-nuevo"><input class="inp" v-model="nuevo.contras" placeholder="Añadir punto en contra…" @keydown.enter="addPC('contras')" /><button class="btn btn-sm" @click="addPC('contras')"><Ic n="plus" :s="14" />Añadir</button></div>
             </div>
           </div>
           <div class="ent-disp" :class="{falta: c.turno === 'Por confirmar' || !c.horas}">
-            <div class="ent-disp-cab"><b>Turno y duración</b><span class="sub">Son los mismos datos de «Información personal»: si los cambias aquí, se cambian allí también.</span></div>
-            <div class="ent-disp-grid">
-              <div class="fld"><label>Turno disponible</label><select class="inp" v-model="c.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
-              <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" inputmode="numeric" min="0" v-model="c.horas" placeholder="Ej.: 340" /></div>
-              <div v-if="c.turno==='Horario personalizado'" class="fld" style="grid-column:1/-1"><label>Horario personalizado</label><input class="inp" v-model="c.horarioLibre" placeholder="Ej.: lunes y miércoles de 9 a 13" /></div>
-            </div>
-            <p v-if="c.turno === 'Por confirmar' || !c.horas" class="ent-disp-aviso"><Ic n="alert" :s="14" />Falta rellenar {{ c.turno === 'Por confirmar' && !c.horas ? 'el turno y la duración' : c.turno === 'Por confirmar' ? 'el turno' : 'la duración' }}.</p>
+            <div class="ent-disp-cab"><b>Turno y duración</b>
+              <span v-if="c.turno === 'Por confirmar' || !c.horas" class="ent-disp-aviso"><Ic n="alert" :s="14" />Falta rellenar {{ c.turno === 'Por confirmar' && !c.horas ? 'el turno y la duración' : c.turno === 'Por confirmar' ? 'el turno' : 'la duración' }}</span>
+              <span v-else class="sub">Los mismos datos que en Información personal</span></div>
+            <div class="fld"><label>Turno disponible</label><select class="inp" v-model="c.turno"><option v-for="t in TURNOS" :key="t" :value="t">{{ etiquetaTurno(t) }}</option></select></div>
+            <div class="fld"><label>Duración prevista (horas)</label><input class="inp" type="number" inputmode="numeric" min="0" v-model="c.horas" placeholder="Ej.: 340" /></div>
+            <div v-if="c.turno==='Horario personalizado'" class="fld ent-disp-ancho"><label>Horario personalizado</label><input class="inp" v-model="c.horarioLibre" placeholder="Ej.: lunes y miércoles de 9 a 13" /></div>
           </div>
           <div class="nota-final">
             <div class="nf-fila">

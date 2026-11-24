@@ -289,6 +289,18 @@ export const cerrarMenu = () => { menuCtx.abierto = false; };
 
 /** v-ctx="() => [{ t: 'Texto', i: 'icono', f: () => …, peligro: true }, { sep: true }]" */
 /** v-alto: la tabla ocupa hasta el final de la pantalla, así su barra para deslizar a los lados siempre se ve. */
+/** v-autoalto: la caja de texto crece hasta enseñar toda la frase (en el móvil no se corta ni a la derecha ni abajo). */
+export const vAutoAlto = {
+  mounted(el) {
+    const ajustar = () => { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; };
+    el._autoalto = ajustar; ajustar();
+    requestAnimationFrame(ajustar); setTimeout(ajustar, 250); document.fonts?.ready?.then(ajustar);
+    window.addEventListener("resize", ajustar);
+  },
+  updated(el) { el._autoalto?.(); },
+  unmounted(el) { window.removeEventListener("resize", el._autoalto); },
+};
+
 export const vAlto = {
   mounted(el) {
     const ajustar = () => {
