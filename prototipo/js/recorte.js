@@ -14,19 +14,20 @@ export const RecorteFoto = {
     const nat = reactive({ w: 0, h: 0 }); // tamaño real de la página
     const sel = reactive({ x: 0, y: 0, w: 0, h: 0 }); // recuadro en píxeles de la página
     let pagina = null;
+    let tocado = false; // en cuanto la persona toca el recuadro, nada automático lo vuelve a mover
     const MIN = 30;
     const limitar = () => {
       sel.w = Math.max(MIN, Math.min(sel.w, nat.w)); sel.h = Math.max(MIN, Math.min(sel.h, nat.h));
       sel.x = Math.max(0, Math.min(nat.w - sel.w, sel.x)); sel.y = Math.max(0, Math.min(nat.h - sel.h, sel.y));
     };
     const colocar = (c) => {
-      if (!nat.w) return;
+      if (!nat.w || tocado) return;
       if (c && c.ancho > 0) Object.assign(sel, { x: c.x * nat.w, y: c.y * nat.h, w: c.ancho * nat.w, h: c.alto * nat.h });
       else Object.assign(sel, { x: nat.w * 0.05, y: nat.h * 0.04, w: nat.w * 0.3, h: nat.w * 0.36 });
       limitar();
     };
     async function afinar(c) {
-      try { const r = await recuadroFoto(pagina, c); if (r) { Object.assign(sel, { x: r.x, y: r.y, w: r.l, h: r.l }); limitar(); } } catch (_) { /* se queda el de la IA */ }
+      try { const r = await recuadroFoto(pagina, c); if (r && !tocado) { Object.assign(sel, { x: r.x, y: r.y, w: r.l, h: r.l }); limitar(); } } catch (_) { /* se queda el de la IA */ }
     }
     onMounted(async () => {
       try {
@@ -44,17 +45,17 @@ export const RecorteFoto = {
     const escala = () => (img.value ? nat.w / img.value.getBoundingClientRect().width : 1);
     const empezar = (m, ev) => {
       ev.preventDefault(); ev.stopPropagation();
-      modo = m; ini = { cx: ev.clientX, cy: ev.clientY, xs: sel.x, ys: sel.y, ws: sel.w, hs: sel.h };
+      modo = m; tocado = true; ini = { cx: ev.clientX, cy: ev.clientY, xs: sel.x, ys: sel.y, ws: sel.w, hs: sel.h };
       window.addEventListener("pointermove", mover); window.addEventListener("pointerup", soltar);
     };
     const mover = (ev) => {
       if (!modo) return;
       const k = escala(), dx = (ev.clientX - ini.cx) * k, dy = (ev.clientY - ini.cy) * k;
       if (modo === "mover") { sel.x = ini.xs + dx; sel.y = ini.ys + dy; }
-      if (modo.includes("e")) sel.w = Math.min(ini.ws + dx, nat.w - ini.xs);
-      if (modo.includes("s")) sel.h = Math.min(ini.hs + dy, nat.h - ini.ys);
-      if (modo.includes("w")) { const nx = Math.max(0, Math.min(ini.xs + dx, ini.xs + ini.ws - MIN)); sel.w = ini.ws + (ini.xs - nx); sel.x = nx; }
-      if (modo.includes("n")) { const ny = Math.max(0, Math.min(ini.ys + dy, ini.ys + ini.hs - MIN)); sel.h = ini.hs + (ini.ys - ny); sel.y = ny; }
+      if (modo !== "mover" && modo.includes("e")) sel.w = Math.min(ini.ws + dx, nat.w - ini.xs);
+      if (modo !== "mover" && modo.includes("s")) sel.h = Math.min(ini.hs + dy, nat.h - ini.ys);
+      if (modo !== "mover" && modo.includes("w")) { const nx = Math.max(0, Math.min(ini.xs + dx, ini.xs + ini.ws - MIN)); sel.w = ini.ws + (ini.xs - nx); sel.x = nx; }
+      if (modo !== "mover" && modo.includes("n")) { const ny = Math.max(0, Math.min(ini.ys + dy, ini.ys + ini.hs - MIN)); sel.h = ini.hs + (ini.ys - ny); sel.y = ny; }
       limitar();
     };
     const soltar = () => { modo = ""; window.removeEventListener("pointermove", mover); window.removeEventListener("pointerup", soltar); };
@@ -68,7 +69,7 @@ export const RecorteFoto = {
       out.getContext("2d").drawImage(pagina, sel.x, sel.y, sel.w, sel.h, 0, 0, out.width, out.height);
       emit("listo", out.toDataURL("image/jpeg", 0.9));
     }
-    async function cuadrarCara() { await afinar(null); }
+    async function cuadrarCara() { tocado = false; await afinar(null); tocado = true; }
     return { url, error, img, estilo, empezar, usar, cuadrarCara };
   },
   template: `<Modal titulo="Recortar la foto del currículum" :ancho="640" @cerrar="$emit('cerrar')">
