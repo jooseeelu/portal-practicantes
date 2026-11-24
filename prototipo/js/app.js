@@ -3,7 +3,7 @@ import { store, setTema, centroDe, nombreCompleto, cargarDemo, vaciarDatos, toas
 import { sesion, iniciar, entrar, cerrarSesion, cambiarMiClave, miNombre, miRol } from "./api.js";
 import { arrancarSync, pararSync, guardarAhora } from "./sync.js";
 import { ruta, go, origenFicha } from "./router.js";
-import { Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, MenuCtx, vCtx, vAlto, pedirConfirmacion } from "./ui.js";
+import { vAutoAlto, Ic, Toasts, Avatar, Chip, Modal, Confirmacion, CampoClave, MenuCtx, vCtx, vAlto, pedirConfirmacion } from "./ui.js";
 import { RedactorCorreo } from "./mensajes.js";
 import { ChatEquipo } from "./chat.js";
 import { normal, HOY_ISO, dia, fLarga } from "./util.js";
@@ -216,4 +216,5 @@ const App = {
 const app = createApp(App);
 app.directive("ctx", vCtx);
 app.directive("alto", vAlto);
+app.directive("autoalto", vAutoAlto);
 app.mount("#app");
