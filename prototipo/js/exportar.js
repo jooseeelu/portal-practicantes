@@ -59,7 +59,7 @@ export function hojasDelPortal() {
 }
 
 export function exportarExcel() {
-  descargarBlob(crearXlsx(hojasDelPortal()), `portal-practicas-${HOY_ISO}.xlsx`);
+  descargarBlob(crearXlsx(hojasDelPortal()), `Portal-practicas_${HOY_ISO}.xlsx`);
   registrar("Exportó todos los datos a Excel", `${store.candidatos.length} candidatos`);
 }
 
@@ -67,7 +67,7 @@ export function exportarExcel() {
 export async function copiaCompleta(progreso = () => {}) {
   const enc = new TextEncoder();
   const archivos = [
-    { nombre: `datos/portal-practicas-${HOY_ISO}.xlsx`, datos: new Uint8Array(await crearXlsx(hojasDelPortal()).arrayBuffer()) },
+    { nombre: `datos/Portal-practicas_${HOY_ISO}.xlsx`, datos: new Uint8Array(await crearXlsx(hojasDelPortal()).arrayBuffer()) },
     { nombre: "datos/datos-completos.json", datos: enc.encode(JSON.stringify({ exportado: new Date().toISOString(), centros: store.centros, candidatos: store.candidatos, entrevistas: store.entrevistas, estudiantes: store.estudiantes, documentos: store.documentos, notas: store.notas, historial: store.historial }, null, 1)) },
   ];
   const docs = store.documentos.filter((d) => d.archivoId);
@@ -84,7 +84,7 @@ export async function copiaCompleta(progreso = () => {}) {
     } catch { fallos++; }
     progreso(++hechos, docs.length);
   }
-  descargarBlob(crearZip(archivos), `copia-portal-${HOY_ISO}.zip`);
+  descargarBlob(crearZip(archivos), `Copia-portal_${HOY_ISO}.zip`);
   registrar("Descargó la copia completa (ZIP)", `${archivos.length - 2} documentos`);
   return { documentos: archivos.length - 2, fallos };
 }

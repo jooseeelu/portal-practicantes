@@ -50,7 +50,7 @@ export default {
         { nombre: "Por centro", cabeceras: ["Centro", ...cab], filas: [...porCentro.value.map((x) => [x.nombre, ...fila(x)]), ["TOTAL", ...fila(total.value)]] },
         { nombre: "Por convocatoria", cabeceras: ["Convocatoria", ...cab], filas: porCurso.value.map((x) => [x.curso, ...fila(x)]) },
         { nombre: "Detalle", cabeceras: ["Persona", "Centro", "Titulación", "Convocatoria", "Estado", "Prácticas", "Horas", "Evaluación"], filas: detalle },
-      ]), `informe-practicas-${(curso.value || "todas").replace("/", "-")}.xlsx`);
+      ]), `Informe-practicas_${(curso.value || "Todos").replace("/", "-")}_${HOY_ISO}.xlsx`);
     }
     return { cursos, curso, porCentro, total, porCurso, COLS, vista, exportar, go };
   },

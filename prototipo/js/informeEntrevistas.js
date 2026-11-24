@@ -39,7 +39,7 @@ function resumen(l) {
 }
 
 /** `origen`: las entrevistas a exportar (por defecto todas); `etiqueta`: qué filtro llevan («Agenda de Andrés»…). */
-export function excelEntrevistas(origen, etiqueta = "") {
+export function excelEntrevistas(origen, etiqueta = "", nombre = "Entrevistas") {
   const l = entrevistasRealizadas(origen);
   const r = resumen(l);
   const detalle = {
@@ -66,12 +66,12 @@ export function excelEntrevistas(origen, etiqueta = "") {
     ...agrupar(l, (x) => x.centro).map(([k, v]) => [k, v.length, media(v)]),
   ];
   const hojaResumen = { nombre: "Resumen", cabeceras: ["Resumen · Gestoría eMadrid", "", ""], filas, estilos: [4, 3, 3], anchos: [38, 14, 14], sinFiltro: true };
-  descargarBlob(crearXlsx([hojaResumen, detalle]), `entrevistas-realizadas${etiqueta ? "-" + slug(etiqueta) : ""}-${HOY_ISO}.xlsx`);
+  descargarBlob(crearXlsx([hojaResumen, detalle]), nombre + ".xlsx");
   registrar("Exportó las entrevistas realizadas a Excel", l.length + " entrevistas" + (etiqueta ? " · " + etiqueta : ""));
   return l.length;
 }
 
-export function htmlEntrevistas(origen, etiqueta = "") {
+export function htmlEntrevistas(origen, etiqueta = "", nombre = "Entrevistas realizadas") {
   const l = entrevistasRealizadas(origen);
   const r = resumen(l);
   const color = (n) => (typeof n !== "number" ? "#6b7796" : n >= 8 ? "#0b7a52" : n >= 6 ? "#9a6a00" : "#b42338");
@@ -83,7 +83,7 @@ export function htmlEntrevistas(origen, etiqueta = "") {
     <td><b>${x.ronda}.ª</b> · ${esc(x.modalidad)}<br><span>${esc(x.entrevistador)}</span></td>
     <td class="n"><i style="color:${color(x.nota)};background:${fondo(x.nota)}">${typeof x.nota === "number" ? String(x.nota).replace(".", ",") : "—"}</i></td>
     <td class="pro">${lista(x.pros)}</td><td class="con">${lista(x.contras)}</td></tr>${x.obs ? `<tr class="o"><td></td><td colspan="5"><b>Obs.</b> ${esc(x.obs)}</td></tr>` : ""}</tbody>`).join("");
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Entrevistas realizadas</title><style>
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(nombre)}</title><style>
     @page { size: A4 landscape; margin: 0; }
     * { box-sizing: border-box; }
     body { font: 10px/1.35 "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; color: #121c38; margin: 0; padding: 0 12mm; }
@@ -103,12 +103,12 @@ export function htmlEntrevistas(origen, etiqueta = "") {
 }
 
 /** Abre el diálogo de imprimir (o «Guardar como PDF») con el informe, sin ventanas emergentes. */
-export function pdfEntrevistas(origen, etiqueta = "") {
+export function pdfEntrevistas(origen, etiqueta = "", nombre = "Entrevistas") {
   const n = entrevistasRealizadas(origen).length;
   const marco = document.createElement("iframe");
   marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-  marco.srcdoc = htmlEntrevistas(origen, etiqueta);
-  marco.onload = () => { setTimeout(() => { try { marco.contentWindow.focus(); marco.contentWindow.print(); } catch (_) { /* sin impresión */ } setTimeout(() => marco.remove(), 60000); }, 250); };
+  marco.srcdoc = htmlEntrevistas(origen, etiqueta, nombre);
+  marco.onload = () => { setTimeout(() => { const t = document.title; try { document.title = nombre; marco.contentWindow.focus(); marco.contentWindow.print(); } catch (_) { /* sin impresión */ } document.title = t; setTimeout(() => marco.remove(), 60000); }, 250); };
   document.body.appendChild(marco);
   registrar("Preparó el PDF de entrevistas realizadas", n + " entrevistas" + (etiqueta ? " · " + etiqueta : ""));
   return n;

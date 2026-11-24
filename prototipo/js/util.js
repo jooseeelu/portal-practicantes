@@ -53,6 +53,10 @@ export function descargarBlob(blob, nombre) {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 /** CSV que Excel abre bien en español: separador «;», comillas dobles y marca UTF-8. */
+/** Trozo de nombre de archivo: sin tildes ni espacios, cada palabra con mayúscula inicial («Andrés» → «Andres»). */
+export const trozoNombre = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^A-Za-z0-9]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join("");
+/** Nombre de archivo corto: Qué_Quién_Fecha («Entrevistas_Andres_2026-11-24»); sin filtros, «Todas». */
+export const nombreArchivo = (que, trozos = [], todo = "Todas") => [que, ...(trozos.map(trozoNombre).filter(Boolean).length ? trozos.map(trozoNombre).filter(Boolean) : [todo]), HOY_ISO].join("_");
 export function descargarCsv(nombre, cabeceras, filas) {
   const celda = (v) => { let t = v == null ? "" : String(v); if (/^[=+\-@]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; };
   const texto = [cabeceras, ...filas].map((f) => f.map(celda).join(";")).join("\r\n");
