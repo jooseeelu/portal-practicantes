@@ -25,8 +25,11 @@ export default {
     const ronda = rondaDe;
     // Exportar las entrevistas realizadas (Excel o PDF)
     const menuExp = ref(false);
-    const hayRealizadas = computed(() => store.entrevistas.some((e) => e.estado === "Realizada"));
-    const exportarEnt = (tipo) => { menuExp.value = false; const n = tipo === "pdf" ? pdfEntrevistas() : excelEntrevistas(); toast(tipo === "pdf" ? "PDF preparado: en la ventana de imprimir elige «Guardar como PDF»" : n + " entrevistas exportadas a Excel"); };
+    // Se exporta lo que dejan ver los filtros (agenda de una persona, área…)
+    const realizadasVisibles = computed(() => filtradas.value.filter((e) => e.estado === "Realizada"));
+    const hayRealizadas = computed(() => realizadasVisibles.value.length > 0);
+    const etiquetaExp = computed(() => [s.fQuien === "_ninguno" ? "Sin responsable" : s.fQuien ? (s.fQuien === miAgenda.value ? "Mi agenda (" + s.fQuien + ")" : "Agenda de " + s.fQuien) : "", filtrosC.area ? "Área: " + (filtrosC.area === "__otras" ? "Otra" : filtrosC.area) : ""].filter(Boolean).join(" · "));
+    const exportarEnt = (tipo) => { menuExp.value = false; const n = tipo === "pdf" ? pdfEntrevistas(filtradas.value, etiquetaExp.value) : excelEntrevistas(filtradas.value, etiquetaExp.value); toast(tipo === "pdf" ? "PDF preparado: en la ventana de imprimir elige «Guardar como PDF»" : n + " entrevistas exportadas a Excel" + (etiquetaExp.value ? " (" + etiquetaExp.value + ")" : "")); };
     const cierraExp = (e) => { if (menuExp.value && !e.target.closest?.(".menu-exp")) menuExp.value = false; };
     onMounted(() => document.addEventListener("click", cierraExp));
     onUnmounted(() => document.removeEventListener("click", cierraExp));
@@ -110,7 +113,7 @@ export default {
 
     // Tarjeta partida (dos citas casi a la vez): primero el nombre corto, para saber quién viene de un vistazo
     const corto = (c) => { if (!c) return "—"; const ap = String(c.apellidos || "").trim(); return String(c.nombre || "").trim().split(/\s+/)[0] + (ap ? " " + ap[0].toUpperCase() + "." : ""); };
-    return { menuExp, hayRealizadas, exportarEnt, corto, rondasDe, entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
+    return { menuExp, hayRealizadas, realizadasVisibles, etiquetaExp, exportarEnt, corto, rondasDe, entrevistasDe, ronda, encontradas, irACita, filtrosC, menuDe, ordenar, flecha, s, dias, horas, porDia, tituloSemana, mover, lista, cuentas, sel, selCand, reprog, confirmar, cancelar, abrirReprog, guardarReprog, valorar, recordar, miAgenda,
       nueva, opCands, choque, abrirNueva, clicHueco, crear, go, candDe, centroDe, nombreCompleto, ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, PX, fCorta, fLarga, diaCorto, diaNum, deMin, aMin, DUR };
   },
   template: `
@@ -121,8 +124,8 @@ export default {
       <div class="acciones acciones-agenda">
         <select class="inp" v-model="s.fQuien" style="width:190px"><option value="">Todo el equipo</option><option v-if="miAgenda" :value="miAgenda">Mi agenda</option><OpcionesPersonas prefijo="Agenda de " /><option value="_ninguno">Sin responsable asignado</option></select>
         <div class="seg"><button :class="{on: s.vista==='calendario'}" @click="s.vista='calendario'"><Ic n="calendario" :s="15" />Calendario</button><button :class="{on: s.vista==='lista'}" @click="s.vista='lista'"><Ic n="tabla" :s="15" />Listado</button></div>
-        <div class="menu-exp"><button class="btn" :class="{on: menuExp}" @click.stop="menuExp = !menuExp" :disabled="!hayRealizadas" :title="hayRealizadas ? 'Descargar las entrevistas realizadas' : 'Todavía no hay entrevistas realizadas'" aria-haspopup="menu" :aria-expanded="menuExp"><Ic n="download" :s="16" /><span>Exportar</span><Ic n="chevD" :s="14" /></button>
-          <div v-if="menuExp" class="menu-exp-pop" role="menu"><button role="menuitem" @click="exportarEnt('excel')"><Ic n="tabla" :s="16" /><span><b>Excel</b><small>Resumen y detalle, con filtros</small></span></button><button role="menuitem" @click="exportarEnt('pdf')"><Ic n="documentos" :s="16" /><span><b>PDF</b><small>Para imprimir o enviar</small></span></button></div></div>
+        <div class="menu-exp"><button class="btn" :class="{on: menuExp}" @click.stop="menuExp = !menuExp" :disabled="!hayRealizadas" :title="hayRealizadas ? 'Descargar las entrevistas realizadas' + (etiquetaExp ? ' · ' + etiquetaExp : ' de todo el equipo') : 'No hay entrevistas realizadas con este filtro'" aria-haspopup="menu" :aria-expanded="menuExp"><Ic n="download" :s="16" /><span>Exportar</span><Ic n="chevD" :s="14" /></button>
+          <div v-if="menuExp" class="menu-exp-pop" role="menu"><p class="menu-exp-que">{{ realizadasVisibles.length }} realizada{{ realizadasVisibles.length === 1 ? '' : 's' }} · {{ etiquetaExp || 'todo el equipo' }}</p><button role="menuitem" @click="exportarEnt('excel')"><Ic n="tabla" :s="16" /><span><b>Excel</b><small>Resumen y detalle, con filtros</small></span></button><button role="menuitem" @click="exportarEnt('pdf')"><Ic n="documentos" :s="16" /><span><b>PDF</b><small>Para imprimir o enviar</small></span></button></div></div>
         <button class="btn btn-accent" @click="abrirNueva()"><Ic n="plus" :s="16" /><span class="txt-largo">Nueva entrevista</span><span class="txt-corto">Nueva</span></button>
       </div>
     </div>

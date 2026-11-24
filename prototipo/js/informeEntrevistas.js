@@ -5,12 +5,13 @@ import { descargarBlob, HOY_ISO } from "./util.js";
 import { registrar } from "./api.js";
 
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[m]);
+const slug = (t) => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const fecha = (iso) => { const [a, m, d] = String(iso || "").split("-"); return a ? `${d}/${m}/${a}` : ""; };
 const punteado = (l) => (l || []).map((x) => "• " + x).join("\n");
 
 /** Las entrevistas con estado «Realizada», de la más reciente a la más antigua, con su valoración. */
-export function entrevistasRealizadas() {
-  return store.entrevistas
+export function entrevistasRealizadas(origen = store.entrevistas) {
+  return origen
     .filter((e) => e.estado === "Realizada")
     .slice()
     .sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora))
@@ -37,8 +38,9 @@ function resumen(l) {
   return { total: l.length, conNota: l.filter((x) => typeof x.nota === "number").length, media: media(l), desde: f[0] || "", hasta: f[f.length - 1] || "" };
 }
 
-export function excelEntrevistas() {
-  const l = entrevistasRealizadas();
+/** `origen`: las entrevistas a exportar (por defecto todas); `etiqueta`: qué filtro llevan («Agenda de Andrés»…). */
+export function excelEntrevistas(origen, etiqueta = "") {
+  const l = entrevistasRealizadas(origen);
   const r = resumen(l);
   const detalle = {
     nombre: "Entrevistas realizadas",
@@ -48,6 +50,7 @@ export function excelEntrevistas() {
     anchos: [12, 8, 28, 30, 22, 11, 12, 18, 8, 22, 38, 38, 44],
   };
   const filas = [
+    ...(etiqueta ? [["Filtro", etiqueta, ""]] : []),
     ["Entrevistas realizadas", r.total, ""],
     ["Con nota puesta", r.conNota, ""],
     ["Nota media", r.media, ""],
@@ -63,13 +66,13 @@ export function excelEntrevistas() {
     ...agrupar(l, (x) => x.centro).map(([k, v]) => [k, v.length, media(v)]),
   ];
   const hojaResumen = { nombre: "Resumen", cabeceras: ["Resumen · Gestoría eMadrid", "", ""], filas, estilos: [4, 3, 3], anchos: [38, 14, 14], sinFiltro: true };
-  descargarBlob(crearXlsx([hojaResumen, detalle]), `entrevistas-realizadas-${HOY_ISO}.xlsx`);
-  registrar("Exportó las entrevistas realizadas a Excel", l.length + " entrevistas");
+  descargarBlob(crearXlsx([hojaResumen, detalle]), `entrevistas-realizadas${etiqueta ? "-" + slug(etiqueta) : ""}-${HOY_ISO}.xlsx`);
+  registrar("Exportó las entrevistas realizadas a Excel", l.length + " entrevistas" + (etiqueta ? " · " + etiqueta : ""));
   return l.length;
 }
 
-export function htmlEntrevistas() {
-  const l = entrevistasRealizadas();
+export function htmlEntrevistas(origen, etiqueta = "") {
+  const l = entrevistasRealizadas(origen);
   const r = resumen(l);
   const color = (n) => (typeof n !== "number" ? "#6b7796" : n >= 8 ? "#0b7a52" : n >= 6 ? "#9a6a00" : "#b42338");
   const puntos = (t, a) => (a.length ? `<div class="pt ${t}"><b>${t === "pro" ? "A favor" : "En contra"}</b> ${a.map(esc).join(" · ")}</div>` : "");
@@ -92,20 +95,20 @@ export function htmlEntrevistas() {
     td span { color: #6b7796; } .nw { white-space: nowrap; } .n { text-align: center; font-size: 15px; font-weight: 800; }
     .pt { margin-bottom: 2px; } .pt.pro b { color: #0b7a52; } .pt.con b { color: #b42338; } .ob { color: #3a4a78; font-style: italic; margin-top: 2px; }
   </style></head><body>
-  <header><div><h1>Entrevistas realizadas</h1><span>Gestoría eMadrid · prácticas</span></div><span>${r.desde ? `Del ${fecha(r.desde)} al ${fecha(r.hasta)} · ` : ""}generado el ${fecha(HOY_ISO)}</span></header>
+  <header><div><h1>Entrevistas realizadas</h1><span>Gestoría eMadrid · prácticas${etiqueta ? " · <b>" + esc(etiqueta) + "</b>" : ""}</span></div><span>${r.desde ? `Del ${fecha(r.desde)} al ${fecha(r.hasta)} · ` : ""}generado el ${fecha(HOY_ISO)}</span></header>
   <div class="res"><div><b>${r.total}</b>entrevistas</div><div><b>${r.conNota}</b>con nota</div><div><b>${String(r.media === "" ? "—" : r.media).replace(".", ",")}</b>nota media</div></div>
   <table><thead><tr><th>Fecha</th><th>Candidato/a</th><th>Entrevista</th><th>Nota</th><th>Valoración</th></tr></thead><tbody>${filas || '<tr><td colspan="5">Todavía no hay entrevistas realizadas.</td></tr>'}</tbody></table>
   </body></html>`;
 }
 
 /** Abre el diálogo de imprimir (o «Guardar como PDF») con el informe, sin ventanas emergentes. */
-export function pdfEntrevistas() {
-  const n = entrevistasRealizadas().length;
+export function pdfEntrevistas(origen, etiqueta = "") {
+  const n = entrevistasRealizadas(origen).length;
   const marco = document.createElement("iframe");
   marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-  marco.srcdoc = htmlEntrevistas();
+  marco.srcdoc = htmlEntrevistas(origen, etiqueta);
   marco.onload = () => { setTimeout(() => { try { marco.contentWindow.focus(); marco.contentWindow.print(); } catch (_) { /* sin impresión */ } setTimeout(() => marco.remove(), 60000); }, 250); };
   document.body.appendChild(marco);
-  registrar("Preparó el PDF de entrevistas realizadas", n + " entrevistas");
+  registrar("Preparó el PDF de entrevistas realizadas", n + " entrevistas" + (etiqueta ? " · " + etiqueta : ""));
   return n;
 }
