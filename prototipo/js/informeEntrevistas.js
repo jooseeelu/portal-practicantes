@@ -75,12 +75,13 @@ export function htmlEntrevistas(origen, etiqueta = "") {
   const l = entrevistasRealizadas(origen);
   const r = resumen(l);
   const color = (n) => (typeof n !== "number" ? "#6b7796" : n >= 8 ? "#0b7a52" : n >= 6 ? "#9a6a00" : "#b42338");
+  const fondo = (n) => (typeof n !== "number" ? "#eef2f7" : n >= 8 ? "#ddf5ea" : n >= 6 ? "#fdf1d6" : "#fde8eb");
   const lista = (a) => (a.length ? `<ul>${a.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : '<em class="vac">—</em>');
   const filas = l.map((x) => `<tbody><tr>
-    <td class="nw">${fecha(x.fecha)}<br><span>${esc(x.hora)}</span></td>
+    <td class="nw"><b>${fecha(x.fecha)}</b><br><span>${esc(x.hora)}</span></td>
     <td><b>${esc(x.candidato)}</b><br><span>${esc(x.centro)}${x.area ? " · " + esc(x.area) : ""}</span></td>
-    <td class="nw">${x.ronda}.ª · ${esc(x.modalidad)}<br><span>${esc(x.entrevistador)}</span></td>
-    <td class="n" style="color:${color(x.nota)}">${typeof x.nota === "number" ? String(x.nota).replace(".", ",") : "—"}</td>
+    <td><b>${x.ronda}.ª</b> · ${esc(x.modalidad)}<br><span>${esc(x.entrevistador)}</span></td>
+    <td class="n"><i style="color:${color(x.nota)};background:${fondo(x.nota)}">${typeof x.nota === "number" ? String(x.nota).replace(".", ",") : "—"}</i></td>
     <td class="pro">${lista(x.pros)}</td><td class="con">${lista(x.contras)}</td></tr>${x.obs ? `<tr class="o"><td></td><td colspan="5"><b>Obs.</b> ${esc(x.obs)}</td></tr>` : ""}</tbody>`).join("");
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Entrevistas realizadas</title><style>
     @page { size: A4 landscape; margin: 12mm; }
@@ -89,15 +90,15 @@ export function htmlEntrevistas(origen, etiqueta = "") {
     header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 3px solid #14c8b4; padding-bottom: 8px; margin-bottom: 10px; }
     h1 { font-size: 20px; margin: 0; letter-spacing: -.02em; } header span { color: #6b7796; }
     .res { display: flex; gap: 10px; margin-bottom: 10px; } .res div { border: 1px solid #dde5ee; border-radius: 8px; padding: 6px 12px; } .res b { display: block; font-size: 16px; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; } thead { display: table-header-group; } tbody { break-inside: avoid; border-bottom: 1px solid #dde5ee; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; } thead { display: table-header-group; } tbody { break-inside: avoid; border-bottom: 1px solid #dde5ee; } .nw { white-space: nowrap; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     th { text-align: left; background: #121c38; color: #fff; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 6px 8px; }
-    td { padding: 4px 6px; vertical-align: top; font-size: 10px; line-height: 1.3; } tbody:nth-of-type(even) td { background: #f5f8fb; }
-    td span { color: #6b7796; } .nw { white-space: nowrap; } .n { text-align: center; font-size: 15px; font-weight: 800; }
+    td { padding: 6px 8px; vertical-align: top; font-size: 10px; line-height: 1.3; } tbody:nth-of-type(even) td { background: #f5f8fb; }
+    td span { color: #6b7796; } .nw { white-space: nowrap; } .n { text-align: center; } .n i { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; font-style: normal; font-size: 12px; font-weight: 800; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     ul { margin: 0; padding-left: 12px; } li { margin-bottom: 1px; } .pro { border-left: 3px solid #14c8b4; } .con { border-left: 3px solid #e0566a; } .vac { color: #9aa5bd; font-style: normal; } tr.o td { padding-top: 0; color: #3a4a78; font-style: italic; }
   </style></head><body>
   <header><div><h1>Entrevistas realizadas</h1><span>Gestoría eMadrid · prácticas${etiqueta ? " · <b>" + esc(etiqueta) + "</b>" : ""}</span></div><span>${r.desde ? `Del ${fecha(r.desde)} al ${fecha(r.hasta)} · ` : ""}generado el ${fecha(HOY_ISO)}</span></header>
   <div class="res"><div><b>${r.total}</b>entrevistas</div><div><b>${r.conNota}</b>con nota</div><div><b>${String(r.media === "" ? "—" : r.media).replace(".", ",")}</b>nota media</div></div>
-  <table><colgroup><col style="width:9%"><col style="width:18%"><col style="width:13%"><col style="width:6%"><col style="width:27%"><col style="width:27%"></colgroup><thead><tr><th>Fecha</th><th>Candidato/a</th><th>Entrevista</th><th>Nota</th><th>A favor</th><th>En contra</th></tr></thead>${filas || '<tbody><tr><td colspan="6">Todavía no hay entrevistas realizadas.</td></tr></tbody>'}</table>
+  <table><colgroup><col style="width:92px"><col style="width:200px"><col style="width:120px"><col style="width:50px"><col><col></colgroup><thead><tr><th>Fecha</th><th>Candidato/a</th><th>Entrevista</th><th>Nota</th><th>A favor</th><th>En contra</th></tr></thead>${filas || '<tbody><tr><td colspan="6">Todavía no hay entrevistas realizadas.</td></tr></tbody>'}</table>
   </body></html>`;
 }
 
