@@ -8,7 +8,7 @@ import { SelectorFechas, textoTramo } from "../fechas.js";
 import { elegirMensaje } from "../mensajes.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, OpcionesPersonas, SelectArea } from "../ui.js";
 import { AREAS_UNIDAS, TURNOS, AREAS, ORIGENES, ASESORES, ESTADOS_CITA } from "../data.js";
-import { normal, descargarCsv, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
+import { normal, descargarCsv, nombreArchivo, fCorta, HOY_ISO, dia, urlWhatsApp } from "../util.js";
 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
 export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", desde: "", hasta: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
@@ -61,7 +61,7 @@ export default {
     const fases = computed(() => store.estados.filter((e) => e.activo).map((e) => ({ ...e, cnt: base.value.filter((c) => c.estado === e.k).length })));
     const exportar = () => {
       const filas = lista.value.map((c) => { const e = entrevistaDe(c.id); return [c.nombre, c.apellidos, c.email, c.tel, centroDe(c.centroId)?.nombre || "Autopostulado", c.titulacion, c.area, c.turno, c.horas, estadoDe(c.estado).n, c.nota == null ? "" : String(c.nota).replace(".", ","), e ? e.fecha : "", e ? e.hora : "", e ? e.estado : "", c.origen, c.creado, c.obs]; });
-      descargarCsv("candidatos-" + HOY_ISO + ".csv", ["Nombre", "Apellidos", "Correo", "Teléfono", "Centro", "Titulación", "Área", "Turno", "Horas", "Estado", "Valoración", "Fecha entrevista", "Hora entrevista", "Estado de la cita", "Origen", "Registrado", "Observaciones"], filas);
+      descargarCsv(nombreArchivo("Candidatos", [f.area === "__otras" ? "Otra" : f.area, f.turno, f.centro ? centroDe(f.centro)?.nombre : ""], "Todos") + ".csv", ["Nombre", "Apellidos", "Correo", "Teléfono", "Centro", "Titulación", "Área", "Turno", "Horas", "Estado", "Valoración", "Fecha entrevista", "Hora entrevista", "Estado de la cita", "Origen", "Registrado", "Observaciones"], filas);
       registrar("Exportó candidatos a Excel", filas.length + " fichas"); toast(filas.length + " candidatos exportados");
     };
     const areasFiltro = AREAS;

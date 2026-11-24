@@ -7,7 +7,7 @@ import { miNombre, registrar } from "../api.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Vacio, pedirConfirmacion, OpcionesPersonas } from "../ui.js";
 import { ESTADOS_CITA, ENTREVISTADORES, HORAS_ENTREVISTA, AREAS } from "../data.js";
 import { filtros as filtrosC } from "./Candidatos.js";
-import { cumpleArea, HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal, esFinde, urlWhatsApp } from "../util.js";
+import { cumpleArea, nombreArchivo, HOY_ISO, dia, lunesDe, fCorta, fLarga, diaCorto, diaNum, aMin, deMin, normal, esFinde, urlWhatsApp } from "../util.js";
 
 const H0 = 10, H1 = 20, PX = 64, DUR = 45; // horario visible, píxeles por hora y duración de una entrevista
 const estado = reactive({ vista: "calendario", semana: lunesDe(dia(3)), fEstado: "", fQuien: "", q: "", orden: { col: "fecha", dir: "desc" } });
@@ -29,7 +29,8 @@ export default {
     const realizadasVisibles = computed(() => filtradas.value.filter((e) => e.estado === "Realizada"));
     const hayRealizadas = computed(() => realizadasVisibles.value.length > 0);
     const etiquetaExp = computed(() => [s.fQuien === "_ninguno" ? "Sin responsable" : s.fQuien ? (s.fQuien === miAgenda.value ? "Mi agenda (" + s.fQuien + ")" : "Agenda de " + s.fQuien) : "", filtrosC.area ? "Área: " + (filtrosC.area === "__otras" ? "Otra" : filtrosC.area) : ""].filter(Boolean).join(" · "));
-    const exportarEnt = (tipo) => { menuExp.value = false; const n = tipo === "pdf" ? pdfEntrevistas(filtradas.value, etiquetaExp.value) : excelEntrevistas(filtradas.value, etiquetaExp.value); toast(tipo === "pdf" ? "PDF preparado: en la ventana de imprimir elige «Guardar como PDF»" : n + " entrevistas exportadas a Excel" + (etiquetaExp.value ? " (" + etiquetaExp.value + ")" : "")); };
+    const exportarEnt = (tipo) => { menuExp.value = false; const n = tipo === "pdf" ? pdfEntrevistas(filtradas.value, etiquetaExp.value, nombreExp.value) : excelEntrevistas(filtradas.value, etiquetaExp.value, nombreExp.value); toast(tipo === "pdf" ? "PDF preparado: en la ventana de imprimir elige «Guardar como PDF»" : n + " entrevistas exportadas a Excel" + (etiquetaExp.value ? " (" + etiquetaExp.value + ")" : "")); };
+    const nombreExp = computed(() => nombreArchivo("Entrevistas", [s.fQuien === "_ninguno" ? "SinAsignar" : s.fQuien, filtrosC.area === "__otras" ? "Otra" : filtrosC.area]));
     const cierraExp = (e) => { if (menuExp.value && !e.target.closest?.(".menu-exp")) menuExp.value = false; };
     onMounted(() => document.addEventListener("click", cierraExp));
     onUnmounted(() => document.removeEventListener("click", cierraExp));

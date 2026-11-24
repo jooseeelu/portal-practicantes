@@ -38,7 +38,7 @@ export default {
       }
       zip.ocupado = false;
       if (!archivos.length) return toast("No se pudo descargar ningún archivo.", "error");
-      descargarBlob(crearZip(archivos), "documentos-" + HOY_ISO + ".zip");
+      descargarBlob(crearZip(archivos), "Documentos_" + HOY_ISO + ".zip");
       registrar("Descargó documentos en ZIP", archivos.length + " archivos");
       toast(archivos.length + " archivos en el ZIP" + (fallos ? " · " + fallos + " no se pudieron descargar" : ""), fallos ? "error" : "ok");
     };
