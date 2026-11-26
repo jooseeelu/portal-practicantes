@@ -2,6 +2,8 @@
 // y aquí se recorta en el navegador. Si el recorte sale mal, la persona puede quitarla con la «x».
 const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+// Huella oficial de cdnjs: si alguien cambiara el archivo en el CDN, el navegador no lo ejecuta.
+const PDFJS_SRI = "sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ==";
 let promesaPdf = null;
 
 function cargarPdfJs() {
@@ -9,7 +11,7 @@ function cargarPdfJs() {
   if (!promesaPdf) {
     promesaPdf = new Promise((ok, mal) => {
       const s = document.createElement("script");
-      s.src = PDFJS; s.async = true;
+      s.src = PDFJS; s.async = true; s.integrity = PDFJS_SRI; s.crossOrigin = "anonymous"; s.referrerPolicy = "no-referrer";
       s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; ok(window.pdfjsLib); };
       s.onerror = () => { promesaPdf = null; mal(new Error("No se pudo cargar el lector de PDF.")); };
       document.head.appendChild(s);
@@ -26,7 +28,13 @@ export async function paginaEnCanvas(archivo) {
     c.getContext("2d").drawImage(img, 0, 0); URL.revokeObjectURL(img.src); return c;
   }
   const lib = await cargarPdfJs();
-  const pdf = await lib.getDocument({ data: new Uint8Array(await archivo.arrayBuffer()) }).promise;
+  const pdf = await lib.getDocument({
+    data: new Uint8Array(await archivo.arrayBuffer()),
+    // Seguridad (CVE-2024-4367): un PDF malicioso podía ejecutar código al pintar sus fuentes. Con esto no se usa eval.
+    isEvalSupported: false,
+    // Un currículum no necesita scripts ni formularios del PDF
+    enableXfa: false,
+  }).promise;
   const pag = await pdf.getPage(1);
   const base = pag.getViewport({ scale: 1 });
   const vp = pag.getViewport({ scale: Math.min(3, 2400 / base.width) });
