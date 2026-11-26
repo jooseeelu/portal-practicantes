@@ -296,3 +296,29 @@ routerAdd("POST", "/api/portal/recordatorios/probar", (e) => {
   const r = require(`${__hooks}/recordatorios.js`).enviar(e.app, "prueba");
   return e.json(200, r);
 }, $apis.requireAuth("users"));
+
+// Fotos de candidatos como archivo (ver fotos.js): al crear o guardar una ficha, la foto en base64 se pasa a la
+// colección «fotos» y la ficha se queda solo con la referencia. Así cada descarga de datos pesa mucho menos.
+onRecordCreateRequest((e) => {
+  if (e.record.getString("tipo") === "candidatos") {
+    const F = require(`${__hooks}/fotos.js`);
+    const d = F.leer(e.record);
+    try { if (d && F.procesar(e.app, d, null)) e.record.set("datos", d); } catch (err) { console.log("Fotos: " + err); }
+  }
+  return e.next();
+}, "registros");
+onRecordUpdateRequest((e) => {
+  if (e.record.getString("tipo") === "candidatos") {
+    const F = require(`${__hooks}/fotos.js`);
+    const d = F.leer(e.record), previo = F.leer(e.record.original());
+    try { if (d && F.procesar(e.app, d, previo)) e.record.set("datos", d); } catch (err) { console.log("Fotos: " + err); }
+  }
+  return e.next();
+}, "registros");
+// Fichas antiguas con la foto dentro: se convierten poco a poco; y se borran las fotos de fichas eliminadas del todo.
+cronAdd("fotos_convertir", "*/10 * * * *", () => {
+  try { const n = require(`${__hooks}/fotos.js`).convertirPendientes($app, 40); if (n) console.log("Fotos convertidas: " + n); } catch (err) { console.log("Fotos: " + err); }
+});
+cronAdd("fotos_limpiar", "17 4 * * *", () => {
+  try { const n = require(`${__hooks}/fotos.js`).limpiarHuerfanas($app); if (n) console.log("Fotos huérfanas borradas: " + n); } catch (err) { console.log("Fotos: " + err); }
+});

@@ -143,6 +143,35 @@ export async function urlFichero(coleccion, id, nombre) {
   if (Date.now() > tokenArchivos.hasta) { const d = await pedir("POST", "api/files/token"); tokenArchivos = { valor: d.token, hasta: Date.now() + 60000 }; }
   return `api/files/${coleccion}/${id}/${encodeURIComponent(nombre)}?token=${tokenArchivos.valor}`;
 }
+// --- Fotos de los candidatos ---
+// En el servidor la foto es un archivo aparte (colección «fotos»); la ficha solo guarda fotoId y fotoNombre.
+// Se descarga una vez por sesión y se reutiliza. Mientras tanto, o si falla, se ven las iniciales.
+const fotosUrl = reactive({});
+const pendientesFoto = [], pidiendo = new Set();
+let fotosEnCurso = 0;
+function siguienteFoto() {
+  while (fotosEnCurso < 6 && pendientesFoto.length) {
+    const [k, id, nombre] = pendientesFoto.shift();
+    fotosEnCurso++;
+    urlFichero("fotos", id, nombre).then((u) => fetch(u)).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+      .then((b) => { fotosUrl[k] = URL.createObjectURL(b); pidiendo.delete(k); })
+      .catch(() => { setTimeout(() => pidiendo.delete(k), 60000); }) // se reintenta pasado un minuto
+      .finally(() => { fotosEnCurso--; siguienteFoto(); });
+  }
+}
+/** Dirección de la foto de un candidato para un <img> («» si no tiene o aún se está descargando). */
+export function fotoDe(c) {
+  if (!c) return "";
+  if (typeof c.foto === "string") return c.foto; // recién puesta (base64), datos de demostración, o «» si se acaba de quitar
+  if (!c.fotoId || !c.fotoNombre) return "";
+  const k = c.fotoId + "/" + c.fotoNombre;
+  if (fotosUrl[k]) return fotosUrl[k];
+  if (!pidiendo.has(k) && sesion.modo === "servidor") { pidiendo.add(k); pendientesFoto.push([k, c.fotoId, c.fotoNombre]); siguienteFoto(); }
+  return "";
+}
+/** ¿Tiene foto? (sin esperar a que se descargue) */
+export const tieneFoto = (c) => !!c && (typeof c.foto === "string" ? !!c.foto : !!c.fotoId);
+
 /** Envía un formulario con archivos (FormData) a una colección. */
 export async function crearConArchivo(coleccion, fd) {
   let r;
