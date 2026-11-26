@@ -42,8 +42,28 @@ Sin `DESTINO_EXTERNO` solo copia dentro del propio servidor.
 
 **Haz una restauración de prueba en el entorno de pruebas** antes de necesitarla de verdad.
 
+## Copia fuera del servidor: Google Drive cifrado (activa desde el 26/11/2026)
+
+- Cada noche a las 3:30 (hora del servidor, UTC) el cron de root ejecuta `/root/backups/subir-copias-drive.sh`.
+- Sube las copias de los últimos 3 días al Drive de la **cuenta de Google de la gestoría**, carpeta `copias-servidor`,
+  **cifradas** con rclone (remoto `gdrive-cifrado`). En Drive se ven nombres y contenidos ilegibles. Se conservan 30 días.
+- rclone solo tiene permiso sobre los archivos que sube él (permiso «drive.file»), no sobre el resto del Drive.
+- Las **dos contraseñas del cifrado** están guardadas por la gestoría fuera del servidor. **Sin ellas las copias no se
+  pueden abrir.** La configuración de rclone está en `/root/.config/rclone/rclone.conf` (solo root).
+- Registro: `/root/backups/subir-copias-drive.log`.
+
+### Recuperar una copia desde Drive
+
+1. En el servidor (o en cualquier equipo con rclone configurado con la misma cuenta y las dos contraseñas):
+   `rclone ls gdrive-cifrado:copias-servidor/portal-practicas` y
+   `rclone copy "gdrive-cifrado:copias-servidor/portal-practicas/<copia>.zip" /root/restaurar/`
+2. Seguir los pasos de «Restaurar» de arriba con ese ZIP.
+
+Prueba hecha el 26/11/2026: se bajó la copia del día de Drive, era idéntica a la original, el ZIP estaba sano, la base
+de datos pasó la comprobación de integridad y un portal temporal arrancó con ella (sin hooks, para no lanzar
+recordatorios ni sincronizaciones). Conviene repetir esta prueba cada pocos meses.
+
 ## Pendiente de decidir
 
-- Destino externo de las copias (otro VPS propio, un ordenador de la oficina…).
 - Plazo de conservación de las copias, de acuerdo con la política de protección de datos
   (las copias también contienen datos de candidatos no seleccionados).
