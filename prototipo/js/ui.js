@@ -1,6 +1,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { store, estadoDe } from "./store.js";
 import { iniciales, hash, normal } from "./util.js";
+import { fotoDe } from "./api.js";
 
 export const ICONS = {
   enviar: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
@@ -86,7 +87,7 @@ export const Avatar = {
   setup(p) {
     const col = computed(() => PALETA[hash(p.nombre + p.apellidos) % PALETA.length]);
     // Si no se pasa la foto, se busca la del candidato con ese nombre (así sale en todos los listados)
-    const img = computed(() => p.foto || store.candidatos.find((c) => c.nombre === p.nombre && c.apellidos === p.apellidos)?.foto || "");
+    const img = computed(() => p.foto || fotoDe(store.candidatos.find((c) => c.nombre === p.nombre && c.apellidos === p.apellidos)));
     return { col, img, ini: computed(() => iniciales(p.nombre, p.apellidos)) };
   },
   template: `<span class="avatar" :style="{width: s+'px', height: s+'px', fontSize: (s*0.38)+'px', '--c': col}"><img v-if="img" :src="img" alt="" /><template v-else>{{ ini }}</template></span>`,

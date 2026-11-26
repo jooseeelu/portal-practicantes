@@ -4,7 +4,7 @@ import { DIAS_PAPELERA, store, etiquetaTurno, candDe, centroDe, entrevistaDe, en
 import { ruta, go, origenFicha } from "../router.js";
 import { elegirMensaje } from "../mensajes.js";
 import { gentrivo, cargarGentrivo, enGentrivo, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO } from "../gentrivo.js";
-import { miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar, esAdmin } from "../api.js";
+import { fotoDe, tieneFoto, miNombre, sesion, subirArchivo, urlArchivo, borrarArchivo, leerCurriculum, registrar, esAdmin } from "../api.js";
 import { recortarFoto } from "../cv.js";
 import { RecorteFoto } from "../recorte.js";
 import { Ic, Chip, Avatar, Nota, Modal, SelectBuscable, Dropzone, Vacio, leerFoto, pedirConfirmacion, OpcionesPersonas, SelectArea } from "../ui.js";
@@ -349,7 +349,7 @@ export default {
             const blob = await (await fetch(await urlArchivo(d))).blob();
             const tipo = d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext;
             ia.foto = await recortarFoto(new File([blob], d.nombre, { type: tipo }), r.foto, { soloConCara: true });
-            ia.usarFoto = !!ia.foto && !c.value.foto;
+            ia.usarFoto = !!ia.foto && !tieneFoto(c.value);
           } catch (_) { /* sin foto: no impide aplicar el resto */ }
         }
         registrar("Leyó un currículum con IA", d.nombre);
@@ -371,7 +371,7 @@ export default {
           const m = store.centros.find((ce) => !ce.archivado && (normal(ce.nombre) === n || (normal(ce.nombre).length > 3 && (n.includes(normal(ce.nombre)) || normal(ce.nombre).includes(n)))));
           if (m) { c.value.centroId = m.id; puestos.push("centro"); }
         }
-        if (r.foto && !c.value.foto) {
+        if (r.foto && !tieneFoto(c.value)) {
           try {
             const blob = await (await fetch(await urlArchivo(d))).blob();
             const foto = await recortarFoto(new File([blob], d.nombre, { type: d.ext === "pdf" ? "application/pdf" : blob.type || "image/" + d.ext }), r.foto, { soloConCara: true });
@@ -426,7 +426,7 @@ export default {
     const VOLVER = { candidatos: "Candidatos", estudiantes: "Estudiantes en prácticas", entrevistas: "Entrevistas", centros: "Centros educativos", documentos: "Documentos", inicio: "Inicio", informes: "Informes" };
     const volverA = computed(() => (VOLVER[origenFicha.value] ? origenFicha.value : "candidatos"));
     const volverTxt = computed(() => VOLVER[volverA.value]);
-    return { gentActiva, gentAuto, incFalta, opcionesG, volverA, volverTxt, apuntarTodasG, pcDe, motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
+    return { fotoDe, tieneFoto, gentActiva, gentAuto, incFalta, opcionesG, volverA, volverTxt, apuntarTodasG, pcDe, motivo, confirmarMotivo, empleado, faltasG, apuntarG, cert, imprimirCert, quitarEval, ev, evaluacion, ponerEval, mediaEval, hacerCertificado, CRITERIOS_EVAL, encuadrando, encuadrarSola, docsCentro, borrarNota, miNombre, recorte, abrirRecorte, usarRecorte, auto, leerAuto, borrarCv, borrarEsta, notaEscrita, fotoAbierta, cambiarFoto, buscarFotoCv, ponerNota, etiquetaNota, bor, cambiosVal, descartarValoracion, elegirRonda, deshacerHist, sePuedeDeshacer, esAdmin, borrarFicha, entSel, ents, rondaDe, otraEntrevista, quitarCriterio, borrarValoracion, eligeG, opcionesG, vincularG, gentrivo, g, textoHoy, hoyEsCambio, proximosCambios, semana, DIAS_SEMANA, TIPO_CAMBIO, abrirWhatsApp, abrirCorreo, ia, puedeLeerIA, leerConIA, aplicarIA, falta, addFalta, quitarFalta, etiquetaTurno, store, c, tab, tabs, ent, est, docs, hist, notas, cv, cvSel, cvActual, opCentros, centroSel, estadoSel, zoom, prog, guardarProg, media, notaFinal, guardarValoracion, addPregunta,
       subir, borrarDoc, tam, enServidor, subiendo, urlVisor, errorVisor, abrirArchivo, nuevo, addPC, quitarPC, editarPC, ponerFoto, quitarFoto, nuevaNota, addNota, inc, abrirInc, ocupacion, guardarInc, demo, go, centroDe, nombreCompleto, estadoPracticas,
       CRITERIOS, TIPOS_DOC, ICONO_HIST, TURNOS, AREAS, ORIGENES, ENTREVISTADORES, ASESORES, HORAS_ENTREVISTA, ESTADOS_CITA, fCompleta, fCorta, fLarga, relativo };
   },
@@ -436,8 +436,8 @@ export default {
 
     <div class="card ficha-head">
       <div class="foto-col">
-        <button v-if="c.foto" type="button" class="foto-edit" title="Ver la foto" aria-label="Ver la foto en grande" @click="fotoAbierta = true"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><span class="camara"><Ic n="search" :s="14" /></span></button>
-        <label v-else class="foto-edit" title="Poner una foto"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="c.foto" :s="84" /><span class="camara"><Ic n="camara" :s="15" /></span><input type="file" accept="image/*" hidden @change="ponerFoto" /></label>
+        <button v-if="tieneFoto(c)" type="button" class="foto-edit" title="Ver la foto" aria-label="Ver la foto en grande" @click="fotoAbierta = true"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="fotoDe(c)" :s="84" /><span class="camara"><Ic n="search" :s="14" /></span></button>
+        <label v-else class="foto-edit" title="Poner una foto"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :foto="fotoDe(c)" :s="84" /><span class="camara"><Ic n="camara" :s="15" /></span><input type="file" accept="image/*" hidden @change="ponerFoto" /></label>
       </div>
       <div class="grow">
         <div class="row wrap"><h1>{{ c.nombre }} {{ c.apellidos }}</h1><Chip :k="c.estado" /><span v-if="c.motivoEstado && ['cancelado','retirada','no-seleccionado','no-seleccionado-comunicado'].includes(c.estado)" class="sub" :title="c.motivoEstado">Motivo: {{ c.motivoEstado }}</span>
@@ -718,8 +718,8 @@ export default {
 
     <RecorteFoto v-if="recorte.abierto" :archivo="recorte.archivo" :caja="recorte.caja" :buscando="recorte.buscando" @listo="usarRecorte" @cerrar="recorte.abierto = false" />
 
-    <Modal v-if="fotoAbierta && c.foto" :titulo="nombreCompleto(c)" :ancho="460" @cerrar="fotoAbierta = false">
-      <img :src="c.foto" class="foto-grande" :alt="'Foto de ' + nombreCompleto(c)" />
+    <Modal v-if="fotoAbierta && tieneFoto(c)" :titulo="nombreCompleto(c)" :ancho="460" @cerrar="fotoAbierta = false">
+      <img :src="fotoDe(c)" class="foto-grande" :alt="'Foto de ' + nombreCompleto(c)" />
       <div class="foto-acciones">
         <label class="btn btn-ink"><Ic n="camara" :s="16" />Cambiar foto<input type="file" accept="image/*" hidden @change="cambiarFoto" /></label>
         <button class="btn btn-peligro" @click="quitarFoto"><Ic n="trash" :s="16" />Eliminar foto</button>
