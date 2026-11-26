@@ -45,7 +45,7 @@ Sin `DESTINO_EXTERNO` solo copia dentro del propio servidor.
 ## Copia fuera del servidor: Google Drive cifrado (activa desde el 26/11/2026)
 
 - Cada noche a las 3:30 (hora del servidor, UTC) el cron de root ejecuta `/root/backups/subir-copias-drive.sh`.
-- Sube las copias de los últimos 3 días al Drive de la **cuenta de Google de la gestoría**, carpeta `copias-servidor-portal-practicas`,
+- Sube las copias de los últimos 3 días al Drive de la **cuenta de Google de la gestoría**, carpeta `copias-servidor` (portal de prácticas y PWA de pruebas),
   **cifradas** con rclone (remoto `gdrive-cifrado`). En Drive se ven nombres y contenidos ilegibles. Se conservan 30 días.
 - rclone solo tiene permiso sobre los archivos que sube él (permiso «drive.file»), no sobre el resto del Drive.
 - Las **dos contraseñas del cifrado** están guardadas por la gestoría fuera del servidor. **Sin ellas las copias no se
