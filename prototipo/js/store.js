@@ -1,4 +1,4 @@
-import { reactive } from "vue";
+import { reactive, computed } from "vue";
 import { crearDatos, ESTADOS_INICIALES, plantillasIniciales, FIRMA_INICIAL } from "./data.js";
 import { HOY_ISO, turnoDe, dia, pad } from "./util.js";
 import { miNombre } from "./api.js";
@@ -33,6 +33,13 @@ export const store = reactive({
   ...Object.fromEntries(DATOS.map((k) => [k, []])),
 });
 
+/** Sustituye el contenido de una lista sin «...lista» (con más de ~100.000 elementos el navegador se queda sin pila). */
+export function reemplazar(arr, nueva) {
+  if (nueva.length < 20000) return arr.splice(0, arr.length, ...nueva);
+  arr.splice(0, arr.length);
+  for (let i = 0; i < nueva.length; i += 10000) arr.push(...nueva.slice(i, i + 10000));
+}
+
 export function vaciarDatos() {
   for (const k of DATOS) store[k].splice(0);
   Object.assign(store, ajustesPorDefecto());
@@ -40,7 +47,7 @@ export function vaciarDatos() {
 /** Rellena el portal con los datos de demostración (inventados). */
 export function cargarDemo() {
   const d = crearDatos();
-  for (const k of DATOS) store[k].splice(0, store[k].length, ...(d[k] || []));
+  for (const k of DATOS) reemplazar(store[k], d[k] || []);
 }
 
 // Turnos de la oficina y cómo se muestran (con su horario, que se edita en Ajustes)
@@ -56,15 +63,32 @@ export function setTema(t) {
   try { localStorage.setItem("emadrid-tema", t); } catch { /* sin almacenamiento */ }
 }
 
+// --- Índices: buscar una ficha o «lo de un candidato» sin recorrer todas las listas cada vez ---
+// Se recalculan solos cuando cambian las listas (una pasada por lista), no en cada búsqueda.
+const agrupar = (l) => { const m = new Map(); for (const x of l) { const g = m.get(x.candId); if (g) g.push(x); else m.set(x.candId, [x]); } return m; };
+const porClave = (l, k) => { const m = new Map(); for (const x of l) if (!m.has(x[k])) m.set(x[k], x); return m; };
+const idx = {
+  cand: computed(() => porClave(store.candidatos, "id")),
+  centro: computed(() => porClave(store.centros, "id")),
+  est: computed(() => porClave(store.estudiantes, "candId")),
+  docs: computed(() => agrupar(store.documentos)),
+  hist: computed(() => agrupar(store.historial)),
+  // entrevistas de cada candidato, de la más antigua a la más reciente
+  ents: computed(() => { const m = agrupar(store.entrevistas); for (const l of m.values()) l.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)); return m; }),
+  nombre: computed(() => { const m = new Map(); for (const c of store.candidatos) { const k = c.nombre + "|" + c.apellidos; if (!m.has(k)) m.set(k, c); } return m; }),
+};
+/** El candidato con ese nombre y apellidos (para poner su foto en listados que solo tienen el nombre). */
+export const candPorNombre = (nombre, apellidos) => idx.nombre.value.get(nombre + "|" + apellidos) || null;
+
 export const estadoDe = (k) => store.estados.find((e) => e.k === k) || { k, n: k, c: "var(--text-400)", cd: "var(--text-600)" };
-export const centroDe = (id) => store.centros.find((c) => c.id === id) || null;
-export const candDe = (id) => store.candidatos.find((c) => c.id === Number(id)) || null;
+export const centroDe = (id) => idx.centro.value.get(id) || null;
+export const candDe = (id) => idx.cand.value.get(Number(id)) || null;
 export const nombreCompleto = (c) => (c ? `${c.nombre} ${c.apellidos}` : "—");
-export const entrevistasDe = (candId) => store.entrevistas.filter((e) => e.candId === candId).sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
-export const entrevistaDe = (candId) => entrevistasDe(candId)[0] || null;
-export const estudianteDe = (candId) => store.estudiantes.find((e) => e.candId === candId) || null;
-export const docsDe = (candId) => store.documentos.filter((d) => d.candId === candId);
-export const histDe = (candId) => store.historial.filter((h) => h.candId === candId).sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora) || b.id - a.id);
+export const entrevistasDe = (candId) => (idx.ents.value.get(candId) || []).slice().reverse();
+export const entrevistaDe = (candId) => { const l = idx.ents.value.get(candId); return l && l.length ? l[l.length - 1] : null; };
+export const estudianteDe = (candId) => idx.est.value.get(candId) || null;
+export const docsDe = (candId) => (idx.docs.value.get(candId) || []).slice();
+export const histDe = (candId) => (idx.hist.value.get(candId) || []).slice().sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora) || b.id - a.id);
 // Identificador único aunque varias personas creen fichas a la vez (hora en ms + azar).
 let ultimoId = 0;
 export const nuevoId = () => { const n = Date.now() * 1000 + Math.floor(Math.random() * 1000); ultimoId = n > ultimoId ? n : ultimoId + 1; return ultimoId; };
@@ -146,7 +170,7 @@ export function borrarCandidato(c) {
   store.papelera.push({ id: nuevoId(), candId: id, nombre: nombreCompleto(c), fecha: HOY_ISO, hora: `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`, por: miNombre(), estado: c.estado, centro: centroDe(c.centroId)?.nombre || "", datos });
   for (const k of FICHA) {
     const queda = store[k].filter((x) => x.candId !== id);
-    if (queda.length !== store[k].length) store[k].splice(0, store[k].length, ...queda);
+    if (queda.length !== store[k].length) reemplazar(store[k], queda);
   }
   const i = store.candidatos.findIndex((x) => x.id === id);
   if (i >= 0) store.candidatos.splice(i, 1);
@@ -177,8 +201,8 @@ export const ESTADOS_SIN_PROCESO = ["no-seleccionado", "no-seleccionado-comunica
 /** Último contacto real con la persona: alta, entrevista ya hecha o cambio de estado hecho por alguien del equipo. */
 export function ultimoContacto(c) {
   const f = [c.creado];
-  for (const e of store.entrevistas) if (e.candId === c.id && e.fecha <= HOY_ISO) f.push(e.fecha);
-  for (const h of store.historial) if (h.candId === c.id && h.tipo === "estado" && h.autor !== "Portal") f.push(h.fecha);
+  for (const e of idx.ents.value.get(c.id) || []) if (e.fecha <= HOY_ISO) f.push(e.fecha);
+  for (const h of idx.hist.value.get(c.id) || []) if (h.tipo === "estado" && h.autor !== "Portal") f.push(h.fecha);
   if (c.conservadoHasta) f.push(c.conservadoDesde || "");
   return f.filter(Boolean).sort().pop() || HOY_ISO;
 }
@@ -186,7 +210,7 @@ const sumarMeses = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setMon
 /** Fecha en la que termina el plazo de conservación de una candidatura. */
 export const venceEl = (c) => { const v = sumarMeses(ultimoContacto(c), store.retencionMeses || 12); return c.conservadoHasta && c.conservadoHasta > v ? c.conservadoHasta : v; };
 /** Candidaturas sin proceso cuyo plazo ya ha pasado (o pasa en los próximos `dias` días). */
-export const candidaturasCaducadas = (dias = 0) => store.candidatos.filter((c) => ESTADOS_SIN_PROCESO.includes(c.estado) && !store.estudiantes.some((e) => e.candId === c.id) && venceEl(c) <= dia(dias)).sort((a, b) => venceEl(a).localeCompare(venceEl(b)));
+export const candidaturasCaducadas = (dias = 0) => store.candidatos.filter((c) => ESTADOS_SIN_PROCESO.includes(c.estado) && !idx.est.value.has(c.id) && venceEl(c) <= dia(dias)).sort((a, b) => venceEl(a).localeCompare(venceEl(b)));
 /** Decidir conservar una candidatura otro periodo completo. */
 export function mantenerCandidatura(c) {
   c.conservadoDesde = HOY_ISO; c.conservadoHasta = sumarMeses(HOY_ISO, store.retencionMeses || 12);
@@ -208,7 +232,7 @@ export async function eliminarEntrevista(e) {
 /** Número de entrevista de esa persona (1.ª, 2.ª…) por orden de fecha, sin contar las canceladas. */
 // Las canceladas y las reprogramadas (la cita vieja que Notion deja al moverla a otro día) no cuentan: la cita nueva sigue siendo la 1.ª
 const NO_CUENTA = ["Cancelada", "Reprogramada"];
-const ordenCitas = (candId) => store.entrevistas.filter((x) => x.candId === candId).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+const ordenCitas = (candId) => idx.ents.value.get(candId) || [];
 export function rondaDe(e) {
   const l = ordenCitas(e.candId);
   const i = l.findIndex((x) => x.id === e.id);

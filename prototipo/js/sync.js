@@ -3,7 +3,7 @@
 // Las vistas siguen trabajando sobre el store como siempre; aquí se detecta qué ha
 // cambiado y se envía. Si dos personas editan la misma ficha, gana el último guardado.
 import { watch } from "vue";
-import { store, toast, vaciarDatos, cargarDemo, ajustesPorDefecto, caducadasEnPapelera, vaciarDePapelera } from "./store.js";
+import { store, toast, reemplazar, vaciarDatos, cargarDemo, ajustesPorDefecto, caducadasEnPapelera, vaciarDePapelera } from "./store.js";
 import { sesion, pedir, esAdmin, borrarArchivo } from "./api.js";
 import { ESTADOS_INICIALES, plantillasIniciales, PLANTILLAS_ANTIGUAS, AREAS_UNIDAS } from "./data.js";
 const sinEspacios = (t) => String(t || "").replace(/[ \t\r\n]+/g, " ").trim();
@@ -118,7 +118,7 @@ async function traer(soloSiNadaCambia = false) {
       remoto.set(`${tipo}/${f.clave}`, { id: f.id, json: JSON.stringify(x) });
     }
     const igual = nueva.length === store[tipo].length && nueva.every((x, i) => x === store[tipo][i]);
-    if (!igual) store[tipo].splice(0, store[tipo].length, ...nueva);
+    if (!igual) reemplazar(store[tipo], nueva);
   }
 
   const aj = (porTipo.ajustes || []).find((f) => f.clave === "general");

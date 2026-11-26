@@ -1,6 +1,6 @@
 // Exportar los datos del portal: un libro de Excel (.xlsx, una hoja por tipo de dato) y una copia completa en ZIP
 // (Excel + datos en JSON + todos los documentos por carpetas). Todo se hace en el navegador, sin librerías.
-import { store, candDe, centroDe, nombreCompleto, estadoDe } from "./store.js";
+import { store, candDe, entrevistaDe, centroDe, nombreCompleto, estadoDe } from "./store.js";
 import { urlArchivo, registrar } from "./api.js";
 import { crearZip, descargarBlob, HOY_ISO } from "./util.js";
 
@@ -41,7 +41,7 @@ export function hojasDelPortal() {
   const centro = (id) => centroDe(id)?.nombre || "";
   const sn = (v) => (v ? "Sí" : "No");
   const cand = store.candidatos.slice().sort((a, b) => a.apellidos.localeCompare(b.apellidos) || a.nombre.localeCompare(b.nombre));
-  const ultimaEnt = (id) => store.entrevistas.filter((e) => e.candId === id).sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora))[0];
+  const ultimaEnt = (id) => entrevistaDe(id);
   return [
     { nombre: "Candidatos", cabeceras: ["Nombre", "Apellidos", "Correo", "Teléfono", "Centro", "Titulación", "Área de interés", "Estado", "Turno", "Nota", "Horas", "Origen", "Alta", "Última entrevista", "A favor", "En contra", "Observaciones"],
       filas: cand.map((c) => { const e = ultimaEnt(c.id); return [c.nombre, c.apellidos, c.email, c.tel, centro(c.centroId), c.titulacion, c.area, estadoDe(c.estado).n, c.turno, c.nota ?? "", c.horas || "", c.origen, c.creado, e ? `${e.fecha} ${e.hora} (${e.estado})` : "", (c.pros || []).join("; "), (c.contras || []).join("; "), c.obs || ""]; }) },

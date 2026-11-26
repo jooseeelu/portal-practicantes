@@ -1,5 +1,5 @@
 import { ref, reactive, computed, watch } from "vue";
-import { store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos, addHist, nombreCompleto, estadoDe, DIAS_PAPELERA, borrarCandidato, restaurarDePapelera, vaciarDePapelera, diasEnPapelera, ESTADOS_SIN_PROCESO, candidaturasCaducadas, mantenerCandidatura, ultimoContacto } from "../store.js";
+import { histDe, docsDe, store, toast, setTema, TURNOS_OFICINA, cargarDemo, vaciarDatos, addHist, nombreCompleto, estadoDe, DIAS_PAPELERA, borrarCandidato, restaurarDePapelera, vaciarDePapelera, diasEnPapelera, ESTADOS_SIN_PROCESO, candidaturasCaducadas, mantenerCandidatura, ultimoContacto } from "../store.js";
 import { exportarExcel, copiaCompleta } from "../exportar.js";
 import { recortarFoto } from "../cv.js";
 import { sesion, pedir, esAdmin, ROLES, listarEquipo, crearPersona, editarPersona, ponerClave, listarAccesos, claveAleatoria, leerCurriculum, urlArchivo, tieneFoto, registrar, borrarArchivo } from "../api.js";
@@ -121,11 +121,11 @@ export default {
     const LEGIBLE = /^(pdf|jpe?g|png|webp)$/;
     // Fotos que se pueden rehacer: sin foto o con la que se puso sola desde el currículum (no las subidas o recortadas a mano)
     const fotoManual = (c) => {
-      const h = store.historial.filter((x) => x.candId === c.id && /foto/i.test(x.texto || "")).sort((a, b) => (b.fecha + (b.hora || "")).localeCompare(a.fecha + (a.hora || "")) || b.id - a.id)[0];
+      const h = histDe(c.id).find((x) => /foto/i.test(x.texto || ""));
       return !!h && /Foto de perfil actualizada|Foto recortada del currículum|Foto eliminada|Foto quitada/.test(h.texto);
     };
     const pendientesFoto = computed(() => store.candidatos.filter((c) => !tieneFoto(c) || !fotoManual(c)).map((c) => {
-      const cv = store.documentos.filter((d) => d.candId === c.id && d.tipo === "Currículum" && d.archivoId && LEGIBLE.test(d.ext || "")).sort((a, b) => (b.fecha + (b.hora || "")).localeCompare(a.fecha + (a.hora || "")) || b.id - a.id)[0];
+      const cv = docsDe(c.id).filter((d) => d.tipo === "Currículum" && d.archivoId && LEGIBLE.test(d.ext || "")).sort((a, b) => (b.fecha + (b.hora || "")).localeCompare(a.fecha + (a.hora || "")) || b.id - a.id)[0];
       return cv ? { c, cv } : null;
     }).filter(Boolean));
     const lote = reactive({ activo: false, parar: false, hechos: 0, total: 0, conFoto: 0, sinFoto: 0, errores: 0, actual: "", terminado: false });
