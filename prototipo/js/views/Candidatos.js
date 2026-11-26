@@ -13,6 +13,11 @@ import { normal, descargarCsv, nombreArchivo, fCorta, HOY_ISO, dia, urlWhatsApp 
 // Los filtros viven fuera del componente: al volver de una ficha siguen como estaban.
 export const filtros = reactive({ q: "", estado: "", centro: "", turno: "", area: "", notaMin: "", desde: "", hasta: "", rapido: "", vista: "tabla", orden: "creado", desc: true });
 
+// Cuántas fichas se pintan de golpe: el resto aparece al bajar (con miles de filas, pintarlas todas congela la página).
+// Se recuerda entre visitas para que al volver de una ficha la lista siga igual de larga y en el mismo sitio.
+const TANDA = 120;
+const mostrar = reactive({ n: TANDA, kanban: {} });
+
 const COLS = [
   { k: "nombre", t: "Candidato" }, { k: "centro", t: "Centro educativo" }, { k: "area", t: "Área" }, { k: "turno", t: "Turno" },
   { k: "horas", t: "Duración" }, { k: "entrevista", t: "Entrevista" }, { k: "estado", t: "Estado" }, { k: "nota", t: "Valoración" },
@@ -31,6 +36,20 @@ export default {
     onUnmounted(() => { window.removeEventListener("keydown", alPulsar); document.body.classList.remove("sin-scroll"); });
     const opCentros = computed(() => store.centros.filter((c) => !c.archivado).map((c) => ({ valor: c.id, etiqueta: c.nombre })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)));
     const fechaEnt = (c) => entrevistaDe(c.id)?.fecha || "";
+    // Al cambiar un filtro o el orden se vuelve a empezar por la primera tanda
+    watch(() => [f.q, f.estado, f.centro, f.turno, f.area, f.notaMin, f.desde, f.hasta, f.rapido, f.orden, f.desc, f.vista], () => { mostrar.n = TANDA; mostrar.kanban = {}; });
+    const verMas = () => { mostrar.n += TANDA * 2; };
+    const tope = ref(null);
+    let obs = null;
+    // Cuando el final de la lista se acerca a la pantalla, se añade la siguiente tanda sola
+    watch(tope, (el) => {
+      if (obs) obs.disconnect();
+      if (!el || !("IntersectionObserver" in window)) return;
+      obs = new IntersectionObserver((e) => { if (e.some((x) => x.isIntersecting)) verMas(); }, { rootMargin: "600px" });
+      obs.observe(el);
+    });
+    onUnmounted(() => obs && obs.disconnect());
+    const kanbanN = (k) => mostrar.kanban[k] || 40;
 
     // «base» = todo menos el filtro de estado (así los contadores por fase siguen siendo útiles)
     const base = computed(() => {
@@ -87,6 +106,8 @@ export default {
     const arrastrando = ref(null), sobre = ref("");
     const soltar = (k) => { const c = store.candidatos.find((x) => x.id === arrastrando.value); if (c) cambiarEstado(c, k); arrastrando.value = null; sobre.value = ""; };
     const columnas = computed(() => fases.value.map((e) => ({ ...e, cands: base.value.filter((c) => c.estado === e.k) })));
+    const visibles = computed(() => lista.value.slice(0, mostrar.n));
+    const quedan = computed(() => Math.max(0, lista.value.length - mostrar.n));
 
     // Alta rápida
     const alta = ref(ruta.value.id === "nuevo");
@@ -162,7 +183,7 @@ export default {
       { t: "Escribir por WhatsApp…", i: "whatsapp", f: () => elegirMensaje("whatsapp", c) },
       { t: "Enviar un correo…", i: "mail", f: () => elegirMensaje("correo", c) },
     ] });
-    return { pantalla, alternarPantalla, ESTADOS_CITA, obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
+    return { visibles, quedan, verMas, tope, mostrar, kanbanN, pantalla, alternarPantalla, ESTADOS_CITA, obsDe, menuCand, ASESORES, etiquetaTurno, store, f, COLS, TURNOS, AREAS, ORIGENES, opCentros, lista, base, fases, columnas, exportar, hayFiltros, areasFiltro, limpiar, rapido, ordenar, fechaEnt, arrastrando, sobre, soltar,
       hoja, NOTAS, RAPIDOS, chips, alta, n, lee, adjuntar, quitarArchivo, recorteAlta, usarRecorteAlta, quitarFotoAlta, fotoAlta, duplicado, titulaciones, abrirAlta, cerrarAlta, guardar, go, centroDe, estadoDe, nombreCompleto, fCorta, entrevistaDe };
   },
   template: `
@@ -232,7 +253,7 @@ export default {
             <th title="Currículum adjunto">CV</th><th>Observaciones</th>
           </tr></thead>
           <tbody>
-            <tr v-for="c in lista" :key="c.id" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
+            <tr v-for="c in visibles" :key="c.id" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
               <td><div class="who"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" /><div><b>{{ c.nombre }} {{ c.apellidos }}</b><small>{{ c.email }} · {{ c.tel }}</small></div></div></td>
               <td>{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</td>
               <td><div class="cell-clip" :title="c.titulacion ? c.area + ' · ' + c.titulacion : c.area">{{ c.area || '—' }}</div></td>
@@ -247,17 +268,19 @@ export default {
           </tbody>
         </table>
         <Vacio v-if="!lista.length" titulo="Ningún candidato con estos filtros" texto="Prueba a quitar algún filtro o cambia la búsqueda." />
+        <div v-if="quedan" ref="tope" class="ver-mas"><button class="btn btn-sm" @click="verMas">Ver más ({{ quedan }} restantes)</button></div>
       </div>
 
       <!-- TARJETAS -->
       <div v-else-if="f.vista==='tarjetas'" class="cands-grid">
-        <button v-for="c in lista" :key="c.id" class="cand-card" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
+        <button v-for="c in visibles" :key="c.id" class="cand-card" @click="go('candidato/'+c.id)" v-ctx="() => menuCand(c)">
           <div class="row"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="44" /><div class="grow" style="text-align:left"><b>{{ c.nombre }} {{ c.apellidos }}</b><div class="sub">{{ c.area || c.titulacion }}</div></div></div>
           <div class="cand-meta"><span><Ic n="centros" :s="14" />{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }}</span><span><Ic n="clock" :s="14" />{{ etiquetaTurno(c.turno) }}{{ c.horas ? ' · ' + c.horas + ' h' : '' }}</span></div>
           <div v-if="(c.pros && c.pros.length) || (c.contras && c.contras.length)" class="pc-mini"><span class="pro" :title="(c.pros || []).join(' · ')"><Ic n="plus" :s="12" />{{ (c.pros || []).length }} a favor</span><span class="con" :title="(c.contras || []).join(' · ')"><Ic n="minus" :s="12" />{{ (c.contras || []).length }} en contra</span></div>
           <div class="row"><Chip :k="c.estado" /><span class="right"><Nota :v="c.nota" /></span></div>
         </button>
         <Vacio v-if="!lista.length" titulo="Ningún candidato con estos filtros" texto="Prueba a quitar algún filtro." style="grid-column:1/-1" />
+        <div v-if="quedan" ref="tope" class="ver-mas" style="grid-column:1/-1"><button class="btn btn-sm" @click="verMas">Ver más ({{ quedan }} restantes)</button></div>
       </div>
 
       <!-- KANBAN -->
@@ -265,12 +288,13 @@ export default {
         <div v-for="col in columnas" :key="col.k" class="kcol" :class="{sobre: sobre===col.k}" @dragover.prevent="sobre=col.k" @dragleave="sobre=''" @drop.prevent="soltar(col.k)">
           <div class="kcol-head" :style="{'--c': col.c}"><i></i><b>{{ col.n }}</b><span>{{ col.cands.length }}</span></div>
           <div class="kcol-body">
-            <div v-for="c in col.cands" :key="c.id" class="kcard" :class="{mov: arrastrando===c.id}" draggable="true" @dragstart="arrastrando=c.id" @dragend="arrastrando=null; sobre=''" @click="go('candidato/'+c.id)">
+            <div v-for="c in col.cands.slice(0, kanbanN(col.k))" :key="c.id" class="kcard" :class="{mov: arrastrando===c.id}" draggable="true" @dragstart="arrastrando=c.id" @dragend="arrastrando=null; sobre=''" @click="go('candidato/'+c.id)">
               <div class="row"><Avatar :nombre="c.nombre" :apellidos="c.apellidos" :s="28" /><b class="grow">{{ c.nombre }} {{ c.apellidos }}</b></div>
               <div class="sub">{{ centroDe(c.centroId)?.nombre || 'Autopostulado' }} · {{ etiquetaTurno(c.turno) }}</div>
               <div class="row" v-if="c.nota!=null || fechaEnt(c)"><Nota :v="c.nota" v-if="c.nota!=null" /><span v-else class="tag"><Ic n="calendario" :s="12" />{{ fCorta(fechaEnt(c)) }} {{ entrevistaDe(c.id).hora }}</span></div>
             </div>
             <div v-if="!col.cands.length" class="kvacio">Suelta aquí</div>
+            <button v-if="col.cands.length > kanbanN(col.k)" class="btn btn-sm kver-mas" @click="mostrar.kanban[col.k] = kanbanN(col.k) + 80">Ver {{ col.cands.length - kanbanN(col.k) }} más</button>
           </div>
         </div>
       </div>

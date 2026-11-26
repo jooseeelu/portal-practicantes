@@ -52,6 +52,8 @@ export async function rellenar(n = 10000) {
     for (let h = 0; h < 10; h++) hist.push({ id: ++id, candId: cid, fecha: fecha(dias - h), hora: "10:00", tipo: h % 3 ? "nota" : "estado", texto: "Movimiento de historial de prueba número " + h, autor: "Admin" });
   }
   // (sin «...lista»: con más de ~100.000 elementos el navegador se queda sin pila)
+  // Fuera las fichas de demostración que apuntan a candidatos que ya no existen (estudiantes, notas, papelera)
+  for (const k of ["estudiantes", "notas", "papelera"]) store[k].length = 0;
   for (const [k, l] of [["candidatos", cand], ["historial", hist], ["entrevistas", ents], ["documentos", docs]]) { store[k].length = 0; for (let i = 0; i < l.length; i += 5000) store[k].push(...l.slice(i, i + 5000)); }
   await nextTick();
   return { candidatos: cand.length, historial: hist.length, entrevistas: ents.length, documentos: docs.length };
@@ -75,9 +77,7 @@ export async function medir() {
   for (const k of tipos) for (const x of store[k]) JSON.stringify(x);
   r.revisarCambiosAlGuardarMs = ms(t);
   // 3) Revisión de conservación de datos (Inicio y Ajustes)
-  // Con muchos datos tarda minutos: se mide con una muestra y se calcula el total (crece con candidatos × historial)
-  if (store.candidatos.length <= 3000) { t = performance.now(); const cad = candidaturasCaducadas(30); r.revisionConservacionMs = ms(t); r.caducadas = cad.length; }
-  else r.revisionConservacionMs = "≈ " + Math.round(29253 * (store.candidatos.length / 2500) * (store.historial.length / 25000)) + " (estimado)";
+  t = performance.now(); const cad = candidaturasCaducadas(30); r.revisionConservacionMs = ms(t); r.caducadas = cad.length;
   // 4) Pintar pantallas
   // Se cronometra desde que el navegador avisa del cambio de página hasta que está calculada (sin contar esperas)
   // (sin temporizadores: con el panel oculto el navegador los retrasa y falsearía la medida)
@@ -88,7 +88,7 @@ export async function medir() {
     window.addEventListener("hashchange", async () => { await nextTick(); void document.body.offsetHeight; ok(Math.round(performance.now() - t0)); }, { once: true });
     location.hash = ruta;
   });
-  for (const [nombre, ruta] of [["Inicio", "#/"], ["Candidatos", "#/candidatos"], ["Entrevistas", "#/entrevistas"]]) {
+  for (const [nombre, ruta] of [["Inicio", "#/"], ["Candidatos", "#/candidatos"], ["Entrevistas", "#/entrevistas"], ["Ajustes", "#/ajustes"]]) {
     location.hash = "#/centros"; await esperarPintado(); // (Ajustes no: allí está la revisión lenta)
     r["pintar" + nombre + "Ms"] = await pintar(ruta);
     if (nombre === "Candidatos") r.filasEnCandidatos = document.querySelectorAll("table tbody tr, .cand-card").length;

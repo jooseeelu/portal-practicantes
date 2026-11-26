@@ -313,3 +313,6 @@ body.sin-scroll, html:has(body.sin-scroll) { overflow: hidden; overscroll-behavi
   .ent-cab .ent-campos .fld:nth-child(5) { order: 4; }
   .ent-cab .ent-campos .fld:nth-child(4) { order: 5; grid-column: 1 / -1; }
 }
+/* Lista de candidatos por tandas: botón «Ver más» al final */
+.ver-mas { display: flex; justify-content: center; padding: 14px 0 6px; }
+.kver-mas { width: 100%; justify-content: center; margin-top: 4px; }
