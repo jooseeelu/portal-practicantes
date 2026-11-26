@@ -322,3 +322,17 @@ cronAdd("fotos_convertir", "*/10 * * * *", () => {
 cronAdd("fotos_limpiar", "17 4 * * *", () => {
   try { const n = require(`${__hooks}/fotos.js`).limpiarHuerfanas($app); if (n) console.log("Fotos huérfanas borradas: " + n); } catch (err) { console.log("Fotos: " + err); }
 });
+
+// Sincronización: cada ficha borrada deja constancia en «borrados» para que los demás navegadores la quiten también
+// (ver prototipo/js/sync.js). Y un índice por «updated» para pedir rápido «lo que ha cambiado desde…».
+onRecordAfterDeleteSuccess((e) => {
+  e.next();
+  try {
+    const b = new Record(e.app.findCollectionByNameOrId("borrados"));
+    b.set("registro", e.record.id); b.set("tipo", e.record.getString("tipo")); b.set("clave", e.record.getString("clave"));
+    e.app.save(b);
+  } catch (err) { console.log("Borrados: " + err); }
+}, "registros");
+cronAdd("borrados_limpiar", "37 4 * * *", () => {
+  try { $app.db().newQuery("DELETE FROM borrados WHERE created < {:f}").bind({ f: new Date(Date.now() - 90 * 86400000).toISOString().replace("T", " ") }).execute(); } catch (err) { console.log("Borrados: " + err); }
+});
